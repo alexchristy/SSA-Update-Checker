@@ -15,7 +15,7 @@ async def sendPDF(terminalName, chatID, pdfPath):
         await bot.send_document(chatID, f)
 
 async def main():
-    homeDir = '/home/ac/Documents/SpaceK'
+    homeDir = '/home/alex/Documents/SpaceK'
     url = 'https://www.amc.af.mil/AMC-Travel-Site'
     pdfDir = './pdfs/'
 
