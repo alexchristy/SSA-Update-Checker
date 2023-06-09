@@ -13,7 +13,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Intialize MongoDB
-db = MongoDB("SmartSpaceA", "Terminals")
+db = MongoDB("SmartSpaceA", "Terminals", username='ssa-testing', password='sboc3{[z^78-=tg|-Ur?cluUG0Bm<ou&#[NBxFy9keKb07rtbvLQhzD#%P@Xj+bo')
+db.connect()
 
 # Function for generating list of subcriptions a user has
 def generateSubscribedTerminalList(chatID):

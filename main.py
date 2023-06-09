@@ -5,8 +5,15 @@ from telegram import Bot
 import asyncio
 import os
 import glob
+from dotenv import load_dotenv
 
-api_token = '6240797164:AAHpWDh3z1qccY_APkbPteY78ZmrsRIvKGo'
+# Load environment variables
+load_dotenv()
+api_token = os.getenv('TELEGRAM_API_TOKEN')
+mongoDBName = os.getenv('MONGO_DB')
+mongoCollectionName = os.getenv('MONGO_COLLECTION')
+mongoUsername = os.getenv('MONGO_USERNAME')
+mongoPassword = os.getenv('MONGO_PASSWORD')
 
 async def sendPDF(terminalName, chatID, pdfPath):
     bot = Bot(api_token)
@@ -23,7 +30,8 @@ async def main():
     os.chdir(homeDir)
 
     # Intialize MongoDB
-    db = MongoDB("SmartSpaceA", "Terminals")
+    db = MongoDB(mongoDBName, mongoCollectionName, username=mongoUsername, password=mongoPassword)
+    db.connect()
 
     # Every 10 mins
     while True:

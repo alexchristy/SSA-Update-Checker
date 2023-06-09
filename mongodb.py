@@ -5,10 +5,23 @@ from terminal import Terminal
 
 class MongoDB:
 
-    def __init__(self, db_name, collection_name, host='localhost', port=27017):
-        self.client = MongoClient(host, port)
-        self.db = self.client[db_name]
-        self.collection = self.db[collection_name]
+    def __init__(self, db_name, collection_name, host='localhost', port=27017, username=None, password=None):
+        self.db_name = db_name
+        self.collection_name = collection_name
+        self.host = host
+        self.port = port
+        self.username = username
+        self.password = password
+
+    def connect(self):
+        if self.username and self.password:
+            uri = f"mongodb://{self.username}:{self.password}@{self.host}:{self.port}/{self.db_name}?authMechanism=DEFAULT&authSource=admin"
+            self.client = MongoClient(uri)
+        else:
+            self.client = MongoClient(self.host, self.port)
+
+        self.db = self.client[self.db_name]
+        self.collection = self.db[self.collection_name]
 
     def addTerminal(self, terminal: Terminal):
         existing_document = self.collection.find_one({'name': terminal.name, 'link': terminal.link})
