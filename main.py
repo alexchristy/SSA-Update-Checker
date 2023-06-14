@@ -1,4 +1,5 @@
 import scraper
+from utils import checkEnvVariables
 from terminal import *
 from mongodb import *
 from telegram import Bot
@@ -54,9 +55,6 @@ async def main():
     # Intialize MongoDB
     db = MongoDB(mongoDBName, mongoCollectionName, username=mongoUsername, password=mongoPassword)
     db.connect()
-
-    # Start Telegram frontend
-    runTelegramFrontend(db, api_token)
 
     # Every 10 mins
     while True:
