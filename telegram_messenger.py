@@ -3,6 +3,8 @@ import logging
 from mongodb import MongoDB
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
+from utils import checkEnvVariables
+import os
 
 # Enable logging
 logging.basicConfig(
