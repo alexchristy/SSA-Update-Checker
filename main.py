@@ -55,6 +55,9 @@ async def main():
     db = MongoDB(mongoDBName, mongoCollectionName, username=mongoUsername, password=mongoPassword)
     db.connect()
 
+    # Start Telegram frontend
+    runTelegramFrontend(db, api_token)
+
     # Every 10 mins
     while True:
 
@@ -91,20 +94,7 @@ async def main():
 if __name__ == "__main__":
     asyncio.run(main())
 
-def checkEnvVariables(variables):
-    # Load environment variables from .env file
-    load_dotenv()
-
-    emptyVariables = []
-    for var in variables:
-        value = os.getenv(var)
-        if not value:
-            emptyVariables.append(var)
-
-    if emptyVariables:
-        errorMessage = f"The following variable(s) are missing or empty in .env: {', '.join(emptyVariables)}"
-        raise ValueError(errorMessage)
-
+# Functions
 async def sendPDF(terminalName, chatID, pdfPath):
     bot = Bot(api_token)
     await bot.send_message(chatID, "Update from " + terminalName)
