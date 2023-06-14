@@ -32,12 +32,6 @@ except ValueError as e:
     print(e)
     sys.exit(1)
 
-async def sendPDF(terminalName, chatID, pdfPath):
-    bot = Bot(api_token)
-    await bot.send_message(chatID, "Update from " + terminalName)
-    with open(pdfPath, 'rb') as f:
-        await bot.send_document(chatID, f)
-
 async def main():
     
     # Get the absolute path of the script
@@ -110,3 +104,9 @@ def checkEnvVariables(variables):
     if emptyVariables:
         errorMessage = f"The following variable(s) are missing or empty in .env: {', '.join(emptyVariables)}"
         raise ValueError(errorMessage)
+
+async def sendPDF(terminalName, chatID, pdfPath):
+    bot = Bot(api_token)
+    await bot.send_message(chatID, "Update from " + terminalName)
+    with open(pdfPath, 'rb') as f:
+        await bot.send_document(chatID, f)
