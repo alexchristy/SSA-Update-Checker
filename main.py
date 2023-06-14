@@ -5,15 +5,32 @@ from telegram import Bot
 import asyncio
 import os
 import glob
+import sys
 from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
-api_token = os.getenv('TELEGRAM_API_TOKEN')
-mongoDBName = os.getenv('MONGO_DB')
-mongoCollectionName = os.getenv('MONGO_COLLECTION')
-mongoUsername = os.getenv('MONGO_USERNAME')
-mongoPassword = os.getenv('MONGO_PASSWORD')
+# List of variables to check
+variablesToCheck = [
+    'TELEGRAM_API_TOKEN',
+    'MONGO_DB',
+    'MONGO_COLLECTION',
+    'MONGO_USERNAME',
+    'MONGO_PASSWORD'
+]
+
+# Check if all .env variables are set
+try:
+    checkEnvVariables(variablesToCheck)
+    
+    # Load environment variables from .env file
+    api_token = os.getenv('TELEGRAM_API_TOKEN')
+    mongoDBName = os.getenv('MONGO_DB')
+    mongoCollectionName = os.getenv('MONGO_COLLECTION')
+    mongoUsername = os.getenv('MONGO_USERNAME')
+    mongoPassword = os.getenv('MONGO_PASSWORD')
+
+except ValueError as e:
+    print(e)
+    sys.exit(1)
 
 async def sendPDF(terminalName, chatID, pdfPath):
     bot = Bot(api_token)
@@ -22,7 +39,13 @@ async def sendPDF(terminalName, chatID, pdfPath):
         await bot.send_document(chatID, f)
 
 async def main():
-    homeDir = '/home/alex/Documents/SpaceK'
+    
+    # Get the absolute path of the script
+    scriptPath = os.path.abspath(__file__)
+
+    # Set the home directory to the directory of the script
+    homeDirectory = os.path.dirname(scriptPath)
+
     url = 'https://www.amc.af.mil/AMC-Travel-Site'
 
     # Create pdf directory if it doesn't exist
@@ -32,7 +55,7 @@ async def main():
     pdfDir = './pdfs/'
 
     # Enter correct directory
-    os.chdir(homeDir)
+    os.chdir(homeDirectory)
 
     # Intialize MongoDB
     db = MongoDB(mongoDBName, mongoCollectionName, username=mongoUsername, password=mongoPassword)
@@ -73,3 +96,17 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
+def checkEnvVariables(variables):
+    # Load environment variables from .env file
+    load_dotenv()
+
+    emptyVariables = []
+    for var in variables:
+        value = os.getenv(var)
+        if not value:
+            emptyVariables.append(var)
+
+    if emptyVariables:
+        errorMessage = f"The following variable(s) are missing or empty in .env: {', '.join(emptyVariables)}"
+        raise ValueError(errorMessage)
