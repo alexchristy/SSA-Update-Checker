@@ -3,7 +3,6 @@ import logging
 from mongodb import MongoDB
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
-from main import api_token
 
 # Enable logging
 logging.basicConfig(
@@ -12,8 +11,34 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Get environment variables
+
+# List of variables to check
+variablesToCheck = [
+    'TELEGRAM_API_TOKEN',
+    'MONGO_DB',
+    'MONGO_COLLECTION',
+    'MONGO_USERNAME',
+    'MONGO_PASSWORD'
+]
+
+# Check if all .env variables are set
+try:
+    checkEnvVariables(variablesToCheck)
+    
+    # Load environment variables from .env file
+    api_token = os.getenv('TELEGRAM_API_TOKEN')
+    mongoDBName = os.getenv('MONGO_DB')
+    mongoCollectionName = os.getenv('MONGO_COLLECTION')
+    mongoUsername = os.getenv('MONGO_USERNAME')
+    mongoPassword = os.getenv('MONGO_PASSWORD')
+
+except ValueError as e:
+    print(e)
+    sys.exit(1)
+
 # Intialize MongoDB
-db = MongoDB("SmartSpaceA", "Terminals", username='ssa-testing', password='sboc3{[z^78-=tg|-Ur?cluUG0Bm<ou&#[NBxFy9keKb07rtbvLQhzD#%P@Xj+bo')
+db = MongoDB(mongoDBName, mongoCollectionName, username=mongoUsername, password=mongoPassword)
 db.connect()
 
 # Function for generating list of subcriptions a user has
@@ -322,7 +347,6 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Echo the user message."""
 
     await update.message.reply_text(update.message.text)
-
 
 def main() -> None:
 
