@@ -24,6 +24,11 @@ async def sendPDF(terminalName, chatID, pdfPath):
 async def main():
     homeDir = '/home/alex/Documents/SpaceK'
     url = 'https://www.amc.af.mil/AMC-Travel-Site'
+
+    # Create pdf directory if it doesn't exist
+    if not os.path.exists('./pdfs'):
+        os.mkdir('./pdfs')
+    
     pdfDir = './pdfs/'
 
     # Enter correct directory
