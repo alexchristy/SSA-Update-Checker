@@ -2,6 +2,7 @@ import time
 from pymongo import MongoClient
 from pymongo.errors import WriteError
 from terminal import Terminal
+from urllib.parse import quote_plus
 
 class MongoDB:
 
@@ -10,8 +11,8 @@ class MongoDB:
         self.collection_name = collection_name
         self.host = host
         self.port = port
-        self.username = username
-        self.password = password
+        self.username = quote_plus(username)
+        self.password = quote_plus(password)
 
     def connect(self):
         if self.username and self.password:
