@@ -104,6 +104,8 @@ async def main():
             logging.warning("No PDFs were downloaded.")
             await asyncio.sleep(60)
             continue
+        else:
+            logging.info('%d PDFs were downloaded.', numPDFFiles)
 
         # Check which PDFs changed; compare with db stored hashes
         updatedTerminals = scraper.calcPDFHashes(db, pdfDir)
@@ -111,7 +113,7 @@ async def main():
         # Will be always be empty on the first run
         if updatedTerminals != []:
 
-            logging.info('%s terminals have updated their PDFs.', len(updatedTerminals))
+            logging.info('%d terminals have updated their PDFs.', len(updatedTerminals))
             logging.debug('The following terminals have updated their PDFs: %s', updatedTerminals)
 
             for terminalName in updatedTerminals:
@@ -120,7 +122,7 @@ async def main():
                 subscribers = currentTerminal.chatIDs
                 pdfName = currentTerminal.pdfName3Day
 
-                logging.info('%s subscribers will recieve the %s terminal update.', len(subscribers), terminalName)
+                logging.info('%d subscribers will recieve the %s terminal update.', len(subscribers), terminalName)
                 logging.debug('The following chatIDs will recieve the %s terminal update: %s', terminalName, subscribers)
 
                 # Send PDFs to all subscribers
