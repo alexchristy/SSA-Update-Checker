@@ -105,7 +105,7 @@ async def main():
             await asyncio.sleep(60)
             continue
         else:
-            logging.info('%d PDFs were downloaded.', numPDFFiles)
+            logging.info('%d PDFs were downloaded.', len(numPDFFiles))
 
         # Check which PDFs changed; compare with db stored hashes
         updatedTerminals = scraper.calcPDFHashes(db, pdfDir)
@@ -129,7 +129,7 @@ async def main():
                 for chatID in subscribers:
                     await sendPDF(terminalName, chatID, os.path.join(pdfDir, pdfName))
         else:
-            logging.info('No PDFs were updated.')
+            logging.info('%d PDFs were updated.', 0)
 
         # Wait 10 minutes
         await asyncio.sleep(300)
