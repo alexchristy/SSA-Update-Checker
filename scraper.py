@@ -8,6 +8,7 @@ from urllib.parse import urlparse, urljoin
 from urllib.parse import quote
 from mongodb import *
 from urllib.parse import urlparse
+import logging
 
 valid_locations = ['AMC CONUS Terminals', 'EUCOM Terminals', 'INDOPACOM Terminals',
                    'CENTCOM Terminals', 'SOUTHCOM TERMINALS', 'Non-AMC CONUS Terminals',
@@ -15,6 +16,8 @@ valid_locations = ['AMC CONUS Terminals', 'EUCOM Terminals', 'INDOPACOM Terminal
 
 # Functions
 def calculateFileHash(file_path):
+    logging.debug('Running calculateFileHash() on %s', file_path)
+
     md5_hash = hashlib.md5()
     with open(file_path, 'rb') as file:
         for chunk in iter(lambda: file.read(4096), b''):
@@ -22,6 +25,8 @@ def calculateFileHash(file_path):
     return md5_hash.hexdigest()
 
 def getTerminalInfo(db, url):
+    logging.debug('Running getTerminalInfo().')
+
     # Send a GET request to the website
     response = requests.get(url)
 
@@ -112,11 +117,14 @@ def getTerminalInfo(db, url):
     # Grab terminal pages
     for currentTerminal in listOfTerminals:
 
+        logging.debug('Downloading %s terminal page.', currentTerminal.name)
+
         # URL of terminal page
         url = currentTerminal.link
         
         # Skip terminals with no page
         if url == "empty":
+            logging.warning('%s terminal has no terminal page link.', currentTerminal.name)
             continue
 
         # Wrapped reponse.get(url) to prevent program exiting upon error
@@ -129,15 +137,15 @@ def getTerminalInfo(db, url):
                 break  # If we've made it this far without an exception, the request succeeded, so exit the loop
 
             except Exception as e:  # Catch any exceptions
-                print(f'Request to get terminal page failed with error: {e}\n')
+                logging.error('Request to download %s terminal page failed in getTerminalInfo().', currentTerminal.name ,exc_info=True)
 
                 if attempt < 4:  # If this wasn't the last attempt...
-                    print(f'Retrying to get terminal in {delay} seconds...\n')
+                    logging.info('Retrying to download %s terminal page in %d seconds...', currentTerminal.name, delay)
                     time.sleep(delay)  # Wait before the next attempt
                     delay *= 2  # Double the delay time
 
                 else:  # If this was the last attempt, re-raise the exception
-                    print(f'All to get {currentTerminal.name}\'s page attempts failed. Exiting program.\n')
+                    logging.critical('All attemps to download %s terminal page failed. Exiting program.', currentTerminal.name)
                     raise
 
 
@@ -174,13 +182,21 @@ def getTerminalInfo(db, url):
 
             # Check if both PDF links found
             if pdf3DayFound:
+                logging.debug('Found 3 day schedule: %s', href)
                 break
+
+        # Log when no 3 day pdfs were found
+        if not pdf3DayFound:
+            logging.warning('No 3 day PDFs found for %s terminal', currentTerminal.name)
     
     # Write to DB
+    logging.info('Writing terminals to DB.')
     for terminal in listOfTerminals:
         db.addTerminal(terminal)
 
 def download3DayPDFs(db, pdfDir):
+    logging.debug('Starting download3DayPDFs().')
+
     result = db.getTerminalsWithPDFLink()
 
     for document in result:
@@ -209,13 +225,17 @@ def downloadSingle3DayPDF(document, pdfDir):
             return filename
 
     except requests.exceptions.RequestException as e:
-        print(f"Error occurred while downloading PDF: {e}")
+        logging.error('Error occurred in downloadSingle3DayPDF() with link: %s.', document["pdfLink3Day"], exc_info=True)
 
 def calcPDFHashes(db, pdfDir):
+    logging.debug('Starting calcPDFHashes().')
+
     updatedTerminals = []
 
     # Get all PDF files in the directory
     pdfFiles = [file for file in os.listdir(pdfDir) if file.endswith('.pdf')]
+
+    logging.debug('%d PDFs found in PDF directory.', len(pdfFiles))
 
     # Iterate through the PDF files
     for pdfFile in pdfFiles:
@@ -246,6 +266,6 @@ def calcPDFHashes(db, pdfDir):
 
         # Document does not exist in mongo
         else:
-            print("No document in mongo! Searching for " + pdfFile)
+            logging.error('In calcPDFHahes(). No document found when searching MongoDB for 3 day pdf: %s.', pdfFile)
 
     return updatedTerminals
