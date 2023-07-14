@@ -109,7 +109,7 @@ def getTerminalInfo(db, url):
         # Increment so next link and name is put in correct terminal object
         index += 1
 
-    # Grab links for the pdf schedules for each terminal
+    # Grab terminal pages
     for currentTerminal in listOfTerminals:
 
         # URL of terminal page
@@ -129,15 +129,15 @@ def getTerminalInfo(db, url):
                 break  # If we've made it this far without an exception, the request succeeded, so exit the loop
 
             except Exception as e:  # Catch any exceptions
-                print(f'Request failed with error: {e}')
+                print(f'Request to get terminal page failed with error: {e}\n')
 
                 if attempt < 4:  # If this wasn't the last attempt...
-                    print(f'Retrying in {delay} seconds...')
+                    print(f'Retrying to get terminal in {delay} seconds...\n')
                     time.sleep(delay)  # Wait before the next attempt
                     delay *= 2  # Double the delay time
 
                 else:  # If this was the last attempt, re-raise the exception
-                    print('All attempts failed. Exiting program.')
+                    print(f'All to get {currentTerminal.name}\'s page attempts failed. Exiting program.\n')
                     raise
 
 
