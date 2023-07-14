@@ -8,8 +8,10 @@ import os
 import glob
 import sys
 from dotenv import load_dotenv
+import argparse
+import logging
 
-# List of variables to check
+# List of ENV variables to check
 variablesToCheck = [
     'TELEGRAM_API_TOKEN',
     'MONGO_DB',
@@ -33,6 +35,27 @@ except ValueError as e:
     print(e)
     sys.exit(1)
 
+# Create an arguement parser
+log_arg_parser = argparse.ArgumentParser(description='Set the logging level.')
+log_arg_parser.add_argument('--log', default='INFO', help='Set the logging level.')
+
+args = log_arg_parser.parse_args()
+
+# Map from string level to logging level
+levels = {
+    'DEBUG': logging.DEBUG,
+    'INFO': logging.INFO,
+    'WARNING': logging.WARNING,
+    'ERROR': logging.ERROR,
+    'CRITICAL': logging.CRITICAL
+}
+
+# Set up logging
+argLoglevel = levels.get(args.log.upper(), logging.INFO)
+logging.basicConfig(filename='app.log', filemode='w', 
+                    format='%(asctime)s - %(message)s', level=argLoglevel)
+
+
 async def sendPDF(terminalName, chatID, pdfPath):
     bot = Bot(api_token)
     await bot.send_message(chatID, "Update from " + terminalName)
@@ -41,6 +64,8 @@ async def sendPDF(terminalName, chatID, pdfPath):
 
 async def main():
     
+    logging.info('Program started.')
+
     # Get the absolute path of the script
     scriptPath = os.path.abspath(__file__)
 
@@ -51,6 +76,7 @@ async def main():
 
     # Create pdf directory if it doesn't exist
     if not os.path.exists('./pdfs'):
+        logging.info('No existing pdf directory. Creating new one.')
         os.mkdir('./pdfs')
     
     pdfDir = './pdfs/'
@@ -59,11 +85,14 @@ async def main():
     os.chdir(homeDirectory)
 
     # Intialize MongoDB
+    logging.info('Starting MongoDB.')
     db = MongoDB(mongoDBName, mongoCollectionName, username=mongoUsername, password=mongoPassword)
     db.connect()
 
-    # Every 10 mins
+    # Every 5 mins
     while True:
+
+        logging.debug('Starting PDF retrieval process.')
 
         # Retrieve all PDFS
         scraper.getTerminalInfo(db, url)
@@ -72,7 +101,7 @@ async def main():
         # Check at least one PDF was downloaded
         numPDFFiles = glob.glob(os.path.join(pdfDir, "*.pdf"))
         if len(numPDFFiles) == 0:
-            print("No downloaded PDFs!")
+            logging.warning("No PDFs were downloaded.")
             await asyncio.sleep(60)
             continue
 
@@ -82,15 +111,23 @@ async def main():
         # Will be always be empty on the first run
         if updatedTerminals != []:
 
+            logging.info('%s terminals have updated their PDFs.', len(updatedTerminals))
+            logging.debug('The following terminals have updated their PDFs: %s', updatedTerminals)
+
             for terminalName in updatedTerminals:
                 # Info temrinal info from DB
                 currentTerminal = db.getTerminalByName(terminalName)
                 subscribers = currentTerminal.chatIDs
                 pdfName = currentTerminal.pdfName3Day
 
+                logging.info('%s subscribers will recieve the %s terminal update.', len(subscribers), terminalName)
+                logging.debug('The following chatIDs will recieve the %s terminal update: %s', terminalName, subscribers)
+
                 # Send PDFs to all subscribers
                 for chatID in subscribers:
                     await sendPDF(terminalName, chatID, os.path.join(pdfDir, pdfName))
+        else:
+            logging.info('No PDFs were updated.')
 
         # Wait 10 minutes
         await asyncio.sleep(300)
