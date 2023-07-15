@@ -145,8 +145,7 @@ def getTerminalInfo(db, url):
                     delay *= 2  # Double the delay time
 
                 else:  # If this was the last attempt, re-raise the exception
-                    logging.critical('All attemps to download %s terminal page failed. Exiting program.', currentTerminal.name)
-                    raise
+                    logging.error('All attemps to download %s terminal page failed. Skipping...', currentTerminal.name)
 
 
         # Get hostname of terminal page
