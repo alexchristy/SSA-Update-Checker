@@ -27,8 +27,29 @@ def calculateFileHash(file_path):
 def getTerminalInfo(db, url):
     logging.debug('Running getTerminalInfo().')
 
-    # Send a GET request to the website
-    response = requests.get(url)
+    # Wrapped reponse.get(url) to prevent program exiting upon initial error
+    # and so it will retry before failing.
+    delay = 2  # Initialize delay time
+
+    for attempt in range(5):
+        try:
+
+            # Send a GET request to the website
+            response = requests.get(url)
+            break  # If we've made it this far without an exception, the request succeeded, so exit the loop
+        
+        except Exception as e: # Catch any exceptions
+            logging.error('Request to download AMC homepage failed in getTerminalInfo()', exc_info=True)
+
+            if attempt < 4: # If this wasn't the last attempt
+                logging.info('Retring download of AMC homepage in %d seconds...', delay)
+                time.sleep(delay) # Wait before next attempt
+                delay *= 2 # Double delay time
+
+            else: # If this was the last attempt re-raise the exception and exit program
+                logging.critical('All attempts to download the AMC homepage failed. Exiting program...')
+                raise
+
 
     # Create empty array of terminals to store data
     listOfTerminals = []
@@ -140,7 +161,7 @@ def getTerminalInfo(db, url):
                 logging.error('Request to download %s terminal page failed in getTerminalInfo().', currentTerminal.name ,exc_info=True)
 
                 if attempt < 4:  # If this wasn't the last attempt...
-                    logging.info('Retrying to download %s terminal page in %d seconds...', currentTerminal.name, delay)
+                    logging.info('Retrying download of %s terminal page in %d seconds...', currentTerminal.name, delay)
                     time.sleep(delay)  # Wait before the next attempt
                     delay *= 2  # Double the delay time
 
