@@ -257,7 +257,7 @@ def download72HourPDFs(db, pdfDir):
         filename = downloadPDF(document, pdfDir, "pdfLink72Hour", "72_HR")
 
         # Then set the pdfName72Hour attribute to the filename
-        db.setPDFName(document["name"], filename, "pdfName72Hour")
+        db.setTerminalAttr(document["name"], "pdfName72Hour", filename)
 
 def download30DayPDFs(db, pdfDir):
     logging.debug('Starting download30DayPDFs().')
@@ -269,7 +269,7 @@ def download30DayPDFs(db, pdfDir):
         filename = downloadPDF(document, pdfDir, "pdfLink30Day", "30_DAY")
 
         # Then set the pdfName30Day attribute to the filename
-        db.setPDFName(document["name"], filename, "pdfName30Day")
+        db.setTerminalAttr(document["name"], "pdfName30Day", filename)
 
 def downloadRollcallPDFs(db, pdfDir):
     logging.debug('Starting downloadRollcallPDFs().')
@@ -281,7 +281,7 @@ def downloadRollcallPDFs(db, pdfDir):
         filename = downloadPDF(document, pdfDir, "pdfLinkRollcall", "ROLLCALL")
 
         # Then set the pdfNameRollcall attribute to the filename
-        db.setPDFName(document["name"], filename, "pdfNameRollcall")
+        db.setTerminalAttr(document["name"], "pdfNameRollcall", filename)
 
 def downloadPDF(document, pdfDir, pdfLinkAttribute, nameModifier):
     # Try to download the pdf
@@ -306,8 +306,8 @@ def downloadPDF(document, pdfDir, pdfLinkAttribute, nameModifier):
         logging.error('Error occurred in downloadPDF() with link: %s.', document[pdfLinkAttribute], exc_info=True)
 
 
-def calcPDFHashes(db, pdfDir):
-    logging.debug('Starting calcPDFHashes().')
+def calcPDFHashes(db, filenameAttr, hashAttr, pdfDir):
+    logging.debug('Starting calcPDFHashes() for %s in directory: %s.', filenameAttr, pdfDir)
 
     updatedTerminals = []
 
@@ -322,22 +322,26 @@ def calcPDFHashes(db, pdfDir):
         pdfHash = calculateFileHash(pdfFile_path)
 
         hash_match = False
-        document = db.get3DayPDFByFileName(pdfFile)
+
+        # Get the document that matches the filename found in the directory
+        document = db.getDocByAttrValue(filenameAttr, pdfFile)
 
         # If document exists in mongo
         if document:
-            storedHash = document.get("pdfHash72Hour")
+            storedHash = document.get(hashAttr)
 
-            # Check if no hash is stored
+            # Check if no hash is stored; This is here to prevent updating customers
+            # for times that the program sees the PDF for the first time but is not 
+            # updated on the site.
             if storedHash == "empty":
-                db.setpdfHash72Hour(document["name"], pdfHash)
+                db.setTerminalAttr(document["name"], hashAttr, pdfHash)
 
             # If hashes are different add to list
             if pdfHash != storedHash:
                 updatedTerminals.append(document["name"])
 
                 # Update hash
-                db.setpdfHash72Hour(document["name"], pdfHash)
+                db.setTerminalAttr(document["name"], hashAttr, pdfHash)
 
             # Hashes are the same check next file
             else:
