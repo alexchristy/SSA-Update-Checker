@@ -96,11 +96,11 @@ class MongoDB:
     def getDocsWithAttr(self, attr):
         return self.collection.find({attr: {"$ne": "empty"}})
     
-    def setpdfHash72Hour(self, terminalName, hash):
-        return self.collection.update_one({'name': terminalName}, {'$set': {'pdfHash72Hour': hash}})
+    def setTerminalAttr(self, terminalName, attr, value):
+        return self.collection.update_one({"name": terminalName}, {"$set": {attr: value}})
     
-    def setPDFName(self, terminalName, pdfName, attr):
-        return self.collection.update_one({"name": terminalName}, {"$set": {attr: pdfName}})
+    def getDocByAttrValue(self, attr, value):
+        return self.collection.find({attr: {"$eq": value}})
 
     def getTerminalByName(self, terminalName):
         document = self.collection.find_one({"name": terminalName})
