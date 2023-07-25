@@ -179,7 +179,7 @@ def getTerminalInfo(db, url):
         a_tags = soup.find_all('a', attrs={'target': True}, href=lambda href: href and '.pdf' in href)
 
         # Bools to stop searching URLs when all PDFs are found
-        pdf3DayFound = False
+        pdf72HourFound = False
         pdf30DayFound = False
         pdfRollcallFound = False
 
@@ -195,29 +195,17 @@ def getTerminalInfo(db, url):
             href = href.replace('%20', ' ')
 
             # 3 Day PDFs searching for 72 hr variations
-            if re.search(regex3DayFilter, href):
-
+            if not pdf72HourFound and re.search(regex3DayFilter, href):
                 # Prepend host if missing from URL
                 if not href.startswith("https://"):
                     # Prepend the base URL to the link
                     href = urljoin(hostname, href)
 
-                currentTerminal.pdfLink3Day = href
-                pdf3DayFound = True
-
-            # 30 Day PDFs searching for 30 day variations
-            if re.search(regex30DayFilter, href):
-
-                # Prepend host if missing from URL
-                if not href.startswith("https://"):
-                    # Prepend the base URL to the link
-                    href = urljoin(hostname, href)
-
-                currentTerminal.pdfLink30Day = href
-                pdf30DayFound = True
+                currentTerminal.pdfLink72Hour = href
+                pdf72HourFound = True
 
             # Rollcall PDFs searching for rollcall or roll call variations
-            if re.search(regexRollcallFilter, href):
+            if not pdfRollcallFound and re.search(regexRollcallFilter, href):
 
                 # Prepend host if missing from URL
                 if not href.startswith("https://"):
@@ -227,12 +215,22 @@ def getTerminalInfo(db, url):
                 currentTerminal.pdfLinkRollcall = href
                 pdfRollcallFound = True
 
+            # 30 Day PDFs searching for 30 day variations
+            if not pdf30DayFound and re.search(regex30DayFilter, href):
+                # Prepend host if missing from URL
+                if not href.startswith("https://"):
+                    # Prepend the base URL to the link
+                    href = urljoin(hostname, href)
+
+                currentTerminal.pdfLink30Day = href
+                pdf30DayFound = True
+
             # Break out of loop when all are found
-            if pdf3DayFound and pdf30DayFound and pdfRollcallFound:
+            if pdf72HourFound and pdf30DayFound and pdfRollcallFound:
                 break
 
         # Log when no 3 day pdfs were found; Log set to warning b/c all terminals should have a 3 day schedule
-        if not pdf3DayFound:
+        if not pdf72HourFound:
             logging.warning('No 3 day PDFs found for %s terminal', currentTerminal.name)
         
         # Log when no 30 Day PDFs found; Log set to info b/c most terminals do not have a 30 day schedule
@@ -249,38 +247,64 @@ def getTerminalInfo(db, url):
         db.addTerminal(terminal)
         logging.debug('%s terminal written to DB.', terminal.name)
 
-def download3DayPDFs(db, pdfDir):
-    logging.debug('Starting download3DayPDFs().')
+def download72HourPDFs(db, pdfDir):
+    logging.debug('Starting download72HourPDFs().')
 
-    result = db.getTerminalsWithPDFLink()
+    result = db.getDocsWithAttr("pdfLink72Hour")
 
     for document in result:
         # Download PDF and then capture the filename
-        filename = downloadSingle3DayPDF(document, pdfDir)
+        filename = downloadPDF(document, pdfDir, "pdfLink72Hour", "72_HR")
 
-        # Then set the pdfName3Day attribute to the filename
-        db.setPDFName(document["name"], filename)
+        # Then set the pdfName72Hour attribute to the filename
+        db.setPDFName(document["name"], filename, "pdfName72Hour")
 
-def downloadSingle3DayPDF(document, pdfDir):
+def download30DayPDFs(db, pdfDir):
+    logging.debug('Starting download30DayPDFs().')
+
+    result = db.getDocsWithAttr("pdfLink30Day")
+
+    for document in result:
+        # Download PDF and then get the filename
+        filename = downloadPDF(document, pdfDir, "pdfLink30Day", "30_DAY")
+
+        # Then set the pdfName30Day attribute to the filename
+        db.setPDFName(document["name"], filename, "pdfName30Day")
+
+def downloadRollcallPDFs(db, pdfDir):
+    logging.debug('Starting downloadRollcallPDFs().')
+
+    result = db.getDocsWithAttr("pdfLinkRollcall")
+
+    for document in result:
+        # Download PDF and tehn capture the filename
+        filename = downloadPDF(document, pdfDir, "pdfLinkRollcall", "ROLLCALL")
+
+        # Then set the pdfNameRollcall attribute to the filename
+        db.setPDFName(document["name"], filename, "pdfNameRollcall")
+
+def downloadPDF(document, pdfDir, pdfLinkAttribute, nameModifier):
     # Try to download the pdf
     try:
-        response = requests.get(document["pdfLink3Day"])
+        response = requests.get(document[pdfLinkAttribute])
 
         # Check if the request was successful (status code 200)
         if response.status_code == 200:
             # Get the filename from the URL and exclude any text after the '?'
-            filename = document["name"] + ".pdf"
+            filename = document["name"] + "_" + nameModifier + ".pdf"
             filename = filename.strip()
             filename = filename.replace(' ', '_')
 
             # Write the content to a local file
             with open(pdfDir + filename, "wb") as file:
                 file.write(response.content)
+                logging.debug('Writing %s to direcotry: %s', filename, pdfDir)
             
             return filename
 
     except requests.exceptions.RequestException as e:
-        logging.error('Error occurred in downloadSingle3DayPDF() with link: %s.', document["pdfLink3Day"], exc_info=True)
+        logging.error('Error occurred in downloadPDF() with link: %s.', document[pdfLinkAttribute], exc_info=True)
+
 
 def calcPDFHashes(db, pdfDir):
     logging.debug('Starting calcPDFHashes().')
@@ -302,18 +326,18 @@ def calcPDFHashes(db, pdfDir):
 
         # If document exists in mongo
         if document:
-            storedHash = document.get("pdfHash3Day")
+            storedHash = document.get("pdfHash72Hour")
 
             # Check if no hash is stored
             if storedHash == "empty":
-                db.setPDFHash3Day(document["name"], pdfHash)
+                db.setpdfHash72Hour(document["name"], pdfHash)
 
             # If hashes are different add to list
             if pdfHash != storedHash:
                 updatedTerminals.append(document["name"])
 
                 # Update hash
-                db.setPDFHash3Day(document["name"], pdfHash)
+                db.setpdfHash72Hour(document["name"], pdfHash)
 
             # Hashes are the same check next file
             else:

@@ -162,7 +162,7 @@ async def subscribe_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     # Add subscription to Mongo
     terminalName = positionToNameMap[requestTerminalNum]
     terminal = db.getTerminalByName(terminalName)
-    pdfPath = './pdfs/' + terminal.pdfName3Day
+    pdfPath = './pdfs/' + terminal.pdfName72Hour
     chatID = update.effective_chat.id
 
     isSubscribed = db.isUserSubscribed(terminalName, chatID)
@@ -171,7 +171,7 @@ async def subscribe_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         await update.message.reply_text('You already subscribed to this terminal.')
     else:
 
-        if terminal.pdfName3Day is None:
+        if terminal.pdfName72Hour is None:
             await update.message.reply_text('Sorry! This schedule is not currently available.')
             return
         
@@ -307,11 +307,11 @@ async def get_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     terminalName = positionToNameMap[requestTerminalNum]
     terminal = db.getTerminalByName(terminalName)
 
-    if terminal.pdfName3Day is None:
+    if terminal.pdfName72Hour is None:
         await update.message.reply_text('Sorry! This schedule is not currently available.')
         return
 
-    pdfPath = './pdfs/' + terminal.pdfName3Day
+    pdfPath = './pdfs/' + terminal.pdfName72Hour
 
     await update.message.reply_text('Here is the most recent schedule:')
 

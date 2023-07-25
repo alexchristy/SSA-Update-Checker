@@ -77,7 +77,7 @@ async def main():
     url = 'https://www.amc.af.mil/AMC-Travel-Site'
 
     # Create PDF directories if they do not exist
-    baseDir, pdf3DayDir, pdf30DayDir, pdfRollcallDir = checkPDFDirectories(pdfDir)
+    baseDir, pdf72HourDir, pdf30DayDir, pdfRollcallDir = checkPDFDirectories(pdfDir)
 
     # Enter correct directory
     os.chdir(homeDirectory)
@@ -92,18 +92,20 @@ async def main():
 
         logging.debug('Starting PDF retrieval process.')
 
-        # Retrieve all PDFS
         scraper.getTerminalInfo(db, url)
-        scraper.download3DayPDFs(db, pdf3DayDir)
 
-        # Check at least one PDF was downloaded
-        numPDFFiles = glob.glob(os.path.join(pdfDir, "*.pdf"))
-        if len(numPDFFiles) == 0:
-            logging.warning("No PDFs were downloaded.")
-            await asyncio.sleep(60)
-            continue
+        # Download PDFs
+        scraper.download72HourPDFs(db, pdf72HourDir)
+        scraper.download30DayPDFs(db, pdf30DayDir)
+        scraper.downloadRollcallPDFs(db, pdfRollcallDir)
+
+        # Check each PDF directory
+        dirs_to_check = [pdf72HourDir, pdf30DayDir, pdfRollcallDir]
+        successful_downloads = [checkDownloadedPDFs(dir_path) for dir_path in dirs_to_check]
+        if all(successful_downloads):
+            logging.info("PDFs were successfully downloaded in all directories.")
         else:
-            logging.info('%d PDFs were downloaded.', len(numPDFFiles))
+            logging.warning("Some directories did not have successful PDF downloads.")
 
         # Check which PDFs changed; compare with db stored hashes
         updatedTerminals = scraper.calcPDFHashes(db, pdfDir)
@@ -118,7 +120,7 @@ async def main():
                 # Info temrinal info from DB
                 currentTerminal = db.getTerminalByName(terminalName)
                 subscribers = currentTerminal.chatIDs
-                pdfName = currentTerminal.pdfName3Day
+                pdfName = currentTerminal.pdfName72Hour
 
                 logging.info('%d subscribers will recieve the %s terminal update.', len(subscribers), terminalName)
                 logging.debug('The following chatIDs will recieve the %s terminal update: %s', terminalName, subscribers)

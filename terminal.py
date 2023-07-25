@@ -3,9 +3,9 @@ class Terminal:
         self.name = "empty"
         self.link = "empty"
 
-        self.pdfLink3Day = "empty"
-        self.pdfName3Day = "empty"
-        self.pdfHash3Day = "empty"
+        self.pdfLink72Hour = "empty"
+        self.pdfName72Hour = "empty"
+        self.pdfHash72Hour = "empty"
 
         self.pdfLink30Day = "empty"
         self.pdfName30Day = "empty"
@@ -23,7 +23,7 @@ class Terminal:
     def print(self):
         print("Name: " + self.name)
         print("Page Link: " + self.link)
-        print("PDF (3 day) Link: " + self.pdfLink3Day)
+        print("PDF (3 day) Link: " + self.pdfLink72Hour)
         print("\n\n")
 
     @classmethod
@@ -39,9 +39,9 @@ class Terminal:
             'name': self.name,
             'link': self.link,
 
-            'pdfLink3Day': self.pdfLink3Day,
-            'pdfName3Day': self.pdfName3Day,
-            'pdfHash3Day': self.pdfHash3Day,
+            'pdfLink72Hour': self.pdfLink72Hour,
+            'pdfName72Hour': self.pdfName72Hour,
+            'pdfHash72Hour': self.pdfHash72Hour,
 
             'pdfLink30Day': self.pdfLink30Day,
             'pdfName30Day': self.pdfName30Day,

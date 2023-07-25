@@ -32,13 +32,13 @@ class MongoDB:
             result = self.collection.insert_one(terminal.to_dict())
             return result
         
-        # Document exists check if pdfLink3Day has changed
+        # Document exists check if pdfLink72Hour has changed
         else:
-            stored3DayLink = existing_document['pdfLink3Day']
+            stored3DayLink = existing_document['pdfLink72Hour']
 
             # PDF 3 Day link has changed
-            if terminal.pdfLink3Day != stored3DayLink:
-                self.collection.update_one({'name': terminal.name}, {'$set': {'pdfLink3Day': terminal.pdfLink3Day}})
+            if terminal.pdfLink72Hour != stored3DayLink:
+                self.collection.update_one({'name': terminal.name}, {'$set': {'pdfLink72Hour': terminal.pdfLink72Hour}})
 
 
 
@@ -93,14 +93,14 @@ class MongoDB:
         else:
             print(f"No document found with terminalID: {terminalName}")
     
-    def getTerminalsWithPDFLink(self):
-        return self.collection.find({"pdfLink3Day": {"$ne": "empty"}})
+    def getDocsWithAttr(self, attr):
+        return self.collection.find({attr: {"$ne": "empty"}})
     
-    def setPDFHash3Day(self, terminalName, hash):
-        return self.collection.update_one({'name': terminalName}, {'$set': {'pdfHash3Day': hash}})
+    def setpdfHash72Hour(self, terminalName, hash):
+        return self.collection.update_one({'name': terminalName}, {'$set': {'pdfHash72Hour': hash}})
     
-    def setPDFName(self, terminalName, pdfName):
-        return self.collection.update_one({"name": terminalName}, {"$set": {"pdfName3Day": pdfName}})
+    def setPDFName(self, terminalName, pdfName, attr):
+        return self.collection.update_one({"name": terminalName}, {"$set": {attr: pdfName}})
 
     def getTerminalByName(self, terminalName):
         document = self.collection.find_one({"name": terminalName})
@@ -112,8 +112,8 @@ class MongoDB:
         
         return None
 
-    def get3DayPDFByFileName(self, pdfName3Day):
-        return self.collection.find_one({"pdfName3Day": pdfName3Day})
+    def get3DayPDFByFileName(self, pdfName72Hour):
+        return self.collection.find_one({"pdfName72Hour": pdfName72Hour})
     
     def getAllTerminals(self):
         documents = self.collection.find()
