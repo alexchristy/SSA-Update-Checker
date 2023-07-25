@@ -1,5 +1,5 @@
 import scraper
-from utils import checkEnvVariables
+from utils import *
 from terminal import *
 from mongodb import *
 from telegram import Bot
@@ -17,7 +17,8 @@ variablesToCheck = [
     'MONGO_DB',
     'MONGO_COLLECTION',
     'MONGO_USERNAME',
-    'MONGO_PASSWORD'
+    'MONGO_PASSWORD',
+    'PDF_DIR'
 ]
 
 # Check if all .env variables are set
@@ -30,6 +31,7 @@ try:
     mongoCollectionName = os.getenv('MONGO_COLLECTION')
     mongoUsername = os.getenv('MONGO_USERNAME')
     mongoPassword = os.getenv('MONGO_PASSWORD')
+    pdfDir = os.getenv('PDF_DIR')
 
 except ValueError as e:
     print(e)
@@ -74,12 +76,8 @@ async def main():
 
     url = 'https://www.amc.af.mil/AMC-Travel-Site'
 
-    # Create pdf directory if it doesn't exist
-    if not os.path.exists('./pdfs'):
-        logging.info('No existing pdf directory. Creating new one.')
-        os.mkdir('./pdfs')
-    
-    pdfDir = './pdfs/'
+    # Create PDF directories if they do not exist
+    baseDir, pdf3DayDir, pdf30DayDir, pdfRollcallDir = checkPDFDirectories(pdfDir)
 
     # Enter correct directory
     os.chdir(homeDirectory)
@@ -96,7 +94,7 @@ async def main():
 
         # Retrieve all PDFS
         scraper.getTerminalInfo(db, url)
-        scraper.download3DayPDFs(db, pdfDir)
+        scraper.download3DayPDFs(db, pdf3DayDir)
 
         # Check at least one PDF was downloaded
         numPDFFiles = glob.glob(os.path.join(pdfDir, "*.pdf"))
