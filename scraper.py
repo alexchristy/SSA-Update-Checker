@@ -178,45 +178,76 @@ def getTerminalInfo(db, url):
         # Find all <a> tags with href and PDF file extension
         a_tags = soup.find_all('a', attrs={'target': True}, href=lambda href: href and '.pdf' in href)
 
-        # Bools to stop searching URLs when both schedules are found
+        # Bools to stop searching URLs when all PDFs are found
         pdf3DayFound = False
+        pdf30DayFound = False
+        pdfRollcallFound = False
+
+        # Regex filters for the different PDFs
+        regex3DayFilter = r"(?i)72[- _%20]{0,1}hr|72[- _%20]{0,1}hour"
+        regex30DayFilter = r"(?i)30[-_ ]?day"
+        regexRollcallFilter = r"(?i)(roll[-_ ]?call)|roll"
 
         for a_tag in a_tags:
             href = a_tag["href"]
 
-            # Filter URLS to only find pdf urls of the schedules
-            if "portals" in href.lower() and "rollcall" not in href.lower() and "roll call" not in href.lower():
+            # Remove any URL encoded spaces
+            href = href.replace('%20', ' ')
 
-                regex3DayFilter = r"72[-_ ]?(?i:HR|Hour)"
+            # 3 Day PDFs searching for 72 hr variations
+            if re.search(regex3DayFilter, href):
 
-                # 3 Day schedules searching for for 72 hr variations
-                if re.search(regex3DayFilter, href):
+                # Prepend host if missing from URL
+                if not href.startswith("https://"):
+                    # Prepend the base URL to the link
+                    href = urljoin(hostname, href)
 
-                    # Prepend host if missing from URL
-                    if not href.startswith("https://"):
-                        # Prepend the base URL to the link
-                        href = urljoin(hostname, href)
+                currentTerminal.pdfLink3Day = href
+                pdf3DayFound = True
 
-                    currentTerminal.pdfLink3Day = href
-                    pdf3DayFound = True
+            # 30 Day PDFs searching for 30 day variations
+            if re.search(regex30DayFilter, href):
 
-            # Filter URLs to only find Roll Call PDFs
-            elif "rollcall" in href.lower() or "roll call" in href.lower():
-                continue
+                # Prepend host if missing from URL
+                if not href.startswith("https://"):
+                    # Prepend the base URL to the link
+                    href = urljoin(hostname, href)
 
-            # Check if both PDF links found
-            if pdf3DayFound:
-                logging.debug('Found 3 day schedule: %s', href)
+                currentTerminal.pdfLink30Day = href
+                pdf30DayFound = True
+
+            # Rollcall PDFs searching for rollcall or roll call variations
+            if re.search(regexRollcallFilter, href):
+
+                # Prepend host if missing from URL
+                if not href.startswith("https://"):
+                    # Prepend the base URL to the link
+                    href = urljoin(hostname, href)
+                
+                currentTerminal.pdfLinkRollcall = href
+                pdfRollcallFound = True
+
+            # Break out of loop when all are found
+            if pdf3DayFound and pdf30DayFound and pdfRollcallFound:
                 break
 
-        # Log when no 3 day pdfs were found
+        # Log when no 3 day pdfs were found; Log set to warning b/c all terminals should have a 3 day schedule
         if not pdf3DayFound:
             logging.warning('No 3 day PDFs found for %s terminal', currentTerminal.name)
+        
+        # Log when no 30 Day PDFs found; Log set to info b/c most terminals do not have a 30 day schedule
+        if not pdf30DayFound:
+            logging.info('No 30 day PDFs found for %s terminal', currentTerminal.name)
+        
+        # Log when no rollcall PDFs found; Log set to info b/c most terminals do no have rollcalls
+        if not pdfRollcallFound:
+            logging.info('No rollcall PDFs found for %s terminal', currentTerminal.name)
     
     # Write to DB
     logging.info('Writing terminals to DB.')
     for terminal in listOfTerminals:
         db.addTerminal(terminal)
+        logging.debug('%s terminal written to DB.', terminal.name)
 
 def download3DayPDFs(db, pdfDir):
     logging.debug('Starting download3DayPDFs().')
