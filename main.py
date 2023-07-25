@@ -31,7 +31,7 @@ try:
     mongoCollectionName = os.getenv('MONGO_COLLECTION')
     mongoUsername = os.getenv('MONGO_USERNAME')
     mongoPassword = os.getenv('MONGO_PASSWORD')
-    pdfDir = os.getenv('PDF_DIR')
+    basePDFDir = os.getenv('PDF_DIR')
 
 except ValueError as e:
     print(e)
@@ -77,7 +77,7 @@ async def main():
     url = 'https://www.amc.af.mil/AMC-Travel-Site'
 
     # Create PDF directories if they do not exist
-    baseDir, pdf72HourDir, pdf30DayDir, pdfRollcallDir = checkPDFDirectories(pdfDir)
+    baseDir, pdf72HourDir, pdf30DayDir, pdfRollcallDir = checkPDFDirectories(basePDFDir)
 
     # Enter correct directory
     os.chdir(homeDirectory)
@@ -108,7 +108,7 @@ async def main():
             logging.warning("Some directories did not have successful PDF downloads.")
 
         # Check which PDFs changed; compare with db stored hashes
-        updatedTerminals = scraper.calcPDFHashes(db, pdfDir)
+        updatedTerminals = scraper.calcPDFHashes(db, basePDFDir)
 
         # Will be always be empty on the first run
         if updatedTerminals != []:
@@ -127,7 +127,7 @@ async def main():
 
                 # Send PDFs to all subscribers
                 for chatID in subscribers:
-                    await sendPDF(terminalName, chatID, os.path.join(pdfDir, pdfName))
+                    await sendPDF(terminalName, chatID, os.path.join(basePDFDir, pdfName))
         else:
             logging.info('%d PDFs were updated.', 0)
 
