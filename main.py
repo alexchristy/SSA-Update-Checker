@@ -1,5 +1,5 @@
 import scraper
-from utils import checkEnvVariables
+from utils import *
 from terminal import *
 from mongodb import *
 from telegram import Bot
@@ -74,12 +74,10 @@ async def main():
 
     url = 'https://www.amc.af.mil/AMC-Travel-Site'
 
-    # Create pdf directory if it doesn't exist
-    if not os.path.exists('./pdfs'):
-        logging.info('No existing pdf directory. Creating new one.')
-        os.mkdir('./pdfs')
-    
     pdfDir = './pdfs/'
+
+    # Create PDF directories if they do not exist
+    checkPDFDirectories(pdfDir)
 
     # Enter correct directory
     os.chdir(homeDirectory)
