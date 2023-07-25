@@ -97,9 +97,7 @@ def getTerminalInfo(db, url):
     # Define the filter strings for names and link words
     name_filter_strings = ["Transportation Function", "Passenger Terminal", "Air Terminal", "AFB"]
     link_filter_words = ["Terminal", "Passenger", "Transportation", "Gateway"]
-    months = ['January', 'February', 'March', 'April', 'May', 'June', 
-          'July', 'August', 'September', 'October', 'November', 'December', 'current']
-
+    
     # len(tags) == len(listOfTerminals) <-- This will always be true
     index = 0
     # Iterate though the terminal tags and save page links and terminal names to the terminal objects
