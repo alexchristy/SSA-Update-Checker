@@ -177,7 +177,7 @@ def getTerminalInfo(db, url):
         # Create a BeautifulSoup object from the response content
         soup = BeautifulSoup(response.content, "html.parser")
 
-        # Find all <a> tags with href and target attributes
+        # Find all <a> tags with href and PDF file extension
         a_tags = soup.find_all('a', attrs={'target': True}, href=lambda href: href and '.pdf' in href)
 
         # Bools to stop searching URLs when both schedules are found
@@ -189,8 +189,10 @@ def getTerminalInfo(db, url):
             # Filter URLS to only find pdf urls of the schedules
             if "portals" in href.lower() and "rollcall" not in href.lower() and "roll call" not in href.lower():
 
-                # 3 Day schedules searching for for "72" or any month of the year or the string "current"
-                if "72" in href or any(re.search(r'\b' + month + r'\b', href, re.I) for month in months):
+                regex3DayFilter = r"72[-_ ]?(?i:HR|Hour)"
+
+                # 3 Day schedules searching for for 72 hr variations
+                if re.search(regex3DayFilter, href):
 
                     # Prepend host if missing from URL
                     if not href.startswith("https://"):
@@ -199,6 +201,10 @@ def getTerminalInfo(db, url):
 
                     currentTerminal.pdfLink3Day = href
                     pdf3DayFound = True
+
+            # Filter URLs to only find Roll Call PDFs
+            elif "rollcall" in href.lower() or "roll call" in href.lower():
+                continue
 
             # Check if both PDF links found
             if pdf3DayFound:
