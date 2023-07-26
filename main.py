@@ -23,7 +23,7 @@ variablesToCheck = [
 
 # Check if all .env variables are set
 try:
-    checkEnvVariables(variablesToCheck)
+    check_env_variables(variablesToCheck)
     
     # Load environment variables from .env file
     api_token = os.getenv('TELEGRAM_API_TOKEN')
@@ -58,7 +58,7 @@ logging.basicConfig(filename='app.log', filemode='w',
                     format='%(asctime)s - %(message)s', level=argLoglevel)
 
 
-async def sendPDF(terminalName, chatID, pdfPath):
+async def send_pdf(terminalName, chatID, pdfPath):
     bot = Bot(api_token)
     await bot.send_message(chatID, "Update from " + terminalName)
     with open(pdfPath, 'rb') as f:
@@ -77,7 +77,7 @@ async def main():
     url = 'https://www.amc.af.mil/AMC-Travel-Site'
 
     # Create PDF directories if they do not exist
-    baseDir, pdf72HourDir, pdf30DayDir, pdfRollcallDir = checkPDFDirectories(basePDFDir)
+    baseDir, pdf72HourDir, pdf30DayDir, pdfRollcallDir = check_pdf_directories(basePDFDir)
 
     # Enter correct directory
     os.chdir(homeDirectory)
@@ -92,23 +92,23 @@ async def main():
 
         logging.debug('Starting PDF retrieval process.')
 
-        scraper.getTerminalInfo(db, url)
+        scraper.get_terminal_info(db, url)
 
         # Download PDFs
-        scraper.downloadPDFs(db, pdf72HourDir, "pdfLink72Hour")
-        scraper.downloadPDFs(db, pdf30DayDir, "pdfLink30Day")
-        scraper.downloadPDFs(db, pdfRollcallDir, "pdfLinkRollcall")
+        scraper.download_pdfs(db, pdf72HourDir, "pdfLink72Hour")
+        scraper.download_pdfs(db, pdf30DayDir, "pdfLink30Day")
+        scraper.download_pdfs(db, pdfRollcallDir, "pdfLinkRollcall")
 
         # Check each PDF directory
         dirs_to_check = [pdf72HourDir, pdf30DayDir, pdfRollcallDir]
-        successful_downloads = [checkDownloadedPDFs(dir_path) for dir_path in dirs_to_check]
+        successful_downloads = [check_downloaded_pdfs(dir_path) for dir_path in dirs_to_check]
         if all(successful_downloads):
             logging.info("PDFs were successfully downloaded in all directories.")
         else:
             logging.warning("Some directories did not have successful PDF downloads.")
 
         # Check which PDFs changed; compare with db stored hashes
-        updatedTerminals = scraper.calcPDFHashes(db, basePDFDir)
+        updatedTerminals = scraper.calc_pdf_hashes(db, basePDFDir)
 
         # Will be always be empty on the first run
         if updatedTerminals != []:
@@ -118,7 +118,7 @@ async def main():
 
             for terminalName in updatedTerminals:
                 # Info temrinal info from DB
-                currentTerminal = db.getTerminalByName(terminalName)
+                currentTerminal = db.get_terminal_by_name(terminalName)
                 subscribers = currentTerminal.chatIDs
                 pdfName = currentTerminal.pdfName72Hour
 
@@ -127,7 +127,7 @@ async def main():
 
                 # Send PDFs to all subscribers
                 for chatID in subscribers:
-                    await sendPDF(terminalName, chatID, os.path.join(basePDFDir, pdfName))
+                    await send_pdf(terminalName, chatID, os.path.join(basePDFDir, pdfName))
         else:
             logging.info('%d PDFs were updated.', 0)
 

@@ -24,7 +24,7 @@ class MongoDB:
         self.db = self.client[self.db_name]
         self.collection = self.db[self.collection_name]
 
-    def addTerminal(self, terminal: Terminal):
+    def add_terminal(self, terminal: Terminal):
         existing_document = self.collection.find_one({'name': terminal.name, 'link': terminal.link})
 
         if existing_document is None:
@@ -42,7 +42,7 @@ class MongoDB:
 
 
 
-    def isUserSubscribed(self, terminalName, userId):
+    def is_user_subscribed(self, terminalName, userId):
         terminalDocument = self.collection.find_one({"name": terminalName})
         
         # If terminal does not exist
@@ -55,7 +55,7 @@ class MongoDB:
         else:
             return False
 
-    def addSubscription(self, terminalName, chatID):
+    def add_subscription(self, terminalName, chatID):
         # Check if document exists
         existingDocument = self.collection.find_one({"name": terminalName})
         if existingDocument:
@@ -74,7 +74,7 @@ class MongoDB:
         else:
             print(f"No document found with terminalID: {terminalName}")
 
-    def removeSubscription(self, terminalName, chatID):
+    def remove_subscription(self, terminalName, chatID):
         # Check if document exists
         existingDocument = self.collection.find_one({"name": terminalName})
         if existingDocument:
@@ -93,16 +93,16 @@ class MongoDB:
         else:
             print(f"No document found with terminalID: {terminalName}")
     
-    def getDocsWithAttr(self, attr):
+    def get_docs_with_attr(self, attr):
         return self.collection.find({attr: {"$ne": "empty"}})
     
-    def setTerminalAttr(self, terminalName, attr, value):
+    def set_terminal_attr(self, terminalName, attr, value):
         return self.collection.update_one({"name": terminalName}, {"$set": {attr: value}})
     
-    def getDocByAttrValue(self, attr, value):
+    def get_doc_by_attr_value(self, attr, value):
         return self.collection.find({attr: {"$eq": value}})
 
-    def getTerminalByName(self, terminalName):
+    def get_terminal_by_name(self, terminalName):
         document = self.collection.find_one({"name": terminalName})
         
         if document is not None:
@@ -112,14 +112,11 @@ class MongoDB:
         
         return None
 
-    def get3DayPDFByFileName(self, pdfName72Hour):
-        return self.collection.find_one({"pdfName72Hour": pdfName72Hour})
-    
-    def getAllTerminals(self):
+    def get_all_terminals(self):
         documents = self.collection.find()
         return list(documents)
     
-    def getSubscribedTerminals(self, chatID):
+    def get_subscribed_terminals(self, chatID):
         # find all documents where chatIDs contains chatID
         documents = self.collection.find({"chatIDs": chatID})
 

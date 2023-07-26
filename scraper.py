@@ -17,8 +17,8 @@ valid_locations = ['AMC CONUS Terminals', 'EUCOM Terminals', 'INDOPACOM Terminal
                    'ANG & Reserve Terminals']
 
 # Functions
-def calculateFileHash(file_path):
-    logging.debug('Running calculateFileHash() on %s', file_path)
+def calc_file_hash(file_path):
+    logging.debug('Running calc_file_hash() on %s', file_path)
 
     md5_hash = hashlib.md5()
     with open(file_path, 'rb') as file:
@@ -26,8 +26,8 @@ def calculateFileHash(file_path):
             md5_hash.update(chunk)
     return md5_hash.hexdigest()
 
-def getTerminalInfo(db, url):
-    logging.debug('Running getTerminalInfo().')
+def get_terminal_info(db, url):
+    logging.debug('Running get_terminal_info().')
 
     # Wrapped reponse.get(url) to prevent program exiting upon initial error
     # and so it will retry before failing.
@@ -41,7 +41,7 @@ def getTerminalInfo(db, url):
             break  # If we've made it this far without an exception, the request succeeded, so exit the loop
         
         except Exception as e: # Catch any exceptions
-            logging.error('Request to download AMC homepage failed in getTerminalInfo()', exc_info=True)
+            logging.error('Request to download AMC homepage failed in get_terminal_info()', exc_info=True)
 
             if attempt < 4: # If this wasn't the last attempt
                 logging.info('Retring download of AMC homepage in %d seconds...', delay)
@@ -158,7 +158,7 @@ def getTerminalInfo(db, url):
                 break  # If we've made it this far without an exception, the request succeeded, so exit the loop
 
             except Exception as e:  # Catch any exceptions
-                logging.error('Request to download %s terminal page failed in getTerminalInfo().', currentTerminal.name ,exc_info=True)
+                logging.error('Request to download %s terminal page failed in get_terminal_info().', currentTerminal.name ,exc_info=True)
 
                 if attempt < 4:  # If this wasn't the last attempt...
                     logging.info('Retrying download of %s terminal page in %d seconds...', currentTerminal.name, delay)
@@ -246,10 +246,10 @@ def getTerminalInfo(db, url):
     # Write to DB
     logging.info('Writing terminals to DB.')
     for terminal in listOfTerminals:
-        db.addTerminal(terminal)
+        db.add_terminal(terminal)
         logging.debug('%s terminal written to DB.', terminal.name)
 
-def downloadPDFs(db: MongoDB, pdfDir: str, attr: str):
+def download_pdfs(db: MongoDB, pdfDir: str, attr: str):
     logging.debug('Starting to download PDFs: %s.', attr)
 
     # Check if a valid attribute was provided; Exit if not.
@@ -257,7 +257,7 @@ def downloadPDFs(db: MongoDB, pdfDir: str, attr: str):
         logging.error("Attempted to download PDFs with attr: %s", attr)
         return None
 
-    result = db.getDocsWithAttr(attr)
+    result = db.get_docs_with_attr(attr)
 
     # Generates unique string to add to end of PDF name
     nameStr = attr.replace("pdfLink", "")
@@ -265,12 +265,12 @@ def downloadPDFs(db: MongoDB, pdfDir: str, attr: str):
 
     for document in result:
         # Download PDF and then capture the filename
-        filename = _downloadPDF(document, pdfDir, attr, nameStr)
+        filename = _download_pdf(document, pdfDir, attr, nameStr)
 
         # Then set the pdfName72Hour attribute to the filename
-        db.setTerminalAttr(document["name"], nameAttr, filename)
+        db.set_terminal_attr(document["name"], nameAttr, filename)
 
-def _downloadPDF(document, pdfDir, pdfLinkAttribute, nameModifier):
+def _download_pdf(document, pdfDir, pdfLinkAttribute, nameModifier):
 
     now = datetime.now()  # get the current date and time
     dateString = now.strftime("%d-%b-%y_%H:%M")
@@ -297,8 +297,8 @@ def _downloadPDF(document, pdfDir, pdfLinkAttribute, nameModifier):
         logging.error('Error occurred in downloadPDF() with link: %s.', document[pdfLinkAttribute], exc_info=True)
 
 
-def calcPDFHashes(db, pdfDir, filenameAttr, hashAttr):
-    logging.debug('Starting calcPDFHashes() for %s in directory: %s.', filenameAttr, pdfDir)
+def calc_pdf_hashes(db, pdfDir, filenameAttr, hashAttr):
+    logging.debug('Starting calc_pdf_hashes() for %s in directory: %s.', filenameAttr, pdfDir)
 
     updatedTerminals = []
 
@@ -310,12 +310,12 @@ def calcPDFHashes(db, pdfDir, filenameAttr, hashAttr):
     # Iterate through the PDF files
     for pdfFile in pdfFiles:
         pdfFile_path = os.path.join(pdfDir, pdfFile)
-        pdfHash = calculateFileHash(pdfFile_path)
+        pdfHash = calc_file_hash(pdfFile_path)
 
         hash_match = False
 
         # Get the document that matches the filename found in the directory
-        document = db.getDocByAttrValue(filenameAttr, pdfFile)
+        document = db.get_doc_by_attr_value(filenameAttr, pdfFile)
 
         # If document exists in mongo
         if document:
@@ -326,7 +326,7 @@ def calcPDFHashes(db, pdfDir, filenameAttr, hashAttr):
                 updatedTerminals.append(document["name"])
 
                 # Update hash
-                db.setTerminalAttr(document["name"], hashAttr, pdfHash)
+                db.set_terminal_attr(document["name"], hashAttr, pdfHash)
 
             # Hashes are the same check next file
             else:

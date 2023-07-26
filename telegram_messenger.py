@@ -3,7 +3,7 @@ import logging
 from mongodb import MongoDB
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
-from utils import checkEnvVariables
+from utils import check_env_variables
 import os
 
 # Enable logging
@@ -26,7 +26,7 @@ variablesToCheck = [
 
 # Check if all .env variables are set
 try:
-    checkEnvVariables(variablesToCheck)
+    check_env_variables(variablesToCheck)
     
     # Load environment variables from .env file
     api_token = os.getenv('TELEGRAM_API_TOKEN')
@@ -44,9 +44,9 @@ db = MongoDB(mongoDBName, mongoCollectionName, username=mongoUsername, password=
 db.connect()
 
 # Function for generating list of subcriptions a user has
-def generateSubscribedTerminalList(chatID):
+def gen_subscribed_terminal_list(chatID):
     # Retrieve subscribed terminals
-    subscribed_terminals = db.getSubscribedTerminals(chatID)
+    subscribed_terminals = db.get_subscribed_terminals(chatID)
 
     # Sort the terminals by 'pagePosition'
     subscribed_terminals.sort(key=lambda terminal: terminal['pagePosition'])
@@ -61,7 +61,7 @@ def generateSubscribedTerminalList(chatID):
     return message
 
 # Initialize menu map
-documents = db.getAllTerminals()
+documents = db.get_all_terminals()
 
 positionToNameMap = {}
 nameToPositionMap = {}
@@ -74,9 +74,9 @@ for doc in documents:
     nameToPositionMap[name] = page_position
 
 # Generate /listall html menus
-def initListallMessages():
+def init_listall_messages():
     # Get all documents
-    documents = db.getAllTerminals()
+    documents = db.get_all_terminals()
 
     # Sort the documents by 'group' and 'pagePosition'
     documents.sort(key=lambda doc: (doc['group'], doc['pagePosition']))
@@ -105,7 +105,7 @@ def initListallMessages():
 
     return messages
 
-listallOptions = initListallMessages()
+listallOptions = init_listall_messages()
 
 # Define a few command handlers. These usually take the two arguments update and
 # context.
@@ -161,11 +161,11 @@ async def subscribe_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 
     # Add subscription to Mongo
     terminalName = positionToNameMap[requestTerminalNum]
-    terminal = db.getTerminalByName(terminalName)
+    terminal = db.get_terminal_by_name(terminalName)
     pdfPath = './pdfs/' + terminal.pdfName72Hour
     chatID = update.effective_chat.id
 
-    isSubscribed = db.isUserSubscribed(terminalName, chatID)
+    isSubscribed = db.is_user_subscribed(terminalName, chatID)
 
     if isSubscribed:
         await update.message.reply_text('You already subscribed to this terminal.')
@@ -175,7 +175,7 @@ async def subscribe_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
             await update.message.reply_text('Sorry! This schedule is not currently available.')
             return
         
-        db.addSubscription(terminalName, chatID)
+        db.add_subscription(terminalName, chatID)
         await update.message.reply_text('You have been subscribed to ' + positionToNameMap[requestTerminalNum] + '.')
         await update.message.reply_text('Here is the most recent schedule:')
 
@@ -211,13 +211,13 @@ async def unsubscribe_command(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     # Remove subscription
     terminalName = positionToNameMap[requestTerminalNum]
-    terminal = db.getTerminalByName(terminalName)
+    terminal = db.get_terminal_by_name(terminalName)
     chatID = update.effective_chat.id
 
-    isSubscribed = db.isUserSubscribed(terminalName, chatID)
+    isSubscribed = db.is_user_subscribed(terminalName, chatID)
 
     if isSubscribed:
-        db.removeSubscription(positionToNameMap[requestTerminalNum], update.effective_chat.id)
+        db.remove_subscription(positionToNameMap[requestTerminalNum], update.effective_chat.id)
         await update.message.reply_text('You have been unsubscribed from ' + positionToNameMap[requestTerminalNum] + '.')
 
     else:
@@ -305,7 +305,7 @@ async def get_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     
     # Get PDF
     terminalName = positionToNameMap[requestTerminalNum]
-    terminal = db.getTerminalByName(terminalName)
+    terminal = db.get_terminal_by_name(terminalName)
 
     if terminal.pdfName72Hour is None:
         await update.message.reply_text('Sorry! This schedule is not currently available.')
@@ -331,7 +331,7 @@ async def alerts_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await update.message.reply_html(error_message)
         return
     
-    subcribedTerminals = db.getSubscribedTerminals(update.effective_chat.id)
+    subcribedTerminals = db.get_subscribed_terminals(update.effective_chat.id)
     chatID = update.effective_chat.id
 
     if len(subcribedTerminals) == 0:
@@ -339,7 +339,7 @@ async def alerts_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return
     
     elif len(subcribedTerminals) > 0:
-        subListMessage = generateSubscribedTerminalList(chatID)
+        subListMessage = gen_subscribed_terminal_list(chatID)
         await update.message.reply_html(subListMessage)
         return
 

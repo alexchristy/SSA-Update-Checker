@@ -3,7 +3,7 @@ import logging
 import os
 from dotenv import load_dotenv
 
-def checkEnvVariables(variables):
+def check_env_variables(variables):
     # Load environment variables from .env file
     load_dotenv()
 
@@ -17,7 +17,7 @@ def checkEnvVariables(variables):
         errorMessage = f"The following variable(s) are missing or empty in .env: {', '.join(emptyVariables)}"
         raise ValueError(errorMessage)
     
-def checkPDFDirectories(baseDir):
+def check_pdf_directories(baseDir):
 
     modifiedBaseDir = ""
 
@@ -49,7 +49,7 @@ def checkPDFDirectories(baseDir):
     
     return baseDir, pdf72HourDir, pdf30DayDir, pdfRollcallDir
 
-def checkDownloadedPDFs(directory_path):
+def check_downloaded_pdfs(directory_path):
     """Check if at least one PDF was downloaded and log the number of PDFs in the directory."""
     num_pdf_files = len(glob.glob(os.path.join(directory_path, "*.pdf")))
     if num_pdf_files == 0:
