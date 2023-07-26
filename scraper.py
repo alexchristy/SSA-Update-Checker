@@ -3,12 +3,14 @@ import requests
 import hashlib
 import os
 from terminal import *
+from mongodb import *
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse, urljoin
 from urllib.parse import quote
 from mongodb import *
 from urllib.parse import urlparse
 import logging
+from datetime import datetime
 
 valid_locations = ['AMC CONUS Terminals', 'EUCOM Terminals', 'INDOPACOM Terminals',
                    'CENTCOM Terminals', 'SOUTHCOM TERMINALS', 'Non-AMC CONUS Terminals',
@@ -247,43 +249,32 @@ def getTerminalInfo(db, url):
         db.addTerminal(terminal)
         logging.debug('%s terminal written to DB.', terminal.name)
 
-def download72HourPDFs(db, pdfDir):
-    logging.debug('Starting download72HourPDFs().')
+def downloadPDFs(db: MongoDB, pdfDir: str, attr: str):
+    logging.debug('Starting to download PDFs: %s.', attr)
 
-    result = db.getDocsWithAttr("pdfLink72Hour")
+    # Check if a valid attribute was provided; Exit if not.
+    if not attr.startswith("pdfLink"):
+        logging.error("Attempted to download PDFs with attr: %s", attr)
+        return None
+
+    result = db.getDocsWithAttr(attr)
+
+    # Generates unique string to add to end of PDF name
+    nameStr = attr.replace("pdfLink", "")
+    nameAttr = "pdfName" + nameStr
 
     for document in result:
         # Download PDF and then capture the filename
-        filename = downloadPDF(document, pdfDir, "pdfLink72Hour", "72_HR")
+        filename = _downloadPDF(document, pdfDir, attr, nameStr)
 
         # Then set the pdfName72Hour attribute to the filename
-        db.setTerminalAttr(document["name"], "pdfName72Hour", filename)
+        db.setTerminalAttr(document["name"], nameAttr, filename)
 
-def download30DayPDFs(db, pdfDir):
-    logging.debug('Starting download30DayPDFs().')
+def _downloadPDF(document, pdfDir, pdfLinkAttribute, nameModifier):
 
-    result = db.getDocsWithAttr("pdfLink30Day")
+    now = datetime.now()  # get the current date and time
+    dateString = now.strftime("%d-%b-%y_%H:%M")
 
-    for document in result:
-        # Download PDF and then get the filename
-        filename = downloadPDF(document, pdfDir, "pdfLink30Day", "30_DAY")
-
-        # Then set the pdfName30Day attribute to the filename
-        db.setTerminalAttr(document["name"], "pdfName30Day", filename)
-
-def downloadRollcallPDFs(db, pdfDir):
-    logging.debug('Starting downloadRollcallPDFs().')
-
-    result = db.getDocsWithAttr("pdfLinkRollcall")
-
-    for document in result:
-        # Download PDF and tehn capture the filename
-        filename = downloadPDF(document, pdfDir, "pdfLinkRollcall", "ROLLCALL")
-
-        # Then set the pdfNameRollcall attribute to the filename
-        db.setTerminalAttr(document["name"], "pdfNameRollcall", filename)
-
-def downloadPDF(document, pdfDir, pdfLinkAttribute, nameModifier):
     # Try to download the pdf
     try:
         response = requests.get(document[pdfLinkAttribute])
@@ -291,7 +282,7 @@ def downloadPDF(document, pdfDir, pdfLinkAttribute, nameModifier):
         # Check if the request was successful (status code 200)
         if response.status_code == 200:
             # Get the filename from the URL and exclude any text after the '?'
-            filename = document["name"] + "_" + nameModifier + ".pdf"
+            filename = document["name"] + "_" + nameModifier + "_" + dateString + ".pdf"
             filename = filename.strip()
             filename = filename.replace(' ', '_')
 
@@ -306,7 +297,7 @@ def downloadPDF(document, pdfDir, pdfLinkAttribute, nameModifier):
         logging.error('Error occurred in downloadPDF() with link: %s.', document[pdfLinkAttribute], exc_info=True)
 
 
-def calcPDFHashes(db, filenameAttr, hashAttr, pdfDir):
+def calcPDFHashes(db, pdfDir, filenameAttr, hashAttr):
     logging.debug('Starting calcPDFHashes() for %s in directory: %s.', filenameAttr, pdfDir)
 
     updatedTerminals = []
@@ -330,12 +321,6 @@ def calcPDFHashes(db, filenameAttr, hashAttr, pdfDir):
         if document:
             storedHash = document.get(hashAttr)
 
-            # Check if no hash is stored; This is here to prevent updating customers
-            # for times that the program sees the PDF for the first time but is not 
-            # updated on the site.
-            if storedHash == "empty":
-                db.setTerminalAttr(document["name"], hashAttr, pdfHash)
-
             # If hashes are different add to list
             if pdfHash != storedHash:
                 updatedTerminals.append(document["name"])
@@ -349,6 +334,6 @@ def calcPDFHashes(db, filenameAttr, hashAttr, pdfDir):
 
         # Document does not exist in mongo
         else:
-            logging.error('In calcPDFHahes(). No document found when searching MongoDB for 3 day pdf: %s.', pdfFile)
+            logging.error('In calcPDFHahes(). No document found when searching MongoDB for %s: %s.', filenameAttr, pdfFile)
 
     return updatedTerminals

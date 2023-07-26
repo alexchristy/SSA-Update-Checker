@@ -95,9 +95,9 @@ async def main():
         scraper.getTerminalInfo(db, url)
 
         # Download PDFs
-        scraper.download72HourPDFs(db, pdf72HourDir)
-        scraper.download30DayPDFs(db, pdf30DayDir)
-        scraper.downloadRollcallPDFs(db, pdfRollcallDir)
+        scraper.downloadPDFs(db, pdf72HourDir, "pdfLink72Hour")
+        scraper.downloadPDFs(db, pdf30DayDir, "pdfLink30Day")
+        scraper.downloadPDFs(db, pdfRollcallDir, "pdfLinkRollcall")
 
         # Check each PDF directory
         dirs_to_check = [pdf72HourDir, pdf30DayDir, pdfRollcallDir]
