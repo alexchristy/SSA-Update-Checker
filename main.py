@@ -57,14 +57,7 @@ argLoglevel = levels.get(args.log.upper(), logging.INFO)
 logging.basicConfig(filename='app.log', filemode='w', 
                     format='%(asctime)s - %(message)s', level=argLoglevel)
 
-
-async def send_pdf(terminalName, chatID, pdfPath):
-    bot = Bot(api_token)
-    await bot.send_message(chatID, "Update from " + terminalName)
-    with open(pdfPath, 'rb') as f:
-        await bot.send_document(chatID, f)
-
-async def main():
+def main():
     
     logging.info('Program started.')
 
@@ -110,29 +103,5 @@ async def main():
         # Check which PDFs changed; compare with db stored hashes
         updatedTerminals = scraper.calc_pdf_hashes(db, basePDFDir)
 
-        # Will be always be empty on the first run
-        if updatedTerminals != []:
-
-            logging.info('%d terminals have updated their PDFs.', len(updatedTerminals))
-            logging.debug('The following terminals have updated their PDFs: %s', updatedTerminals)
-
-            for terminalName in updatedTerminals:
-                # Info temrinal info from DB
-                currentTerminal = db.get_terminal_by_name(terminalName)
-                subscribers = currentTerminal.chatIDs
-                pdfName = currentTerminal.pdfName72Hour
-
-                logging.info('%d subscribers will recieve the %s terminal update.', len(subscribers), terminalName)
-                logging.debug('The following chatIDs will recieve the %s terminal update: %s', terminalName, subscribers)
-
-                # Send PDFs to all subscribers
-                for chatID in subscribers:
-                    await send_pdf(terminalName, chatID, os.path.join(basePDFDir, pdfName))
-        else:
-            logging.info('%d PDFs were updated.', 0)
-
-        # Wait 10 minutes
-        await asyncio.sleep(300)
-
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
