@@ -6,3 +6,4 @@
 .env
 /SSA-ENV
 /app.log
+/testing
