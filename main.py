@@ -80,28 +80,25 @@ def main():
     db = MongoDB(mongoDBName, mongoCollectionName, username=mongoUsername, password=mongoPassword)
     db.connect()
 
-    # Every 5 mins
-    while True:
+    logging.debug('Starting PDF retrieval process.')
 
-        logging.debug('Starting PDF retrieval process.')
+    scraper.get_terminal_info(db, url)
 
-        scraper.get_terminal_info(db, url)
+    # Download PDFs
+    scraper.download_pdfs(db, pdf72HourDir, "pdfLink72Hour")
+    scraper.download_pdfs(db, pdf30DayDir, "pdfLink30Day")
+    scraper.download_pdfs(db, pdfRollcallDir, "pdfLinkRollcall")
 
-        # Download PDFs
-        scraper.download_pdfs(db, pdf72HourDir, "pdfLink72Hour")
-        scraper.download_pdfs(db, pdf30DayDir, "pdfLink30Day")
-        scraper.download_pdfs(db, pdfRollcallDir, "pdfLinkRollcall")
+    # Check each PDF directory
+    dirs_to_check = [pdf72HourDir, pdf30DayDir, pdfRollcallDir]
+    successful_downloads = [check_downloaded_pdfs(dir_path) for dir_path in dirs_to_check]
+    if all(successful_downloads):
+        logging.info("PDFs were successfully downloaded in all directories.")
+    else:
+        logging.warning("Some directories did not have successful PDF downloads.")
 
-        # Check each PDF directory
-        dirs_to_check = [pdf72HourDir, pdf30DayDir, pdfRollcallDir]
-        successful_downloads = [check_downloaded_pdfs(dir_path) for dir_path in dirs_to_check]
-        if all(successful_downloads):
-            logging.info("PDFs were successfully downloaded in all directories.")
-        else:
-            logging.warning("Some directories did not have successful PDF downloads.")
-
-        # Check which PDFs changed; compare with db stored hashes
-        updatedTerminals = scraper.calc_pdf_hashes(db, basePDFDir)
+    # Check which PDFs changed; compare with db stored hashes
+    updatedTerminals = scraper.calc_pdf_hashes(db, basePDFDir)
 
 if __name__ == "__main__":
     main()
