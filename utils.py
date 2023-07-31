@@ -21,13 +21,14 @@ def check_pdf_directories(baseDir):
 
     '''
     The PDFs will be stored in this structure under whatever is set as the
-    base directory with the PDF_DIR env variable. The tmp directory is where
-    PDFs will be downloaded everytime the program runs. The current directory
-    will hold all of the most up to date PDFs of each type. The archive
-    directory will have a folder for each terminal where all PDFs outdated PDFs
-    will be sorted and stored for training the AI models. Since the PDFs will
-    have the name of terminal they are from it will be easy to sort by name
-    and pick out the correct PDFs.
+    base directory with the $PDF_DIR env variable. The tmp directory is where
+    PDFs will be downloaded everytime the program runs. When sorting the pdfs 
+    they will be downloaded into the tmp/ dir but then be sorted into their type
+    directories. The current directory will hold all of the most up to date PDFs
+    of each type. The archive directory will have a folder for each terminal 
+    where all PDFs outdated PDFs will be sorted and stored for training the AI
+    models. Since the PDFs will have the name of terminal they are from it will
+    be easy to sort by name and pick out the correct PDFs.
 
     Structure:
 
@@ -83,11 +84,6 @@ def check_pdf_directories(baseDir):
                 os.mkdir(typeDir)
     
     return None
-
-    
-
-
-    
 
 
 def check_downloaded_pdfs(directory_path):
