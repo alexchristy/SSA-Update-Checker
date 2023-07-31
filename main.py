@@ -67,13 +67,11 @@ def main():
     # Set the home directory to the directory of the script
     homeDirectory = os.path.dirname(scriptPath)
 
-    url = 'https://www.amc.af.mil/AMC-Travel-Site'
+    # Enter correct directory
+    os.chdir(homeDirectory)
 
     # Create PDF directories if they do not exist
     check_pdf_directories(basePDFDir)
-
-    # Enter correct directory
-    os.chdir(homeDirectory)
 
     # Intialize MongoDB
     logging.info('Starting MongoDB.')
@@ -82,6 +80,8 @@ def main():
 
     logging.debug('Starting PDF retrieval process.')
 
+    # Set URL to AMC Travel site and scrape Terminal information from it
+    url = 'https://www.amc.af.mil/AMC-Travel-Site'
     scraper.get_terminal_info(db, url)
 
     # Download PDFs
