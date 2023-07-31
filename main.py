@@ -70,7 +70,7 @@ def main():
     url = 'https://www.amc.af.mil/AMC-Travel-Site'
 
     # Create PDF directories if they do not exist
-    baseDir, pdf72HourDir, pdf30DayDir, pdfRollcallDir = check_pdf_directories(basePDFDir)
+    check_pdf_directories(basePDFDir)
 
     # Enter correct directory
     os.chdir(homeDirectory)

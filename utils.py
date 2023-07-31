@@ -19,35 +19,76 @@ def check_env_variables(variables):
     
 def check_pdf_directories(baseDir):
 
-    modifiedBaseDir = ""
+    '''
+    The PDFs will be stored in this structure under whatever is set as the
+    base directory with the PDF_DIR env variable. The tmp directory is where
+    PDFs will be downloaded everytime the program runs. The current directory
+    will hold all of the most up to date PDFs of each type. The archive
+    directory will have a folder for each terminal where all PDFs outdated PDFs
+    will be sorted and stored for training the AI models. Since the PDFs will
+    have the name of terminal they are from it will be easy to sort by name
+    and pick out the correct PDFs.
 
-    # Check for trailing '/'
+    Structure:
+
+    ./{baseDir}/
+    |
+    +----tmp/
+    |    +--72_HR/
+    |    +--30_DAY/
+    |    +--ROLLCALL/
+    |
+    +----current/
+    |    +------72_HR/
+    |    +------30_DAY/
+    |    +------ROLLCALL/
+    |
+    +----archive/
+         +-------72_HR/
+         +-------30_DAY/
+         +--------ROLLCALL/
+
+    '''
+
+    pdfUseDir = ['tmp/', 'current/', 'archive/']
+
+    typeOfPdfDirs = ['72_HR/', '30_DAY/', 'ROLLCALL']
+
+    # Check if baseDir ends with '/'; this is to append sub directories later
     if baseDir[-1] != '/':
-        modifiedBaseDir = baseDir + '/'
-    else:
-        modifiedBaseDir = baseDir
+        baseDir = baseDir + '/'
 
-    # Check if base directory exists
-    if not os.path.exists(modifiedBaseDir):
-        logging.info('No existing {baseDir} directory. Creating new one.')
-        os.mkdir(modifiedBaseDir)
+    # Check base directory exists
+    if not os.path.exists(baseDir):
+        os.mkdir(baseDir)
 
-    pdf72HourDir = modifiedBaseDir + '72_HR/'
-    if not os.path.exists(pdf72HourDir):
-        logging.info('No exsting {pdf72HourDir} directory. Creating new one.')
-        os.mkdir(pdf72HourDir)
+    # Iterate through the use directories: tmp/, current/, archive/
+    for useDir in pdfUseDir:
 
-    pdf30DayDir = modifiedBaseDir + '30_DAY/'
-    if not os.path.exists(pdf30DayDir):
-        logging.info('No existing {pdf30DayDir} directory. Creating new one.')
-        os.mkdir(pdf30DayDir)
+        # Create relative path to the current use directory
+        useDir = baseDir + useDir
 
-    pdfRollcallDir = modifiedBaseDir + 'ROLLCALL/'
-    if not os.path.exists(pdfRollcallDir):
-        logging.info('No existing {pdfRollcallDir} directory. Creating new one.')
-        os.mkdir(pdfRollcallDir)
+        # Check if the use directory exists
+        if not os.path.exists(useDir):
+            os.mkdir(useDir)
+
+        # Iterate through the different pdf type directories: 72_HR, 30_DAY, ROLLCALL
+        for typeDir in typeOfPdfDirs:
+
+            # Create relative path to pdf type directory
+            typeDir = useDir + typeDir
+
+            # Check if it exists
+            if not os.path.exists(typeDir):
+                os.mkdir(typeDir)
     
-    return baseDir, pdf72HourDir, pdf30DayDir, pdfRollcallDir
+    return None
+
+    
+
+
+    
+
 
 def check_downloaded_pdfs(directory_path):
     """Check if at least one PDF was downloaded and log the number of PDFs in the directory."""
