@@ -1,6 +1,7 @@
 import glob
 import logging
 import os
+from urllib.parse import unquote, urlparse
 from dotenv import load_dotenv
 
 def check_env_variables(variables):
@@ -94,3 +95,11 @@ def check_downloaded_pdfs(directory_path):
     else:
         logging.info('%d PDFs were downloaded in the directory: %s', num_pdf_files, directory_path)
     return num_pdf_files > 0
+
+def get_pdf_name(url):
+    try:
+        result = urlparse(url)
+        path = unquote(result.path)
+        return path.split('/')[-1]
+    except Exception as e:
+        return str(e)
