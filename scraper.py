@@ -203,10 +203,6 @@ def get_terminals_info(listOfTerminals: List[Terminal], baseDir: str) -> List[Te
         # Find all <a> tags with href and PDF file extension
         a_tags = soup.find_all('a', attrs={'target': True}, href=lambda href: href and '.pdf' in href)
 
-        # Create strings for naming pdfs.
-        basePdfName = currentTerminal.name
-        basePdfName = basePdfName.replace(" ", "_")
-
         # Create array for PDFs that do not match
         noMatchPdfs = []
 
@@ -216,34 +212,34 @@ def get_terminals_info(listOfTerminals: List[Terminal], baseDir: str) -> List[Te
         pdfRollcallFound = False
 
         for a_tag in a_tags:
-            pdfLink = a_tag["href"]
+            partialPdfLink = a_tag["href"]
 
             # Get name of PDF as it appears on site
-            pdfName = utils.get_pdf_name(pdfLink)
+            pdfName = utils.get_pdf_name(partialPdfLink)
 
             # Check if 72 hour schedule
             if not pdf72HourFound:
                 if re.search(regex72HourFilter, pdfName):
-                    currentTerminal.pdfLink72Hour = hostname + pdfLink
+                    currentTerminal.pdfLink72Hour = hostname + partialPdfLink
                     pdf72HourFound = True
                     continue
 
             # Check if 30 day schedule
             if not pdf30DayFound:
                 if re.search(regex30DayFilter, pdfName):
-                    currentTerminal.pdfLink30Day = hostname + pdfLink
+                    currentTerminal.pdfLink30Day = hostname + partialPdfLink
                     pdf30DayFound = True
                     continue
 
             # Check if rollcall
             if not pdfRollcallFound:
                 if re.search(regexRollcallFilter, pdfName):
-                    currentTerminal.pdfLinkRollcall = hostname + pdfLink
+                    currentTerminal.pdfLinkRollcall = hostname + partialPdfLink
                     pdfRollcallFound = True
                     continue
 
             # PDF's name did not match any of the regex filters
-            noMatchPdfs.append(pdfLink)
+            noMatchPdfs.append(hostname + partialPdfLink)
         
         # If all PDFs are found continue to next terminal
         if pdf72HourFound and pdf30DayFound and pdfRollcallFound:
@@ -260,29 +256,73 @@ def get_terminals_info(listOfTerminals: List[Terminal], baseDir: str) -> List[Te
         if not pdf72HourFound:
             pdfs72Hour = sort_pdfs_by_date(pdfs72Hour)
 
+            # If there are 72 Hour PDFs
             if pdfs72Hour is not None:
+                # Store the link to the PDF and new path to PDF
                 currentTerminal.pdfLink72Hour = pdfs72Hour[0][0]
                 dest = downloadDir + '72_HR/' + pdfs72Hour[0][1]
-                shutil.move(pdfs72Hour[0][1], dest)
                 currentTerminal.pdfName72Hour = dest
+
+                # Move PDF to proper directory
+                shutil.move(pdfs72Hour[0][1], dest)
+
+                # Delete from array now that we have dealth with PDF
+                del pdfs72Hour[0]
+
+                # We have found the 72 hour schedule
+                pdf72HourFound = True
         
         if not pdf30DayFound:
             pdfs30Day = sort_pdfs_by_date(pdfs30Day)
 
             if pdfs30Day is not None:
+                # Store the link to the PDF and new path to PDF
                 currentTerminal.pdfLink30Day = pdfs30Day[0][0]
                 dest = downloadDir + '30_DAY/' + pdfs30Day[0][1]
-                shutil.move(pdfs30Day[0][1], dest)
                 currentTerminal.pdfName30Day = dest
+
+                # Move PDF to proper directory
+                shutil.move(pdfs30Day[0][1], dest)
+
+                # Delete from array now that we have dealt with PDF
+                del pdfs30Day[0]
+
+                # We have found the 30 day schedule
+                pdf30DayFound = True
         
         if not pdfRollcallFound:
             pdfsRollcall = sort_pdfs_by_date(pdfsRollcall)
 
             if pdfsRollcall is not None:
+                # Store the link to the PDF and new path to PDF
                 currentTerminal.pdfLinkRollcall = pdfsRollcall[0][0]
                 dest = downloadDir + 'ROLLCALL/' + pdfsRollcall[0][1]
-                shutil.move(pdfsRollcall[0][1], dest)
                 currentTerminal.pdfNameRollcall = dest
+
+                # Move PDF to proper directory
+                shutil.move(pdfsRollcall[0][1], dest)
+
+                # Delete from array now that we have dealth with PDF
+                del pdfsRollcall[0]
+
+                # We have found the rollcall
+                pdfRollcallFound = True
+
+        # Delete any PDFs that we not used in pdfs72Hour,
+        # pdfs30Day, pdfsRollcall to prevent them from
+        # filling up the tmp directory.
+        logging.info('Removing PDFs left over from full text search...')
+        for pdf in pdfs72Hour:
+            logging.debug('Removing %s', pdf)
+            os.remove(pdf)
+        
+        for pdf in pdfs30Day:
+            logging.debug('Removing %s', pdf)
+            os.remove(pdf)
+
+        for pdf in pdfsRollcall:
+            logging.debug('Removing %s', pdf)
+            os.remove(pdf)
 
         terminalsWithPDFLinks.append(currentTerminal)
     
@@ -326,17 +366,17 @@ def sort_pdfs_by_content(dir:str, pdfLinks: List[str]):
 
     return pdf72HourOpts, pdf30DayOpts, pdfRollcallOpts
 
-def sort_pdfs_by_date(pdfs: List[Tuple[str, str]]) -> List[str]:
+def sort_pdfs_by_date(pdfs: List[Tuple[str, str]]) -> List[Tuple[str, str]]:
     logging.debug('Entering sort_pdfs_by_date().')
 
-    # Create a list to store tuples of (path, date)
+    # Create a list to store tuples of (link, path, date)
     pdfs_with_dates = []
     pdfs_without_dates = []
 
     # If list is empty return None
     if len(pdfs) < 1:
         return None
-    
+
     # If list has only one item return the array
     # as there is nothing to sort.
     if len(pdfs) == 1:
@@ -344,7 +384,7 @@ def sort_pdfs_by_date(pdfs: List[Tuple[str, str]]) -> List[str]:
 
     for link, path in pdfs:
         if not os.path.isfile(path):
-            logging.warning('PDF: %s does not exist. %s called from: %s', path, inspect.stack()[0], inspect.stack()[1])
+            logging.warning('PDF: %s does not exist. %s called from: %s', path, inspect.stack()[0][3], inspect.stack()[1][3])
             continue
 
         with open(path, 'rb') as f:
@@ -363,20 +403,20 @@ def sort_pdfs_by_date(pdfs: List[Tuple[str, str]]) -> List[str]:
                 date = datetime.strptime(date[2:16], "%Y%m%d%H%M%S")
 
                 # Add the tuple to the list
-                pdfs_with_dates.append((path, date))
+                pdfs_with_dates.append((link, path, date))
             else:
-                pdfs_without_dates.append(path)
+                pdfs_without_dates.append((link, path))
 
     # Sort the list by the datetime objects
-    pdfs_with_dates.sort(key=lambda x: x[1], reverse=True)
+    pdfs_with_dates.sort(key=lambda x: x[2], reverse=True)
 
-    # Extract the paths, now sorted by mod_date
-    sorted_paths = [x[0] for x in pdfs_with_dates]
+    # Extract the (link, path) tuples, now sorted by mod_date
+    sorted_pdfs = [(x[0], x[1]) for x in pdfs_with_dates]
 
     # Add the PDFs without dates to the end
-    sorted_paths.extend(pdfs_without_dates)
+    sorted_pdfs.extend(pdfs_without_dates)
 
-    return sorted_paths
+    return sorted_pdfs
 
         
 def download_pdf(dir: str, url:str) -> str:
