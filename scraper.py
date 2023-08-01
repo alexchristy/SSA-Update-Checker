@@ -25,6 +25,7 @@ valid_locations = ['AMC CONUS Terminals', 'EUCOM Terminals', 'INDOPACOM Terminal
 
 # Functions
 def get_with_retry(url: str):
+    logging.debug('Entering get_with_retry() requesting: %s', url)
 
     delay = 2
 
@@ -54,6 +55,8 @@ def get_with_retry(url: str):
     return None
 
 def normalize_url(url: str):
+    logging.debug('Entering normarlize_url()')
+
     parsedUrl = urlparse(url)
     hostname = str(parsedUrl.netloc)
     normalizedUrl = 'https://' + hostname + '/'
@@ -161,6 +164,7 @@ def get_terminals(url: str):
     return listOfTerminals
 
 def get_terminals_info(listOfTerminals: List[Terminal], baseDir: str) -> List[Terminal]:
+    logging.debug('Entering get_terminals_info().')
 
     downloadDir = baseDir + 'tmp/'
 
@@ -286,6 +290,7 @@ def get_terminals_info(listOfTerminals: List[Terminal], baseDir: str) -> List[Te
 
 
 def sort_pdfs_by_content(dir:str, pdfLinks: List[str]):
+    logging.debug('Entering sort_pdfs_by_content()')
 
     pdf72HourOpts = []
     pdf30DayOpts = []
@@ -322,6 +327,8 @@ def sort_pdfs_by_content(dir:str, pdfLinks: List[str]):
     return pdf72HourOpts, pdf30DayOpts, pdfRollcallOpts
 
 def sort_pdfs_by_date(pdfs: List[Tuple[str, str]]) -> List[str]:
+    logging.debug('Entering sort_pdfs_by_date().')
+
     # Create a list to store tuples of (path, date)
     pdfs_with_dates = []
     pdfs_without_dates = []
@@ -373,6 +380,7 @@ def sort_pdfs_by_date(pdfs: List[Tuple[str, str]]) -> List[str]:
 
         
 def download_pdf(dir: str, url:str) -> str:
+    logging.debug('Entering download_pdf()')
 
     # Get the filename from the URL
     filename = utils.get_pdf_name(url)
@@ -401,6 +409,7 @@ def download_pdf(dir: str, url:str) -> str:
         return None
     
 def download_terminal_pdfs(terminal: Terminal, baseDir: str):
+    logging.debug('Entering download_terminal_pdfs().')
 
     pdf72HourDir = baseDir + "tmp/72_HR/"
     pdf30DayDir = baseDir + "tmp/30_DAY/"
@@ -435,6 +444,8 @@ def download_terminal_pdfs(terminal: Terminal, baseDir: str):
     return terminal
 
 def calculate_sha256(file_path):
+    logging.debug('Entering calculate_sha256().')
+
     sha256_hash = hashlib.sha256()
 
     with open(file_path, "rb") as f:
@@ -445,6 +456,7 @@ def calculate_sha256(file_path):
     return sha256_hash.hexdigest()
 
 def calc_terminal_pdf_hashes(terminal: Terminal):
+    logging.debug('Entering calc_terminal_pdf_hashes().')
 
     pdf72HourPath = terminal.pdfName72Hour
     pdf30DayPath = terminal.pdfName30Day
