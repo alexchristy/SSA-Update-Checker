@@ -379,7 +379,7 @@ def sort_pdfs_by_date(pdfs: List[Tuple(str, str)]) -> List[str]:
     return sorted_paths
 
         
-def download_pdf(dir: str, url:str):
+def download_pdf(dir: str, url:str) -> str:
 
     # Get the filename from the URL
     filename = utils.get_pdf_name(url)
@@ -399,59 +399,49 @@ def download_pdf(dir: str, url:str):
         with open(filepath, 'wb') as f:
             f.write(response.content)
 
+        logging.debug('Successfully downloaded: %s. Saved at: %s', url, filepath)
+
         return filepath
 
     else:
-        print('Failed to download the file.')
+        logging.warning('Failed to download: %s', url)
         return None
+    
+def download_terminal_pdfs(terminal: Terminal, baseDir: str):
+
+    pdf72HourDir = baseDir + "tmp/72_HR/"
+    pdf30DayDir = baseDir + "tmp/30_DAY/"
+    pdfRollcallDir = baseDir + "tmp/ROLLCALL/"
+
+    # Download 72 Hour PDF
+    if terminal.pdfLink72Hour != "empty":
+
+        filename = download_pdf(pdf72HourDir, terminal.pdfLink72Hour)
+
+        # If PDF was downloaded successfully
+        if filename is not None:
+            terminal.pdfName72Hour = filename
+    
+    # Download 30 Day PDF
+    if terminal.pdfLink30Day != "empty":
+
+        filename = download_pdf(pdf30DayDir, terminal.pdfLink30Day)
+
+        # If PDF was downloaded successfully
+        if filename is not None:
+            terminal.pdfName30Day = filename
+    
+    if terminal.pdfLinkRollcall != "empty":
+
+        filename = download_pdf(pdfRollcallDir, terminal.pdfLinkRollcall)
+
+        # If PDF was downloaded successfully
+        if filename is not None:
+            terminal.pdfNameRollcall = filename
+
+    return terminal
 
 
-def download_pdfs(db: MongoDB, pdfDir: str, attr: str):
-    logging.debug('Starting to download PDFs: %s.', attr)
-
-    # Check if a valid attribute was provided; Exit if not.
-    if not attr.startswith("pdfLink"):
-        logging.error("Attempted to download PDFs with attr: %s", attr)
-        return None
-
-    result = db.get_docs_with_attr(attr)
-
-    # Generates unique string to add to end of PDF name
-    nameStr = attr.replace("pdfLink", "")
-    nameAttr = "pdfName" + nameStr
-
-    for document in result:
-        # Download PDF and then capture the filename
-        filename = _download_pdf(document, pdfDir, attr, nameStr)
-
-        # Then set the pdfName72Hour attribute to the filename
-        db.set_terminal_attr(document["name"], nameAttr, filename)
-
-def _download_pdf(document, pdfDir, pdfLinkAttribute, nameModifier):
-
-    now = datetime.now()  # get the current date and time
-    dateString = now.strftime("%d-%b-%y_%H:%M")
-
-    # Try to download the pdf
-    try:
-        response = requests.get(document[pdfLinkAttribute])
-
-        # Check if the request was successful (status code 200)
-        if response.status_code == 200:
-            # Get the filename from the URL and exclude any text after the '?'
-            filename = document["name"] + "_" + nameModifier + "_" + dateString + ".pdf"
-            filename = filename.strip()
-            filename = filename.replace(' ', '_')
-
-            # Write the content to a local file
-            with open(pdfDir + filename, "wb") as file:
-                file.write(response.content)
-                logging.debug('Writing %s to direcotry: %s', filename, pdfDir)
-            
-            return filename
-
-    except requests.exceptions.RequestException as e:
-        logging.error('Error occurred in downloadPDF() with link: %s.', document[pdfLinkAttribute], exc_info=True)
 
 
 def calc_pdf_hashes(db, pdfDir, filenameAttr, hashAttr):
