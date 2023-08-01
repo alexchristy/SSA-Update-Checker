@@ -99,7 +99,9 @@ def main():
     else:
         logging.warning("Some directories did not have successful PDF downloads.")
 
-    
+    # Calc hashes for terminal's PDFs
+    for terminal in listOfTerminals:
+        terminal = scraper.calc_terminal_pdf_hashes(terminal)
 
 if __name__ == "__main__":
     main()
