@@ -111,6 +111,31 @@ class MongoDB:
             return terminal
         
         return None
+    
+    def store_terminal(self, terminal: Terminal):
+        # Find the document with the same name
+        doc = self.collection.find_one({"name": terminal.name})
+
+        if doc:
+            # Document exists, prepare the update query
+            update_query = {}
+            for key, value in terminal.to_dict().items():
+                # If the document's field is "empty" and the Terminal object's field is not "empty"
+                # then add to the update query
+                if doc.get(key) == "empty" and value != "empty":
+                    update_query[key] = value
+            # Update the document
+            if update_query:
+                result = self.collection.update_one({"name": terminal.name}, {"$set": update_query})
+                print(f"Updated document, matched {result.matched_count} document(s)")
+            else:
+                print("No fields to update")
+        else:
+            # Document does not exist, insert a new one
+            result = self.collection.insert_one(terminal.to_dict())
+            print(f"Inserted new document with ID {result.inserted_id}")
+
+        return result
 
     def get_all_terminals(self):
         documents = self.collection.find()
