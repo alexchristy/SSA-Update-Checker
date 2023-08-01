@@ -1,3 +1,4 @@
+import logging
 import time
 from pymongo import MongoClient
 from pymongo.errors import WriteError
@@ -101,6 +102,54 @@ class MongoDB:
     
     def get_doc_by_attr_value(self, attr, value):
         return self.collection.find({attr: {"$eq": value}})
+    
+    def is_72hr_updated(self, terminal: Terminal) -> bool:
+
+        document = self.collection.find_one({"name": {"$eq": terminal.name}})
+
+        if not document:
+            logging.warning('Terminal %s was not found in Mongo.')
+            return False
+
+        storedHash = document["pdfHash72Hour"]
+        currentHash = terminal.pdfHash72Hour
+
+        if currentHash != storedHash:
+            return True
+        else:
+            return False
+        
+    def is_30day_updated(self, terminal: Terminal) -> bool:
+
+        document = self.collection.find_one({"name": {"$eq": terminal.name}})
+
+        if not document:
+            logging.warning('Terminal %s was not found in Mongo.')
+            return False
+
+        storedHash = document["pdfHash30Day"]
+        currentHash = terminal.pdfHash30Day
+
+        if currentHash != storedHash:
+            return True
+        else:
+            return False
+    
+    def is_rollcall_updated(self, terminal: Terminal) -> bool:
+
+        document = self.collection.find_one({"name": {"$eq": terminal.name}})
+
+        if not document:
+            logging.warning('Terminal %s was not found in Mongo.')
+            return False
+
+        storedHash = document["pdfHashRollcall"]
+        currentHash = terminal.pdfHashRollcall
+
+        if currentHash != storedHash:
+            return True
+        else:
+            return False
 
     def get_terminal_by_name(self, terminalName):
         document = self.collection.find_one({"name": terminalName})
