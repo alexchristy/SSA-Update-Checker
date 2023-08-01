@@ -271,6 +271,12 @@ def get_terminals_info(listOfTerminals: List[Terminal], baseDir: str) -> List[Te
 
                 # We have found the 72 hour schedule
                 pdf72HourFound = True
+
+                # Remove left over PDFs on filesystem not used
+                logging.info('Removing 72 hour PDFs left over from full text search...')
+                for pdf in pdfs72Hour:
+                    logging.debug('Removing %s', pdf)
+                    os.remove(pdf)
         
         if not pdf30DayFound:
             pdfs30Day = sort_pdfs_by_date(pdfs30Day)
@@ -289,6 +295,12 @@ def get_terminals_info(listOfTerminals: List[Terminal], baseDir: str) -> List[Te
 
                 # We have found the 30 day schedule
                 pdf30DayFound = True
+
+                # Remove left over PDFs on filesystem not used
+                logging.info('Removing 30 day PDFs left over from full text search...')
+                for pdf in pdfs30Day:
+                    logging.debug('Removing %s', pdf)
+                    os.remove(pdf)
         
         if not pdfRollcallFound:
             pdfsRollcall = sort_pdfs_by_date(pdfsRollcall)
@@ -308,21 +320,11 @@ def get_terminals_info(listOfTerminals: List[Terminal], baseDir: str) -> List[Te
                 # We have found the rollcall
                 pdfRollcallFound = True
 
-        # Delete any PDFs that we not used in pdfs72Hour,
-        # pdfs30Day, pdfsRollcall to prevent them from
-        # filling up the tmp directory.
-        logging.info('Removing PDFs left over from full text search...')
-        for pdf in pdfs72Hour:
-            logging.debug('Removing %s', pdf)
-            os.remove(pdf)
-        
-        for pdf in pdfs30Day:
-            logging.debug('Removing %s', pdf)
-            os.remove(pdf)
-
-        for pdf in pdfsRollcall:
-            logging.debug('Removing %s', pdf)
-            os.remove(pdf)
+                 # Remove left over PDFs on filesystem not used
+                logging.info('Removing rollcall PDFs left over from full text search...')
+                for pdf in pdfsRollcall:
+                    logging.debug('Removing %s', pdf)
+                    os.remove(pdf)
 
         terminalsWithPDFLinks.append(currentTerminal)
     
