@@ -123,7 +123,7 @@ def main():
         terminalUpdates.append(terminalTuple)
 
     # Rotate out old PDFs to archive for AI training data
-    gen_archive_folders(listOfTerminals, basePDFDir + 'archive/')
+    gen_archive_dirs(listOfTerminals, basePDFDir)
 
     # Store changes in DB
     for terminal in listOfTerminals:

@@ -94,7 +94,9 @@ def check_pdf_directories(baseDir):
     
     return None
 
-def gen_archive_folders(listOfTerminals: List[Terminal], dir: str) -> Dict[str, str]:
+def gen_archive_dirs(listOfTerminals: List[Terminal], dir: str) -> Dict[str, str]:
+
+    archiveDir = dir + 'archive/'
 
     archiveFolderDict = {}
 
@@ -105,7 +107,7 @@ def gen_archive_folders(listOfTerminals: List[Terminal], dir: str) -> Dict[str, 
         # Generate folder name and create path
         terminaName = terminal.name
         folderName = terminaName.replace(' ', '_')
-        folderPath = dir + folderName
+        folderPath = archiveDir + folderName
 
         # Create name folder if it does not exist
         if not os.path.exists(folderPath):
