@@ -4,7 +4,7 @@ import logging
 import os
 import shutil
 from typing import List, Dict, Tuple
-from urllib.parse import unquote, urlparse
+from urllib.parse import quote, unquote, urlparse
 from dotenv import load_dotenv
 from mongodb import MongoDB
 
