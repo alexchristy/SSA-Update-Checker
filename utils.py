@@ -221,14 +221,14 @@ def generate_pdf_name(terminalName, nameModifier):
     return new_name
 
 def ensure_url_encoded(url):
-    # unquote the url, this will have no effect if the url is not encoded
+    # Unquote the URL. If it's already encoded, this will decode it.
     unquoted_url = unquote(url)
 
-    # if the unquoted url is same as original url, then it was not encoded
+    # Check if the URL was encoded by comparing it with the unquoted URL.
     if unquoted_url == url:
-        # so we encode it
-        return quote(url)
+        # If the URLs are the same, it wasn't encoded, so we encode it.
+        # We specify safe characters that shouldn't be encoded.
+        return quote(url, safe=':/.-')
     else:
-        # if the unquoted url is different from the original url
-        # it means the original url was already encoded
+        # If the URLs are different, it was already encoded.
         return url
