@@ -1,0 +1,14 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug with Logging",
+            "type": "python",
+            "request": "launch",
+            "program": "/home/alexchristy/Work/SmartSpaceA/main.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": ["--log", "DEBUG"]
+        }
+    ]
+}
