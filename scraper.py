@@ -24,15 +24,6 @@ valid_locations = ['AMC CONUS Terminals', 'EUCOM Terminals', 'INDOPACOM Terminal
                    'ANG & Reserve Terminals']
 
 # Functions
-def calc_file_hash(file_path):
-    logging.debug('Running calc_file_hash() on %s', file_path)
-
-    md5_hash = hashlib.md5()
-    with open(file_path, 'rb') as file:
-        for chunk in iter(lambda: file.read(4096), b''):
-            md5_hash.update(chunk)
-    return md5_hash.hexdigest()
-
 def get_with_retry(url: str):
 
     delay = 2
@@ -441,46 +432,38 @@ def download_terminal_pdfs(terminal: Terminal, baseDir: str):
 
     return terminal
 
+def calculate_sha256(file_path):
+    sha256_hash = hashlib.sha256()
 
+    with open(file_path, "rb") as f:
+        # Read and update hash in chunks to avoid using too much memory
+        for byte_block in iter(lambda: f.read(4096), b""):
+            sha256_hash.update(byte_block)
 
+    return sha256_hash.hexdigest()
 
-def calc_pdf_hashes(db, pdfDir, filenameAttr, hashAttr):
-    logging.debug('Starting calc_pdf_hashes() for %s in directory: %s.', filenameAttr, pdfDir)
+def calc_terminal_pdf_hashes(terminal: Terminal):
 
-    updatedTerminals = []
+    pdf72HourPath = terminal.pdfName72Hour
+    pdf30DayPath = terminal.pdfName30Day
+    pdfRollcallPath = terminal.pdfNameRollcall
 
-    # Get all PDF files in the directory
-    pdfFiles = [file for file in os.listdir(pdfDir) if file.endswith('.pdf')]
+    if os.path.exists(pdf72HourPath):
+        terminal.pdfHash72Hour = calculate_sha256(pdf72HourPath)
+        logging.debug('%s hash was calculated.', pdf72HourPath)
+    else:
+        logging.warning('%s was not found in %s. Is it missing?', pdf72HourPath, inspect.stack[0])
 
-    logging.debug('%d PDFs found in PDF directory.', len(pdfFiles))
+    if os.path.exists(pdf30DayPath):
+        terminal.pdfHash30Day = calculate_sha256(pdf30DayPath)
+        logging.debug('%s hash was calculated.', pdf30DayPath)
+    else:
+        logging.warning('%s was not found in %s. Is it missing?', pdf30DayPath, inspect.stack[0])
+    
+    if os.path.exists(pdfRollcallPath):
+        terminal.pdfHashRollcall = calculate_sha256(pdfRollcallPath)
+        logging.debug('%s hash was calculated.', pdfRollcallPath)
+    else:
+        logging.warning('%s was not found in %s. Is it missing?', pdfRollcallPath, inspect.stack[0])
 
-    # Iterate through the PDF files
-    for pdfFile in pdfFiles:
-        pdfFile_path = os.path.join(pdfDir, pdfFile)
-        pdfHash = calc_file_hash(pdfFile_path)
-
-        hash_match = False
-
-        # Get the document that matches the filename found in the directory
-        document = db.get_doc_by_attr_value(filenameAttr, pdfFile)
-
-        # If document exists in mongo
-        if document:
-            storedHash = document.get(hashAttr)
-
-            # If hashes are different add to list
-            if pdfHash != storedHash:
-                updatedTerminals.append(document["name"])
-
-                # Update hash
-                db.set_terminal_attr(document["name"], hashAttr, pdfHash)
-
-            # Hashes are the same check next file
-            else:
-                continue
-
-        # Document does not exist in mongo
-        else:
-            logging.error('In calcPDFHahes(). No document found when searching MongoDB for %s: %s.', filenameAttr, pdfFile)
-
-    return updatedTerminals
+    return terminal
