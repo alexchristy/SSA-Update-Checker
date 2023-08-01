@@ -1,5 +1,6 @@
 import re
-from typing import List, Tuple
+from typing import List, Optional, Tuple
+from PyPDF2 import PdfFileReader
 from pdfminer.pdfparser import PDFParser
 from pdfminer.pdfdocument import PDFDocument
 import requests
@@ -254,10 +255,10 @@ def get_terminals_info(listOfTerminals: List[Terminal], baseDir: str) -> List[Te
         # date or creation date. If the array has items in it set the link type in the 
         # terminal to the PDF with the most recent modification or creation date.
         if not pdf72HourFound:
-            pdfs72Hour = sort_pdfs_by_date(pdfs72Hour)
+            newest72HourPdf = get_newest_pdf(pdfs72Hour)
 
             # If there are 72 Hour PDFs
-            if pdfs72Hour is not None:
+            if newest72HourPdf is not None:
                 # Store the link to the PDF and new path to PDF
                 currentTerminal.pdfLink72Hour = pdfs72Hour[0][0]
                 dest = downloadDir + '72_HR/' + pdfs72Hour[0][1]
@@ -272,16 +273,17 @@ def get_terminals_info(listOfTerminals: List[Terminal], baseDir: str) -> List[Te
                 # We have found the 72 hour schedule
                 pdf72HourFound = True
 
-                # Remove left over PDFs on filesystem not used
-                logging.info('Removing 72 hour PDFs left over from full text search...')
-                for pdf in pdfs72Hour:
-                    logging.debug('Removing %s', pdf)
-                    os.remove(pdf)
-        
-        if not pdf30DayFound:
-            pdfs30Day = sort_pdfs_by_date(pdfs30Day)
+        # Remove unused downloaded PDFs from the full
+        # text PDF search.
+        logging.info('Removing %d left over 72 hour PDFs.', len(pdfs72Hour))
+        for link, path in pdfs72Hour:
+            logging.debug('Removing rollcall pdf: %s', path)
+            os.remove(path)
 
-            if pdfs30Day is not None:
+        if not pdf30DayFound:
+            newest30DayPdf = get_newest_pdf(pdfs30Day)
+
+            if newest30DayPdf is not None:
                 # Store the link to the PDF and new path to PDF
                 currentTerminal.pdfLink30Day = pdfs30Day[0][0]
                 dest = downloadDir + '30_DAY/' + pdfs30Day[0][1]
@@ -295,17 +297,18 @@ def get_terminals_info(listOfTerminals: List[Terminal], baseDir: str) -> List[Te
 
                 # We have found the 30 day schedule
                 pdf30DayFound = True
+            
+        # Remove unused downloaded PDFs from the full
+        # text PDF search.
+        logging.info('Removing %d left over 30 Day PDFs.', len(pdfs30Day))
+        for link, path in pdfs30Day:
+            logging.debug('Removing rollcall pdf: %s', path)
+            os.remove(path)
 
-                # Remove left over PDFs on filesystem not used
-                logging.info('Removing 30 day PDFs left over from full text search...')
-                for pdf in pdfs30Day:
-                    logging.debug('Removing %s', pdf)
-                    os.remove(pdf)
-        
         if not pdfRollcallFound:
-            pdfsRollcall = sort_pdfs_by_date(pdfsRollcall)
+            newestRollcallPdf = get_newest_pdf(pdfsRollcall)
 
-            if pdfsRollcall is not None:
+            if newestRollcallPdf is not None:
                 # Store the link to the PDF and new path to PDF
                 currentTerminal.pdfLinkRollcall = pdfsRollcall[0][0]
                 dest = downloadDir + 'ROLLCALL/' + pdfsRollcall[0][1]
@@ -320,18 +323,19 @@ def get_terminals_info(listOfTerminals: List[Terminal], baseDir: str) -> List[Te
                 # We have found the rollcall
                 pdfRollcallFound = True
 
-                 # Remove left over PDFs on filesystem not used
-                logging.info('Removing rollcall PDFs left over from full text search...')
-                for pdf in pdfsRollcall:
-                    logging.debug('Removing %s', pdf)
-                    os.remove(pdf)
+        # Remove unused downloaded PDFs from the full
+        # text PDF search.
+        logging.info('Removing %d left over rollcall PDFs.', len(pdfsRollcall))
+        for link, path in pdfsRollcall:
+            logging.debug('Removing rollcall pdf: %s', path)
+            os.remove(path)
 
         terminalsWithPDFLinks.append(currentTerminal)
     
     return terminalsWithPDFLinks
 
 
-def sort_pdfs_by_content(dir:str, pdfLinks: List[str]):
+def sort_pdfs_by_content(dir:str, pdfLinks: List[str]) -> List[Tuple[str, str]]:
     logging.debug('Entering sort_pdfs_by_content()')
 
     pdf72HourOpts = []
@@ -368,36 +372,29 @@ def sort_pdfs_by_content(dir:str, pdfLinks: List[str]):
 
     return pdf72HourOpts, pdf30DayOpts, pdfRollcallOpts
 
-def sort_pdfs_by_date(pdfs: List[Tuple[str, str]]) -> List[Tuple[str, str]]:
-    logging.debug('Entering sort_pdfs_by_date().')
+def get_newest_pdf(pdfs: List[Tuple[str, str]]) -> Optional[Tuple[str, str]]:
+    logging.debug('Entering get_newest_pdf().')
 
     # Create a list to store tuples of (link, path, date)
     pdfs_with_dates = []
-    pdfs_without_dates = []
-
+    
     # If list is empty return None
     if len(pdfs) < 1:
         return None
 
-    # If list has only one item return the array
-    # as there is nothing to sort.
-    if len(pdfs) == 1:
-        return pdfs
-
     for link, path in pdfs:
         if not os.path.isfile(path):
-            logging.warning('PDF: %s does not exist. %s called from: %s', path, inspect.stack()[0][3], inspect.stack()[1][3])
+            logging.warning('PDF: %s does not exist. Function %s called from: %s', path, inspect.stack()[0][3], inspect.stack()[1][3])
             continue
 
         with open(path, 'rb') as f:
-            parser = PDFParser(f)
-            doc = PDFDocument(parser)
+            pdf = PdfFileReader(f)
             date = None
 
-            if 'ModDate' in doc.info[0]:
-                date = doc.info[0]['ModDate']
-            elif 'CreationDate' in doc.info[0]:
-                date = doc.info[0]['CreationDate']
+            if pdf.getDocumentInfo().modifiedDate:
+                date = pdf.getDocumentInfo().modifiedDate
+            elif pdf.getDocumentInfo().createdDate:
+                date = pdf.getDocumentInfo().createdDate
 
             if date:
                 # Extract the date
@@ -406,20 +403,15 @@ def sort_pdfs_by_date(pdfs: List[Tuple[str, str]]) -> List[Tuple[str, str]]:
 
                 # Add the tuple to the list
                 pdfs_with_dates.append((link, path, date))
-            else:
-                pdfs_without_dates.append((link, path))
 
     # Sort the list by the datetime objects
     pdfs_with_dates.sort(key=lambda x: x[2], reverse=True)
 
-    # Extract the (link, path) tuples, now sorted by mod_date
-    sorted_pdfs = [(x[0], x[1]) for x in pdfs_with_dates]
-
-    # Add the PDFs without dates to the end
-    sorted_pdfs.extend(pdfs_without_dates)
-
-    return sorted_pdfs
-
+    # Return only the newest PDF, if one exists
+    if pdfs_with_dates:
+        return pdfs_with_dates[0][0], pdfs_with_dates[0][1]
+    else:
+        return None
         
 def download_pdf(dir: str, url:str) -> str:
     logging.debug('Entering download_pdf()')
