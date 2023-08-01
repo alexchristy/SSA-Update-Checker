@@ -87,21 +87,19 @@ def main():
     # Get links to all the most up to date PDFs on Terminal sites
     listOfTerminals = scraper.get_terminals_info(listOfTerminals, basePDFDir)
 
-    # Download PDFs
-    scraper.download_pdfs(db, pdf72HourDir, "pdfLink72Hour")
-    scraper.download_pdfs(db, pdf30DayDir, "pdfLink30Day")
-    scraper.download_pdfs(db, pdfRollcallDir, "pdfLinkRollcall")
+    # Download all the PDFs for each Terminal
+    for terminal in listOfTerminals:
+        terminal = scraper.download_terminal_pdfs(terminal, basePDFDir)
 
     # Check each PDF directory
-    dirs_to_check = [pdf72HourDir, pdf30DayDir, pdfRollcallDir]
+    dirs_to_check = [basePDFDir + 'tmp/72_HR/', basePDFDir + 'tmp/30_DAY/', basePDFDir + 'tmp/ROLLCALL/']
     successful_downloads = [check_downloaded_pdfs(dir_path) for dir_path in dirs_to_check]
     if all(successful_downloads):
         logging.info("PDFs were successfully downloaded in all directories.")
     else:
         logging.warning("Some directories did not have successful PDF downloads.")
 
-    # Check which PDFs changed; compare with db stored hashes
-    updatedTerminals = scraper.calc_pdf_hashes(db, basePDFDir)
+    
 
 if __name__ == "__main__":
     main()
