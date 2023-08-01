@@ -1,8 +1,11 @@
 import glob
 import logging
 import os
+from typing import List, Dict
 from urllib.parse import unquote, urlparse
 from dotenv import load_dotenv
+
+from terminal import Terminal
 
 def check_env_variables(variables):
     # Load environment variables from .env file
@@ -52,7 +55,7 @@ def check_pdf_directories(baseDir):
 
     '''
 
-    pdfUseDir = ['tmp/', 'current/', 'archive/']
+    pdfUseDir = ['tmp/', 'current/']
 
     typeOfPdfDirs = ['72_HR/', '30_DAY/', 'ROLLCALL']
 
@@ -63,6 +66,11 @@ def check_pdf_directories(baseDir):
     # Check base directory exists
     if not os.path.exists(baseDir):
         os.mkdir(baseDir)
+
+    # Create archive directory seperately
+    archiveDir = baseDir + 'archive/'
+    if not os.path.exists(archiveDir):
+        os.mkdir(archiveDir)
 
     # Iterate through the use directories: tmp/, current/, archive/
     for useDir in pdfUseDir:
@@ -86,6 +94,35 @@ def check_pdf_directories(baseDir):
     
     return None
 
+def gen_archive_folders(listOfTerminals: List[Terminal], dir: str) -> Dict[str, str]:
+
+    archiveFolderDict = {}
+
+    pdfTypeDirs = ['72_HR/', '30_DAY/', 'ROLLCALL/']
+
+    for terminal in listOfTerminals:
+
+        # Generate folder name and create path
+        terminaName = terminal.name
+        folderName = terminaName.replace(' ', '_')
+        folderPath = dir + folderName
+
+        # Create name folder if it does not exist
+        if not os.path.exists(folderPath):
+            os.mkdir(folderPath)
+
+        # Create sub directories for each terminal archive to
+        # sort the different types of PDFs that will be stored.
+        for typeDir in pdfTypeDirs:
+            typeDirPath = folderPath + typeDir
+
+            if not os.path.exists(typeDirPath):
+                os.mkdir(typeDirPath)
+        
+        # Append to dictionary
+        archiveFolderDict[terminaName] = folderPath
+    
+    return archiveFolderDict
 
 def check_downloaded_pdfs(directory_path):
     """Check if at least one PDF was downloaded and log the number of PDFs in the directory."""
