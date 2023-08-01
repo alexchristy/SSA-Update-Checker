@@ -107,27 +107,24 @@ def main():
     terminalUpdates = []
     for terminal in listOfTerminals:
 
-        updatedPdfs = []
+        updatedPdfsDict = {}
 
         if db.is_72hr_updated(terminal):
-            updatedPdfs.append(terminal.pdfName72Hour)
+            updatedPdfsDict['72_HR'] = terminal.pdfName72Hour
         
         if db.is_30day_updated(terminal):
-            updatedPdfs.append(terminal.pdfName30Day)
+            updatedPdfsDict['30_DAY'] = terminal.pdfName30Day
         
         if db.is_rollcall_updated(terminal):
-            updatedPdfs.append(terminal.pdfNameRollcall)
+            updatedPdfsDict['ROLLCALL'] = terminal.pdfNameRollcall
         
-        terminalTuple = (terminal.name, updatedPdfs)
+        terminalTuple = (terminal.name, updatedPdfsDict)
 
         terminalUpdates.append(terminalTuple)
 
     # Rotate out old PDFs to archive for AI training data
-    gen_archive_dirs(listOfTerminals, basePDFDir)
-
-    # Store changes in DB
-    for terminal in listOfTerminals:
-        db.store_terminal(terminal)
+    archiveDirDict = gen_archive_dirs(listOfTerminals, basePDFDir)
+    archive_old_pdfs(db, terminalUpdates, archiveDirDict)
 
     ##################################################
     # Place holder for Azure AI Services Upload func #
