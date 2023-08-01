@@ -1,9 +1,12 @@
+import datetime
 import glob
 import logging
 import os
-from typing import List, Dict
+import shutil
+from typing import List, Dict, Tuple
 from urllib.parse import unquote, urlparse
 from dotenv import load_dotenv
+from mongodb import MongoDB
 
 from terminal import Terminal
 
@@ -49,9 +52,6 @@ def check_pdf_directories(baseDir):
     |    +------ROLLCALL/
     |
     +----archive/
-         +-------72_HR/
-         +-------30_DAY/
-         +--------ROLLCALL/
 
     '''
 
@@ -126,6 +126,68 @@ def gen_archive_dirs(listOfTerminals: List[Terminal], dir: str) -> Dict[str, str
     
     return archiveFolderDict
 
+def archive_old_pdfs(db: MongoDB, terminalUpdates: List[Tuple[str, Dict[str, str]]], archiveDirDict: Dict[str, str]) -> None:
+
+    for terminalName, updates in terminalUpdates:
+
+        # Retrieve updates
+        pdf72HourUpdate = updates.get('72_HR')
+        pdf30DayUpdate = updates.get('30_DAY')
+        pdfRollcallUpdate = updates.get('ROLLCALL')
+
+        # Retrieve DB document for terminal
+        doc = db.get_doc_by_attr_value('name', terminalName)
+
+        if doc is None:
+            return None
+
+        terminalArchiveDir = archiveDirDict[terminalName]
+
+        # If 72 Hour schedule PDF was updated
+        if pdf72HourUpdate is not None:
+            # Retrieve the path from DB to the old 72 hour schedule PDF
+            old72HourPdfPath = doc['pdfName72Hour']
+
+            # Generate a new name for the PDF that will be archived
+            archivedName = generate_pdf_name(terminalName, '72HR')
+
+            # Move old PDF to archive directory and rename
+            archiveDest = terminalArchiveDir + '72_HR/' + archivedName
+            shutil.move(old72HourPdfPath, archiveDest)
+
+            logging.info('%s 72 hour PDF from terminal: %s was archived at: %s', old72HourPdfPath, terminalName, archiveDest)
+        
+        # If 30 Day schedule PDF was updated
+        if pdf30DayUpdate is not None:
+            # Retrieve the path from DB to the old 30 day schedule PDF
+            old30DayPdfPath = doc['pdfName30Day']
+
+            # Generate a new name for the PDF that will be archived
+            archivedName = generate_pdf_name(terminalName, '30DAY')
+
+            # Move old PDF to archive directory and rename
+            archiveDest = terminalArchiveDir + '30_DAY/' + archivedName
+            shutil.move(old30DayPdfPath, archiveDest)
+
+            logging.info('%s 30 day PDF from terminal: %s was archived at: %s', old30DayPdfPath, terminalName, archiveDest)
+
+        if pdfRollcallUpdate is not None:
+            # Retrieve the path from the DB to the old rollcall PDF
+            oldRollcallPdfPath = doc['pdfNameRollcall']
+
+            # Generate a new name for the PDF that will be archived
+            archivedName = generate_pdf_name(terminalName, 'ROLLCALL')
+
+            # Move old PDF to archive directory and rename
+            shutil.move(oldRollcallPdfPath, terminalArchiveDir + 'ROLLCALL/' + archivedName)
+
+            logging.info('%s rolllcall PDF from Terminal: %s was archived at: %s', oldRollcallPdfPath, terminalName, archiveDest)
+        
+    return None
+
+
+            
+
 def check_downloaded_pdfs(directory_path):
     """Check if at least one PDF was downloaded and log the number of PDFs in the directory."""
     num_pdf_files = len(glob.glob(os.path.join(directory_path, "*.pdf")))
@@ -142,3 +204,18 @@ def get_pdf_name(url):
         return path.split('/')[-1]
     except Exception as e:
         return str(e)
+    
+def generate_pdf_name(terminalName, nameModifier):
+    # Replace spaces with underscore in terminalName
+    terminalName = terminalName.replace(' ', '_')
+    
+    # Get current date and time
+    now = datetime.datetime.now()
+    
+    # Format date and time as per your requirement
+    timestamp = now.strftime('%d-%b-%Y_%H%M')
+    
+    # Generate new name
+    new_name = f"{terminalName}_{nameModifier}_{timestamp}.pdf"
+    
+    return new_name
