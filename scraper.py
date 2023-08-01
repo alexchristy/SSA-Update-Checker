@@ -39,7 +39,7 @@ def get_with_retry(url: str):
             return reponse # Exit function if request was successful
         
         except Exception as e: # Catch any execeptions
-            logging.error('Request to %s failed in %s.', url, inspect.stack[1], exc_info=True)
+            logging.error('Request to %s failed in %s.', url, inspect.stack()[1], exc_info=True)
 
             # If it was not the last attempt
             if attempt < 4:
@@ -337,7 +337,7 @@ def sort_pdfs_by_date(pdfs: List[Tuple[str, str]]) -> List[str]:
 
     for link, path in pdfs:
         if not os.path.isfile(path):
-            logging.warning('PDF: %s does not exist. %s called from: %s', path, inspect.stack[0], inspect.stack[1])
+            logging.warning('PDF: %s does not exist. %s called from: %s', path, inspect.stack()[0], inspect.stack()[1])
             continue
 
         with open(path, 'rb') as f:
@@ -454,18 +454,18 @@ def calc_terminal_pdf_hashes(terminal: Terminal):
         terminal.pdfHash72Hour = calculate_sha256(pdf72HourPath)
         logging.debug('%s hash was calculated.', pdf72HourPath)
     else:
-        logging.warning('%s was not found in %s. Is it missing?', pdf72HourPath, inspect.stack[0])
+        logging.warning('%s was not found in %s. Is it missing?', pdf72HourPath, inspect.stack()[0])
 
     if os.path.exists(pdf30DayPath):
         terminal.pdfHash30Day = calculate_sha256(pdf30DayPath)
         logging.debug('%s hash was calculated.', pdf30DayPath)
     else:
-        logging.warning('%s was not found in %s. Is it missing?', pdf30DayPath, inspect.stack[0])
+        logging.warning('%s was not found in %s. Is it missing?', pdf30DayPath, inspect.stack()[0])
     
     if os.path.exists(pdfRollcallPath):
         terminal.pdfHashRollcall = calculate_sha256(pdfRollcallPath)
         logging.debug('%s hash was calculated.', pdfRollcallPath)
     else:
-        logging.warning('%s was not found in %s. Is it missing?', pdfRollcallPath, inspect.stack[0])
+        logging.warning('%s was not found in %s. Is it missing?', pdfRollcallPath, inspect.stack()[0])
 
     return terminal
