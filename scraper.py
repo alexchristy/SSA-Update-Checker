@@ -319,7 +319,7 @@ def sort_pdfs_by_content(dir:str, pdfLinks: List[str]):
 
     return pdf72HourOpts, pdf30DayOpts, pdfRollcallOpts
 
-def sort_pdfs_by_date(pdfs: List[Tuple(str, str)]) -> List[str]:
+def sort_pdfs_by_date(pdfs: List[Tuple[str, str]]) -> List[str]:
     # Create a list to store tuples of (path, date)
     pdfs_with_dates = []
     pdfs_without_dates = []
