@@ -103,5 +103,26 @@ def main():
     for terminal in listOfTerminals:
         terminal = scraper.calc_terminal_pdf_hashes(terminal)
 
+    # Check for any updates to terminal's PDFs
+    terminalUpdates = []
+    for terminal in listOfTerminals:
+
+        updatedPdfs = []
+
+        if db.is_72hr_updated(terminal):
+            updatedPdfs.append(terminal.pdfName72Hour)
+        
+        if db.is_30day_updated(terminal):
+            updatedPdfs.append(terminal.pdfName30Day)
+        
+        if db.is_rollcall_updated(terminal):
+            updatedPdfs.append(terminal.pdfNameRollcall)
+        
+        terminalTuple = (terminal.name, updatedPdfs)
+
+        terminalUpdates.append(terminalTuple)
+
+    
+
 if __name__ == "__main__":
     main()
