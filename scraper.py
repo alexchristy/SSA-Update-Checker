@@ -1,7 +1,12 @@
 import re
+from typing import List, Tuple
+from pdfminer.pdfparser import PDFParser
+from pdfminer.pdfdocument import PDFDocument
 import requests
 import hashlib
 import os
+import shutil
+import inspect
 from terminal import *
 from mongodb import *
 from bs4 import BeautifulSoup
@@ -11,6 +16,8 @@ from mongodb import *
 from urllib.parse import urlparse
 import logging
 from datetime import datetime
+from pdfminer.high_level import extract_text
+import utils
 
 valid_locations = ['AMC CONUS Terminals', 'EUCOM Terminals', 'INDOPACOM Terminals',
                    'CENTCOM Terminals', 'SOUTHCOM TERMINALS', 'Non-AMC CONUS Terminals',
@@ -26,32 +33,55 @@ def calc_file_hash(file_path):
             md5_hash.update(chunk)
     return md5_hash.hexdigest()
 
-def get_terminal_info(db, url):
-    logging.debug('Running get_terminal_info().')
+def get_with_retry(url: str):
 
-    # Wrapped reponse.get(url) to prevent program exiting upon initial error
-    # and so it will retry before failing.
-    delay = 2  # Initialize delay time
+    delay = 2
 
     for attempt in range(5):
+
         try:
 
-            # Send a GET request to the website
-            response = requests.get(url)
-            break  # If we've made it this far without an exception, the request succeeded, so exit the loop
+            # Send GET request to the website
+            reponse = requests.get(url)
+            return reponse # Exit function if request was successful
         
-        except Exception as e: # Catch any exceptions
-            logging.error('Request to download AMC homepage failed in get_terminal_info()', exc_info=True)
+        except Exception as e: # Catch any execeptions
+            logging.error('Request to %s failed in %s.', url, inspect.stack[1], exc_info=True)
 
-            if attempt < 4: # If this wasn't the last attempt
-                logging.info('Retring download of AMC homepage in %d seconds...', delay)
+            # If it was not the last attempt
+            if attempt < 4:
+                logging.info('Retrying request to %s in %d seconds...', url, delay)
                 time.sleep(delay) # Wait before next attempt
-                delay *= 2 # Double delay time
+                delay *= 2
+            
+            # It was last attempt
+            else:
+                logging.error('All attempts failed.')
 
-            else: # If this was the last attempt re-raise the exception and exit program
-                logging.critical('All attempts to download the AMC homepage failed. Exiting program...')
-                raise
+    return None
 
+def normalize_url(url: str):
+    parsedUrl = urlparse(url)
+    hostname = str(parsedUrl.netloc)
+    normalizedUrl = 'https://' + hostname + '/'
+    return normalizedUrl
+
+def get_terminals(url: str):
+    logging.debug('Running get_terminal_info().')
+
+    # Download the AMC travel page
+    response = get_with_retry(url)
+
+    # Exit program if AMC travel page fails to download
+    if response is None:
+        logging.critical('Failed to download AMC Travel page. Exiting program...')
+        raise
+
+    '''
+    ####################################
+    # Find all terminals doing Space A #
+    ####################################
+    '''
 
     # Create empty array of terminals to store data
     listOfTerminals = []
@@ -135,10 +165,20 @@ def get_terminal_info(db, url):
         # Increment so next link and name is put in correct terminal object
         index += 1
 
+    return listOfTerminals
+
+def get_terminals_info(listOfTerminals: List[Terminal], baseDir: str) -> List[Terminal]:
+
+    downloadDir = baseDir + 'tmp/'
+
+    terminalsWithPDFLinks = []
+
+    regex72HourFilter = r"(?i)72[- _%20]{0,1}hr|72[- _%20]{0,1}hour"
+    regex30DayFilter = r"(?i)30[-_ ]?day"
+    regexRollcallFilter = r"(?i)(roll[-_ ]?call)|roll"
+
     # Grab terminal pages
     for currentTerminal in listOfTerminals:
-
-        logging.debug('Downloading %s terminal page.', currentTerminal.name)
 
         # URL of terminal page
         url = currentTerminal.link
@@ -148,31 +188,17 @@ def get_terminal_info(db, url):
             logging.warning('%s terminal has no terminal page link.', currentTerminal.name)
             continue
 
-        # Wrapped reponse.get(url) to prevent program exiting upon error
-        # and so it will retry before failing.
-        delay = 2  # Initialize delay time
+        logging.debug('Downloading %s terminal page.', currentTerminal.name)
 
-        for attempt in range(5):  # Attempt the request up to 5 times
-            try:
-                response = requests.get(url)
-                break  # If we've made it this far without an exception, the request succeeded, so exit the loop
+        # Get terminal page with retry mechanism
+        response = get_with_retry(url)
 
-            except Exception as e:  # Catch any exceptions
-                logging.error('Request to download %s terminal page failed in get_terminal_info().', currentTerminal.name ,exc_info=True)
-
-                if attempt < 4:  # If this wasn't the last attempt...
-                    logging.info('Retrying download of %s terminal page in %d seconds...', currentTerminal.name, delay)
-                    time.sleep(delay)  # Wait before the next attempt
-                    delay *= 2  # Double the delay time
-
-                else:  # If this was the last attempt, re-raise the exception
-                    logging.error('All attemps to download %s terminal page failed. Skipping...', currentTerminal.name)
-
+        # If terminal page is not downloaded correctly continue to next terminal
+        if response is None:
+            continue
 
         # Get hostname of terminal page
-        parsed_url = urlparse(response.url)
-        hostname = str(parsed_url.netloc)
-        hostname = 'https://' + hostname + '/'
+        hostname = normalize_url(url)
 
         # Create a BeautifulSoup object from the response content
         soup = BeautifulSoup(response.content, "html.parser")
@@ -180,74 +206,205 @@ def get_terminal_info(db, url):
         # Find all <a> tags with href and PDF file extension
         a_tags = soup.find_all('a', attrs={'target': True}, href=lambda href: href and '.pdf' in href)
 
-        # Bools to stop searching URLs when all PDFs are found
+        # Create strings for naming pdfs.
+        basePdfName = currentTerminal.name
+        basePdfName = basePdfName.replace(" ", "_")
+
+        # Create array for PDFs that do not match
+        noMatchPdfs = []
+
+        # Create bools to shorten searching time
         pdf72HourFound = False
         pdf30DayFound = False
         pdfRollcallFound = False
 
-        # Regex filters for the different PDFs
-        regex3DayFilter = r"(?i)72[- _%20]{0,1}hr|72[- _%20]{0,1}hour"
-        regex30DayFilter = r"(?i)30[-_ ]?day"
-        regexRollcallFilter = r"(?i)(roll[-_ ]?call)|roll"
-
         for a_tag in a_tags:
-            href = a_tag["href"]
+            pdfLink = a_tag["href"]
 
-            # Remove any URL encoded spaces
-            href = href.replace('%20', ' ')
+            # Get name of PDF as it appears on site
+            pdfName = utils.get_pdf_name(pdfLink)
 
-            # 3 Day PDFs searching for 72 hr variations
-            if not pdf72HourFound and re.search(regex3DayFilter, href):
-                # Prepend host if missing from URL
-                if not href.startswith("https://"):
-                    # Prepend the base URL to the link
-                    href = urljoin(hostname, href)
+            # Check if 72 hour schedule
+            if not pdf72HourFound:
+                if re.search(regex72HourFilter, pdfName):
+                    currentTerminal.pdfLink72Hour = pdfLink
+                    pdf72HourFound = True
+                    continue
 
-                currentTerminal.pdfLink72Hour = href
-                pdf72HourFound = True
+            # Check if 30 day schedule
+            if not pdf30DayFound:
+                if re.search(regex30DayFilter, pdfName):
+                    currentTerminal.pdfLink30Day = pdfLink
+                    pdf30DayFound = True
+                    continue
 
-            # Rollcall PDFs searching for rollcall or roll call variations
-            if not pdfRollcallFound and re.search(regexRollcallFilter, href):
+            # Check if rollcall
+            if not pdfRollcallFound:
+                if re.search(regexRollcallFilter, pdfName):
+                    currentTerminal.pdfLinkRollcall = pdfLink
+                    pdfRollcallFound = True
+                    continue
 
-                # Prepend host if missing from URL
-                if not href.startswith("https://"):
-                    # Prepend the base URL to the link
-                    href = urljoin(hostname, href)
-                
-                currentTerminal.pdfLinkRollcall = href
-                pdfRollcallFound = True
+            # PDF's name did not match any of the regex filters
+            noMatchPdfs.append(pdfLink)
+        
+        # If all PDFs are found continue to next terminal
+        if pdf72HourFound and pdf30DayFound and pdfRollcallFound:
+            terminalsWithPDFLinks.append(currentTerminal)
+            continue
 
-            # 30 Day PDFs searching for 30 day variations
-            if not pdf30DayFound and re.search(regex30DayFilter, href):
-                # Prepend host if missing from URL
-                if not href.startswith("https://"):
-                    # Prepend the base URL to the link
-                    href = urljoin(hostname, href)
+        # Not all PDFs found sort unmatched PDFs by content and return their paths
+        pdfs72Hour, pdfs30Day, pdfsRollcall = sort_pdfs_by_content(downloadDir, noMatchPdfs)
 
-                currentTerminal.pdfLink30Day = href
-                pdf30DayFound = True
-
-            # Break out of loop when all are found
-            if pdf72HourFound and pdf30DayFound and pdfRollcallFound:
-                break
-
-        # Log when no 3 day pdfs were found; Log set to warning b/c all terminals should have a 3 day schedule
+        # Check each type of PDF type. If the type was already found skip sorting
+        # that type of PDF. If the PDF type was not found sort the PDFs by modification
+        # date or creation date. If the array has items in it set the link type in the 
+        # terminal to the PDF with the most recent modification or creation date.
         if not pdf72HourFound:
-            logging.warning('No 3 day PDFs found for %s terminal', currentTerminal.name)
+            pdfs72Hour = sort_pdfs_by_date(pdfs72Hour)
+
+            if pdfs72Hour is not None:
+                currentTerminal.pdfLink72Hour = pdfs72Hour[0][0]
+                dest = downloadDir + '72_HR/' + pdfs72Hour[0][1]
+                shutil.move(pdfs72Hour[0][1], dest)
+                currentTerminal.pdfName72Hour = dest
         
-        # Log when no 30 Day PDFs found; Log set to info b/c most terminals do not have a 30 day schedule
         if not pdf30DayFound:
-            logging.info('No 30 day PDFs found for %s terminal', currentTerminal.name)
+            pdfs30Day = sort_pdfs_by_date(pdfs30Day)
+
+            if pdfs30Day is not None:
+                currentTerminal.pdfLink30Day = pdfs30Day[0][0]
+                dest = downloadDir + '30_DAY/' + pdfs30Day[0][1]
+                shutil.move(pdfs30Day[0][1], dest)
+                currentTerminal.pdfName30Day = dest
         
-        # Log when no rollcall PDFs found; Log set to info b/c most terminals do no have rollcalls
         if not pdfRollcallFound:
-            logging.info('No rollcall PDFs found for %s terminal', currentTerminal.name)
+            pdfsRollcall = sort_pdfs_by_date(pdfsRollcall)
+
+            if pdfsRollcall is not None:
+                currentTerminal.pdfLinkRollcall = pdfsRollcall[0][0]
+                dest = downloadDir + 'ROLLCALL/' + pdfsRollcall[0][1]
+                shutil.move(pdfsRollcall[0][1], dest)
+                currentTerminal.pdfNameRollcall = dest
+
+        terminalsWithPDFLinks.append(currentTerminal)
     
-    # Write to DB
-    logging.info('Writing terminals to DB.')
-    for terminal in listOfTerminals:
-        db.add_terminal(terminal)
-        logging.debug('%s terminal written to DB.', terminal.name)
+    return terminalsWithPDFLinks
+
+
+def sort_pdfs_by_content(dir:str, pdfLinks: List[str]):
+
+    pdf72HourOpts = []
+    pdf30DayOpts = []
+    pdfRollcallOpts = []
+
+    sch72HourKeys = ['roll call', 'destination', 'seats']
+
+    for link in pdfLinks:
+        
+        pdfPath = download_pdf(dir, link)
+
+        text = extract_text(pdfPath)
+        text = text.lower()
+
+        # Roll calls
+        if 'pax' in text:
+            pdfRollcallOpts.append((link, pdfPath))
+            continue
+        
+        # 30 Day schedules
+        if '30-day' in text or 'monthly' in text:
+            pdf30DayOpts.append((link, pdfPath))
+            continue
+
+        # 72 Hour schedules
+        # Check that all three strings are in the text.
+        if all(key in text for key in sch72HourKeys):
+            pdf72HourOpts.append((link, pdfPath))
+            continue
+        
+        # If the PDF did not match any condition, delete it
+        os.remove(pdfPath)
+
+    return pdf72HourOpts, pdf30DayOpts, pdfRollcallOpts
+
+def sort_pdfs_by_date(pdfs: List[Tuple(str, str)]) -> List[str]:
+    # Create a list to store tuples of (path, date)
+    pdfs_with_dates = []
+    pdfs_without_dates = []
+
+    # If list is empty return None
+    if len(pdfs) < 1:
+        return None
+    
+    # If list has only one item return the array
+    # as there is nothing to sort.
+    if len(pdfs) == 1:
+        return pdfs
+
+    for link, path in pdfs:
+        if not os.path.isfile(path):
+            logging.warning('PDF: %s does not exist. %s called from: %s', path, inspect.stack[0], inspect.stack[1])
+            continue
+
+        with open(path, 'rb') as f:
+            parser = PDFParser(f)
+            doc = PDFDocument(parser)
+            date = None
+
+            if 'ModDate' in doc.info[0]:
+                date = doc.info[0]['ModDate']
+            elif 'CreationDate' in doc.info[0]:
+                date = doc.info[0]['CreationDate']
+
+            if date:
+                # Extract the date
+                date = str(date)
+                date = datetime.strptime(date[2:16], "%Y%m%d%H%M%S")
+
+                # Add the tuple to the list
+                pdfs_with_dates.append((path, date))
+            else:
+                pdfs_without_dates.append(path)
+
+    # Sort the list by the datetime objects
+    pdfs_with_dates.sort(key=lambda x: x[1], reverse=True)
+
+    # Extract the paths, now sorted by mod_date
+    sorted_paths = [x[0] for x in pdfs_with_dates]
+
+    # Add the PDFs without dates to the end
+    sorted_paths.extend(pdfs_without_dates)
+
+    return sorted_paths
+
+        
+def download_pdf(dir: str, url:str):
+
+    # Get the filename from the URL
+    filename = utils.get_pdf_name(url)
+
+    # Send a GET request to the URL
+    response = get_with_retry(url)
+
+    # Check if the request is successful
+    if response is not None:
+        # Make sure the directory exists, if not, create it.
+        os.makedirs(dir, exist_ok=True)
+        
+        # Combine the directory with the filename
+        filepath = os.path.join(dir, filename)
+        
+        # Write the content of the request to a file
+        with open(filepath, 'wb') as f:
+            f.write(response.content)
+
+        return filepath
+
+    else:
+        print('Failed to download the file.')
+        return None
+
 
 def download_pdfs(db: MongoDB, pdfDir: str, attr: str):
     logging.debug('Starting to download PDFs: %s.', attr)
