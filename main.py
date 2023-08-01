@@ -82,7 +82,10 @@ def main():
 
     # Set URL to AMC Travel site and scrape Terminal information from it
     url = 'https://www.amc.af.mil/AMC-Travel-Site'
-    scraper.get_terminal_info(db, url)
+    listOfTerminals = scraper.get_terminals(url)
+
+    # Get links to all the most up to date PDFs on Terminal sites
+    listOfTerminals = scraper.get_terminals_info(listOfTerminals, basePDFDir)
 
     # Download PDFs
     scraper.download_pdfs(db, pdf72HourDir, "pdfLink72Hour")
