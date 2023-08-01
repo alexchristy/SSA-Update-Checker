@@ -219,3 +219,16 @@ def generate_pdf_name(terminalName, nameModifier):
     new_name = f"{terminalName}_{nameModifier}_{timestamp}.pdf"
     
     return new_name
+
+def ensure_url_encoded(url):
+    # unquote the url, this will have no effect if the url is not encoded
+    unquoted_url = unquote(url)
+
+    # if the unquoted url is same as original url, then it was not encoded
+    if unquoted_url == url:
+        # so we encode it
+        return quote(url)
+    else:
+        # if the unquoted url is different from the original url
+        # it means the original url was already encoded
+        return url

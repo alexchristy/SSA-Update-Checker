@@ -28,6 +28,8 @@ def get_with_retry(url: str):
 
     delay = 2
 
+    url = utils.ensure_url_encoded(url)
+
     for attempt in range(5):
 
         try:
@@ -218,21 +220,21 @@ def get_terminals_info(listOfTerminals: List[Terminal], baseDir: str) -> List[Te
             # Check if 72 hour schedule
             if not pdf72HourFound:
                 if re.search(regex72HourFilter, pdfName):
-                    currentTerminal.pdfLink72Hour = pdfLink
+                    currentTerminal.pdfLink72Hour = hostname + pdfLink
                     pdf72HourFound = True
                     continue
 
             # Check if 30 day schedule
             if not pdf30DayFound:
                 if re.search(regex30DayFilter, pdfName):
-                    currentTerminal.pdfLink30Day = pdfLink
+                    currentTerminal.pdfLink30Day = hostname + pdfLink
                     pdf30DayFound = True
                     continue
 
             # Check if rollcall
             if not pdfRollcallFound:
                 if re.search(regexRollcallFilter, pdfName):
-                    currentTerminal.pdfLinkRollcall = pdfLink
+                    currentTerminal.pdfLinkRollcall = hostname + pdfLink
                     pdfRollcallFound = True
                     continue
 
