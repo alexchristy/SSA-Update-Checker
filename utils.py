@@ -223,7 +223,7 @@ def rotate_pdf_to_current(baseDir: str, pdfPath: str) -> str:
     if 'ROLLCALL' in pdfPath:
         newRollcallDir = baseDir + 'current/ROLLCALL/'
         dest = shutil.move(pdfPath, newRollcallDir)
-        logging.inf('Rotated rollcall PDF to current directory: %s ---> %s', pdfPath, dest)
+        logging.info('Rotated rollcall PDF to current directory: %s ---> %s', pdfPath, dest)
         return dest
     
     logging.error('Unable to rotate PDF no valid category. Path: %s', pdfPath)
@@ -238,7 +238,7 @@ def check_downloaded_pdfs(directory_path):
         logging.info('%d PDFs were downloaded in the directory: %s', num_pdf_files, directory_path)
     return num_pdf_files > 0
 
-def get_pdf_name(url):
+def get_pdf_name(url) -> str:
     try:
         result = urlparse(url)
         path = unquote(result.path)
