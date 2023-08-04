@@ -124,6 +124,9 @@ def main():
     # Place holder for Azure AI Services Upload func #
     ##################################################
 
+    # Store any change in MongoDB
+    for terminal in listOfTerminals:
+        db.store_terminal(terminal)
 
 if __name__ == "__main__":
     main()
