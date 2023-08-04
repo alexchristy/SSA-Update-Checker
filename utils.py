@@ -46,16 +46,15 @@ def check_pdf_directories(baseDir):
     |    +--30_DAY/
     |    +--ROLLCALL/
     |
-    +----current/
-    |    +------72_HR/
-    |    +------30_DAY/
-    |    +------ROLLCALL/
-    |
     +----archive/
+         +----{terminal_name}
+              +-----72_HR/
+              +-----30_DAY/
+              +-----ROLLCALL/
 
     '''
 
-    pdfUseDir = ['tmp/', 'current/']
+    pdfUseDir = ['tmp/']
 
     typeOfPdfDirs = ['72_HR/', '30_DAY/', 'ROLLCALL']
 
