@@ -2,12 +2,8 @@ import scraper
 from utils import *
 from terminal import *
 from mongodb import *
-from telegram import Bot
-import asyncio
 import os
-import glob
 import sys
-from dotenv import load_dotenv
 import argparse
 import logging
 
