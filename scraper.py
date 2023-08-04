@@ -1,13 +1,13 @@
 import re
 from typing import List, Optional, Tuple
-from PyPDF2 import PdfFileReader
-from pdfminer.pdfparser import PDFParser
+from PyPDF2 import PdfReader
 from pdfminer.pdfdocument import PDFDocument
+from pdfminer.pdfparser import PDFParser
+from pdfminer.pdfpage import PDFPage
 import requests
 import hashlib
 import os
 import shutil
-import inspect
 from terminal import *
 from mongodb import *
 from bs4 import BeautifulSoup
@@ -41,7 +41,7 @@ def get_with_retry(url: str):
             return reponse # Exit function if request was successful
         
         except Exception as e: # Catch any execeptions
-            logging.error('Request to %s failed in %s.', url, inspect.stack()[1], exc_info=True)
+            logging.error('Request to %s failed in get_with_retry().', url, exc_info=True)
 
             # If it was not the last attempt
             if attempt < 4:
@@ -334,9 +334,11 @@ def get_terminals_info(listOfTerminals: List[Terminal], baseDir: str) -> List[Te
     
     return terminalsWithPDFLinks
 
-
 def sort_pdfs_by_content(dir:str, pdfLinks: List[str]) -> List[Tuple[str, str]]:
     logging.debug('Entering sort_pdfs_by_content()')
+
+    # Disable excessive PDF logging
+    logging.getLogger('pdfminer').setLevel(logging.INFO)
 
     pdf72HourOpts = []
     pdf30DayOpts = []
@@ -347,6 +349,24 @@ def sort_pdfs_by_content(dir:str, pdfLinks: List[str]) -> List[Tuple[str, str]]:
     for link in pdfLinks:
         
         pdfPath = download_pdf(dir, link)
+
+        # Skip link if the PDF is not downloaded successfully
+        if pdfPath is None:
+            continue
+
+        # Open the PDF file
+        with open(pdfPath, 'rb') as file:
+            # Create a PDF parser object associated with the file object
+            parser = PDFParser(file)
+
+            # Create a PDF document object that stores the document structure
+            document = PDFDocument(parser)
+
+            # Check number of pages
+            if len(list(PDFPage.create_pages(document))) > 15:
+                # Skip this PDF if it's longer than 15 pages
+                logging.info('Skipping pdf: %s has more than 15 pages.', pdfPath)
+                continue
 
         text = extract_text(pdfPath)
         text = text.lower()
@@ -384,17 +404,18 @@ def get_newest_pdf(pdfs: List[Tuple[str, str]]) -> Optional[Tuple[str, str]]:
 
     for link, path in pdfs:
         if not os.path.isfile(path):
-            logging.warning('PDF: %s does not exist. Function %s called from: %s', path, inspect.stack()[0][3], inspect.stack()[1][3])
+            logging.warning('PDF: %s does not exist in get_newest_pdf().', path)
             continue
 
         with open(path, 'rb') as f:
-            pdf = PdfFileReader(f)
+            pdf = PdfReader(f)
             date = None
 
-            if pdf.getDocumentInfo().modifiedDate:
-                date = pdf.getDocumentInfo().modifiedDate
-            elif pdf.getDocumentInfo().createdDate:
-                date = pdf.getDocumentInfo().createdDate
+            # Replace getDocumentInfo().modifiedDate and getDocumentInfo().createdDate with metadata
+            if 'ModDate' in pdf.metadata:
+                date = pdf.metadata['ModDate']
+            elif 'CreationDate' in pdf.metadata:
+                date = pdf.metadata['CreationDate']
 
             if date:
                 # Extract the date
@@ -423,7 +444,7 @@ def download_pdf(dir: str, url:str) -> str:
     response = get_with_retry(url)
 
     # Check if the request is successful
-    if response is not None:
+    if response is not None and response.status_code == 200:
         # Make sure the directory exists, if not, create it.
         os.makedirs(dir, exist_ok=True)
         
@@ -500,18 +521,18 @@ def calc_terminal_pdf_hashes(terminal: Terminal):
         terminal.pdfHash72Hour = calculate_sha256(pdf72HourPath)
         logging.debug('%s hash was calculated.', pdf72HourPath)
     else:
-        logging.warning('%s was not found in %s. Is it missing?', pdf72HourPath, inspect.stack()[0])
+        logging.warning('%s was not found in calc_terminal_pdf_hashes(). Is it missing?', pdf72HourPath)
 
     if os.path.exists(pdf30DayPath):
         terminal.pdfHash30Day = calculate_sha256(pdf30DayPath)
         logging.debug('%s hash was calculated.', pdf30DayPath)
     else:
-        logging.warning('%s was not found in %s. Is it missing?', pdf30DayPath, inspect.stack()[0])
+        logging.warning('%s was not found in calc_terminal_pdf_hashes(). Is it missing?', pdf30DayPath)
     
     if os.path.exists(pdfRollcallPath):
         terminal.pdfHashRollcall = calculate_sha256(pdfRollcallPath)
         logging.debug('%s hash was calculated.', pdfRollcallPath)
     else:
-        logging.warning('%s was not found in %s. Is it missing?', pdfRollcallPath, inspect.stack()[0])
+        logging.warning('%s was not found in calc_terminal_pdf_hashes(). Is it missing?', pdfRollcallPath)
 
     return terminal
