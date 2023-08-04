@@ -156,7 +156,7 @@ def get_terminals(url: str):
                 currentTerminal = listOfTerminals[index]
 
                 # Save the name and link
-                currentTerminal.name = name
+                currentTerminal.name = name.strip()
                 currentTerminal.link = href
 
         # Increment so next link and name is put in correct terminal object
