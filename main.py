@@ -108,18 +108,21 @@ def main():
             terminal.pdfName72Hour = rotate_pdf_to_current(basePDFDir, terminal.pdfName72Hour)
 
             updatedPdfsDict['72_HR'] = terminal.pdfName72Hour
+            logging.info('%s updated their 72 hour schedule.', terminal.name)
         
         if db.is_30day_updated(terminal):
             # Rotate the updated PDF to the current directory
             terminal.pdfName30Day = rotate_pdf_to_current(basePDFDir, terminal.pdfName30Day)
 
             updatedPdfsDict['30_DAY'] = terminal.pdfName30Day
+            logging.info('%s updated their 30 day schedule', terminal.name)
         
         if db.is_rollcall_updated(terminal):
             # Rotate the updated PDF to the current directory
             terminal.pdfNameRollcall = rotate_pdf_to_current(basePDFDir, terminal.pdfNameRollcall)
 
             updatedPdfsDict['ROLLCALL'] = terminal.pdfNameRollcall
+            logging.info('%s updated their rollcall.', terminal.name)
         
         # Create tuple of terminal name and update dict
         terminalTuple = (terminal.name, updatedPdfsDict)
