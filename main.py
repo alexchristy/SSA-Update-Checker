@@ -31,6 +31,15 @@ except ValueError as e:
     print(e)
     sys.exit(1)
 
+# Get the absolute path of the script
+scriptPath = os.path.abspath(__file__)
+
+# Set the home directory to the directory of the script
+homeDirectory = os.path.dirname(scriptPath)
+
+# Enter correct directory
+os.chdir(homeDirectory)
+
 # Create an arguement parser
 log_arg_parser = argparse.ArgumentParser(description='Set the logging level.')
 log_arg_parser.add_argument('--log', default='INFO', help='Set the logging level.')
@@ -54,15 +63,6 @@ logging.basicConfig(filename='app.log', filemode='w',
 def main():
     
     logging.info('Program started.')
-
-    # Get the absolute path of the script
-    scriptPath = os.path.abspath(__file__)
-
-    # Set the home directory to the directory of the script
-    homeDirectory = os.path.dirname(scriptPath)
-
-    # Enter correct directory
-    os.chdir(homeDirectory)
 
     # Create PDF directories if they do not exist
     check_pdf_directories(basePDFDir)
