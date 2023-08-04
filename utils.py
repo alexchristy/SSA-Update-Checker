@@ -39,22 +39,28 @@ def check_pdf_directories(baseDir):
 
     Structure:
 
-    ./{baseDir}/
+    ./{$PDF_DIR}/
     |
     +----tmp/
     |    +--72_HR/
     |    +--30_DAY/
     |    +--ROLLCALL/
     |
+    +----current/
+    |    +------72_HR/
+    |    +------30_DAY/
+    |    +------ROLLCALL/
+    |
     +----archive/
-         +----{terminal_name}
-              +-----72_HR/
-              +-----30_DAY/
-              +-----ROLLCALL/
-
+         +----{terminal_name_1}
+         |    +-----72_HR/
+         |    +-----30_DAY/
+         |    +-----ROLLCALL/
+         |
+       (...)
     '''
 
-    pdfUseDir = ['tmp/']
+    pdfUseDir = ['tmp/', 'current/']
 
     typeOfPdfDirs = ['72_HR/', '30_DAY/', 'ROLLCALL']
 
