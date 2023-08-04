@@ -366,6 +366,7 @@ def sort_pdfs_by_content(dir:str, pdfLinks: List[str]) -> List[Tuple[str, str]]:
             if len(list(PDFPage.create_pages(document))) > 15:
                 # Skip this PDF if it's longer than 15 pages
                 logging.info('Skipping pdf: %s has more than 15 pages.', pdfPath)
+                os.remove(pdfPath)
                 continue
 
         text = extract_text(pdfPath)
