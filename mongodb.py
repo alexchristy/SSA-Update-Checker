@@ -109,7 +109,7 @@ class MongoDB:
 
         if not document:
             logging.warning('is_72hr_updated(): Terminal %s was not found in Mongo.', terminal.name)
-            return False
+            return True
 
         storedHash = document["pdfHash72Hour"]
         currentHash = terminal.pdfHash72Hour
@@ -126,7 +126,7 @@ class MongoDB:
 
         if not document:
             logging.warning('is_30day_updated(): Terminal %s was not found in Mongo.', terminal.name)
-            return False
+            return True
 
         storedHash = document["pdfHash30Day"]
         currentHash = terminal.pdfHash30Day
@@ -143,7 +143,7 @@ class MongoDB:
 
         if not document:
             logging.warning('is_rollcall_updated(): Terminal %s was not found in Mongo.', terminal.name)
-            return False
+            return True
 
         storedHash = document["pdfHashRollcall"]
         currentHash = terminal.pdfHashRollcall

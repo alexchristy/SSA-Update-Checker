@@ -104,16 +104,27 @@ def main():
         updatedPdfsDict = {}
 
         if db.is_72hr_updated(terminal):
+            # Rotate the updated PDF to the current directory
+            terminal.pdfName72Hour = rotate_pdf_to_current(basePDFDir, terminal.pdfName72Hour)
+
             updatedPdfsDict['72_HR'] = terminal.pdfName72Hour
         
         if db.is_30day_updated(terminal):
+            # Rotate the updated PDF to the current directory
+            terminal.pdfName30Day = rotate_pdf_to_current(basePDFDir, terminal.pdfName30Day)
+
             updatedPdfsDict['30_DAY'] = terminal.pdfName30Day
         
         if db.is_rollcall_updated(terminal):
+            # Rotate the updated PDF to the current directory
+            terminal.pdfNameRollcall = rotate_pdf_to_current(basePDFDir, terminal.pdfNameRollcall)
+
             updatedPdfsDict['ROLLCALL'] = terminal.pdfNameRollcall
         
+        # Create tuple of terminal name and update dict
         terminalTuple = (terminal.name, updatedPdfsDict)
 
+        # Save to array of terminal updates
         terminalUpdates.append(terminalTuple)
 
     # Rotate out old PDFs to archive for AI training data

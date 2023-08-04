@@ -199,8 +199,29 @@ def archive_old_pdfs(db: MongoDB, terminalUpdates: List[Tuple[str, Dict[str, str
         
     return None
 
+def rotate_pdf_to_current(baseDir: str, pdfPath: str) -> str:
 
-            
+    # If this is a 72 hour schedule PDF
+    if '72_HR' in pdfPath:
+        new72HrDir = baseDir + 'current/72_HR/'
+        dest = shutil.move(pdfPath, new72HrDir)
+        logging.info('Rotated 72 Hour schedule PDF to current directory: %s ---> %s', pdfPath, dest)
+        return dest
+    
+    if '30_DAY' in pdfPath:
+        new30DayDir = baseDir + 'current/30_DAY/'
+        dest = shutil.move(pdfPath, new30DayDir)
+        logging.info('Rotated 30 Day schedule PDF current directory: %s ---> %s', pdfPath, dest)
+        return dest
+
+    if 'ROLLCALL' in pdfPath:
+        newRollcallDir = baseDir + 'current/ROLLCALL/'
+        dest = shutil.move(pdfPath, newRollcallDir)
+        logging.inf('Rotated rollcall PDF to current directory: %s ---> %s', pdfPath, dest)
+        return dest
+    
+    logging.error('Unable to rotate PDF no valid category. Path: %s', pdfPath)
+    return 'empty'
 
 def check_downloaded_pdfs(directory_path):
     """Check if at least one PDF was downloaded and log the number of PDFs in the directory."""
