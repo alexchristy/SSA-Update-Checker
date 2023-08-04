@@ -13,7 +13,6 @@ import logging
 
 # List of ENV variables to check
 variablesToCheck = [
-    'TELEGRAM_API_TOKEN',
     'MONGO_DB',
     'MONGO_COLLECTION',
     'MONGO_USERNAME',
@@ -26,7 +25,6 @@ try:
     check_env_variables(variablesToCheck)
     
     # Load environment variables from .env file
-    api_token = os.getenv('TELEGRAM_API_TOKEN')
     mongoDBName = os.getenv('MONGO_DB')
     mongoCollectionName = os.getenv('MONGO_COLLECTION')
     mongoUsername = os.getenv('MONGO_USERNAME')
