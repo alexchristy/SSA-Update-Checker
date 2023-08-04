@@ -221,21 +221,33 @@ def get_terminals_info(listOfTerminals: List[Terminal], baseDir: str) -> List[Te
             # Check if 72 hour schedule
             if not pdf72HourFound:
                 if re.search(regex72HourFilter, pdfName):
-                    currentTerminal.pdfLink72Hour = hostname + partialPdfLink
+                    # Check if terminal used relative or full link
+                    if partialPdfLink.lower().startswith('https://'):
+                        currentTerminal.pdfLink72Hour = partialPdfLink
+                    else:
+                        currentTerminal.pdfLink72Hour = hostname + partialPdfLink
                     pdf72HourFound = True
                     continue
 
             # Check if 30 day schedule
             if not pdf30DayFound:
                 if re.search(regex30DayFilter, pdfName):
-                    currentTerminal.pdfLink30Day = hostname + partialPdfLink
+                    # Check if terminal used relative or full link
+                    if partialPdfLink.lower().startswith('https://'):
+                        currentTerminal.pdfLink30Day = partialPdfLink
+                    else:
+                        currentTerminal.pdfLink30Day = hostname + partialPdfLink
                     pdf30DayFound = True
                     continue
 
             # Check if rollcall
             if not pdfRollcallFound:
                 if re.search(regexRollcallFilter, pdfName):
-                    currentTerminal.pdfLinkRollcall = hostname + partialPdfLink
+                    # Check if terminal used relative or full link
+                    if partialPdfLink.lower().startswith('https://'):
+                        currentTerminal.pdfLinkRollcall = partialPdfLink
+                    else:
+                        currentTerminal.pdfLinkRollcall = hostname + partialPdfLink
                     pdfRollcallFound = True
                     continue
 
