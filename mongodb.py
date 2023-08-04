@@ -101,7 +101,7 @@ class MongoDB:
         return self.collection.update_one({"name": terminalName}, {"$set": {attr: value}})
     
     def get_doc_by_attr_value(self, attr, value):
-        return self.collection.find({attr: {"$eq": value}})
+        return self.collection.find_one({attr: {"$eq": value}})
     
     def is_72hr_updated(self, terminal: Terminal) -> bool:
 
