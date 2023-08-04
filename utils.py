@@ -106,7 +106,7 @@ def gen_archive_dirs(listOfTerminals: List[Terminal], dir: str) -> Dict[str, str
 
         # Generate folder name and create path
         terminaName = terminal.name
-        folderName = terminaName.replace(' ', '_')
+        folderName = terminaName.replace(' ', '_') + '/'
         folderPath = archiveDir + folderName
 
         # Create name folder if it does not exist
@@ -148,40 +148,55 @@ def archive_old_pdfs(db: MongoDB, terminalUpdates: List[Tuple[str, Dict[str, str
             # Retrieve the path from DB to the old 72 hour schedule PDF
             old72HourPdfPath = doc['pdfName72Hour']
 
-            # Generate a new name for the PDF that will be archived
-            archivedName = generate_pdf_name(terminalName, '72HR')
+            # If old PDF exists
+            if os.path.exists(old72HourPdfPath):
 
-            # Move old PDF to archive directory and rename
-            archiveDest = terminalArchiveDir + '72_HR/' + archivedName
-            shutil.move(old72HourPdfPath, archiveDest)
+                # Generate a new name for the PDF that will be archived
+                archivedName = generate_pdf_name(terminalName, '72HR')
 
-            logging.info('%s 72 hour PDF from terminal: %s was archived at: %s', old72HourPdfPath, terminalName, archiveDest)
-        
+                # Move old PDF to archive directory and rename
+                archiveDest = terminalArchiveDir + '72_HR/' + archivedName
+                shutil.move(old72HourPdfPath, archiveDest)
+
+                logging.info('%s 72 hour PDF from terminal: %s was archived at: %s', old72HourPdfPath, terminalName, archiveDest)
+            else:
+                logging.warning('Unable to archive old PDF at path: %s Not found!', old72HourPdfPath)
+
         # If 30 Day schedule PDF was updated
         if pdf30DayUpdate is not None:
             # Retrieve the path from DB to the old 30 day schedule PDF
             old30DayPdfPath = doc['pdfName30Day']
 
-            # Generate a new name for the PDF that will be archived
-            archivedName = generate_pdf_name(terminalName, '30DAY')
+            # If old PDF exists
+            if os.path.exists(old30DayPdfPath):
 
-            # Move old PDF to archive directory and rename
-            archiveDest = terminalArchiveDir + '30_DAY/' + archivedName
-            shutil.move(old30DayPdfPath, archiveDest)
+                # Generate a new name for the PDF that will be archived
+                archivedName = generate_pdf_name(terminalName, '30DAY')
 
-            logging.info('%s 30 day PDF from terminal: %s was archived at: %s', old30DayPdfPath, terminalName, archiveDest)
+                # Move old PDF to archive directory and rename
+                archiveDest = terminalArchiveDir + '30_DAY/' + archivedName
+                shutil.move(old30DayPdfPath, archiveDest)
+
+                logging.info('%s 30 day PDF from terminal: %s was archived at: %s', old30DayPdfPath, terminalName, archiveDest)
+            else:
+                logging.warning('Unable to archive old PDF at path: %s Not found!', old30DayPdfPath)
 
         if pdfRollcallUpdate is not None:
             # Retrieve the path from the DB to the old rollcall PDF
             oldRollcallPdfPath = doc['pdfNameRollcall']
 
-            # Generate a new name for the PDF that will be archived
-            archivedName = generate_pdf_name(terminalName, 'ROLLCALL')
+            # If old PDF exists
+            if os.path.exists(oldRollcallPdfPath):
+                # Generate a new name for the PDF that will be archived
+                archivedName = generate_pdf_name(terminalName, 'ROLLCALL')
 
-            # Move old PDF to archive directory and rename
-            shutil.move(oldRollcallPdfPath, terminalArchiveDir + 'ROLLCALL/' + archivedName)
+                # Move old PDF to archive directory and rename
+                shutil.move(oldRollcallPdfPath, terminalArchiveDir + 'ROLLCALL/' + archivedName)
 
-            logging.info('%s rolllcall PDF from Terminal: %s was archived at: %s', oldRollcallPdfPath, terminalName, archiveDest)
+                logging.info('%s rolllcall PDF from Terminal: %s was archived at: %s', oldRollcallPdfPath, terminalName, archiveDest)
+            else:
+                logging.warning('Unable to archive old PDF at path: %s Not found!', oldRollcallPdfPath)
+
         
     return None
 
