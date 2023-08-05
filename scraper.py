@@ -276,11 +276,10 @@ def get_terminals_info(listOfTerminals: List[Terminal], baseDir: str) -> List[Te
             if newest72HourPdf is not None:
                 # Store the link to the PDF and new path to PDF
                 currentTerminal.pdfLink72Hour = pdfs72Hour[0][0]
-                dest = downloadDir + '72_HR/' + pdfs72Hour[0][1]
-                currentTerminal.pdfName72Hour = dest
+                dest = downloadDir + '72_HR/'
 
                 # Move PDF to proper directory
-                shutil.move(pdfs72Hour[0][1], dest)
+                currentTerminal.pdfName72Hour = shutil.move(pdfs72Hour[0][1], dest)
 
                 # Delete from array now that we have dealth with PDF
                 del pdfs72Hour[0]
@@ -301,11 +300,10 @@ def get_terminals_info(listOfTerminals: List[Terminal], baseDir: str) -> List[Te
             if newest30DayPdf is not None:
                 # Store the link to the PDF and new path to PDF
                 currentTerminal.pdfLink30Day = pdfs30Day[0][0]
-                dest = downloadDir + '30_DAY/' + pdfs30Day[0][1]
-                currentTerminal.pdfName30Day = dest
-
+                dest = downloadDir + '30_DAY/'
+                
                 # Move PDF to proper directory
-                shutil.move(pdfs30Day[0][1], dest)
+                currentTerminal.pdfName30Day = shutil.move(pdfs30Day[0][1], dest)
 
                 # Delete from array now that we have dealt with PDF
                 del pdfs30Day[0]
@@ -326,11 +324,10 @@ def get_terminals_info(listOfTerminals: List[Terminal], baseDir: str) -> List[Te
             if newestRollcallPdf is not None:
                 # Store the link to the PDF and new path to PDF
                 currentTerminal.pdfLinkRollcall = pdfsRollcall[0][0]
-                dest = downloadDir + 'ROLLCALL/' + pdfsRollcall[0][1]
-                currentTerminal.pdfNameRollcall = dest
+                dest = downloadDir + 'ROLLCALL/'
 
                 # Move PDF to proper directory
-                shutil.move(pdfsRollcall[0][1], dest)
+                currentTerminal.pdfNameRollcall = shutil.move(pdfsRollcall[0][1], dest)
 
                 # Delete from array now that we have dealth with PDF
                 del pdfsRollcall[0]
