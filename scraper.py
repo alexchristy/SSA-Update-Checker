@@ -214,7 +214,7 @@ def get_terminals_info(listOfTerminals: List[Terminal], baseDir: str) -> List[Te
 
         for a_tag in a_tags:
             partialPdfLink = a_tag["href"]
-
+            
             # Get name of PDF as it appears on site
             pdfName = utils.get_pdf_name(partialPdfLink)
 
@@ -410,10 +410,15 @@ def get_newest_pdf(pdfs: List[Tuple[str, str]]) -> Optional[Tuple[str, str]]:
 
     # Create a list to store tuples of (link, path, date)
     pdfs_with_dates = []
+    pdfs_no_dates = []
     
     # If list is empty return None
     if len(pdfs) < 1:
         return None
+    
+    # If there is only one item in the list return the only item
+    if len(pdfs) == 1:
+        return pdfs[0]
 
     for link, path in pdfs:
         if not os.path.isfile(path):
@@ -437,16 +442,21 @@ def get_newest_pdf(pdfs: List[Tuple[str, str]]) -> Optional[Tuple[str, str]]:
 
                 # Add the tuple to the list
                 pdfs_with_dates.append((link, path, date))
+            else:
+                pdfs_no_dates.append((link, path))
 
     # Sort the list by the datetime objects
     pdfs_with_dates.sort(key=lambda x: x[2], reverse=True)
 
-    # Return only the newest PDF, if one exists
+    # Return only the newest PDF, if one exists.
+    # Returning only the link and file path.
     if pdfs_with_dates:
-        return pdfs_with_dates[0][0], pdfs_with_dates[0][1]
-    else:
-        return None
-        
+        return (pdfs_with_dates[0][0], pdfs_with_dates[0][1])
+    
+    # No PDFs with date metadata exist
+    if pdfs_no_dates:
+        return pdfs_no_dates[0]
+
 def download_pdf(dir: str, url:str) -> str:
     logging.debug('Entering download_pdf()')
 
