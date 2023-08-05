@@ -1,3 +1,4 @@
+import logging
 import time
 from pymongo import MongoClient
 from pymongo.errors import WriteError
@@ -100,7 +101,58 @@ class MongoDB:
         return self.collection.update_one({"name": terminalName}, {"$set": {attr: value}})
     
     def get_doc_by_attr_value(self, attr, value):
-        return self.collection.find({attr: {"$eq": value}})
+        return self.collection.find_one({attr: {"$eq": value}})
+    
+    def is_72hr_updated(self, terminal: Terminal) -> bool:
+
+        document = self.collection.find_one({"name": {"$eq": terminal.name}})
+
+        if not document:
+            logging.warning('is_72hr_updated(): Terminal %s was not found in Mongo.', terminal.name)
+            return True
+
+        storedHash = document["pdfHash72Hour"]
+        currentHash = terminal.pdfHash72Hour
+
+        if currentHash != storedHash:
+            logging.info('%s: 72 hour schedule updated.', terminal.name)
+            return True
+        else:
+            return False
+        
+    def is_30day_updated(self, terminal: Terminal) -> bool:
+
+        document = self.collection.find_one({"name": {"$eq": terminal.name}})
+
+        if not document:
+            logging.warning('is_30day_updated(): Terminal %s was not found in Mongo.', terminal.name)
+            return True
+
+        storedHash = document["pdfHash30Day"]
+        currentHash = terminal.pdfHash30Day
+
+        if currentHash != storedHash:
+            logging.info('%s: 30 day schedule updated', terminal.name)
+            return True
+        else:
+            return False
+    
+    def is_rollcall_updated(self, terminal: Terminal) -> bool:
+
+        document = self.collection.find_one({"name": {"$eq": terminal.name}})
+
+        if not document:
+            logging.warning('is_rollcall_updated(): Terminal %s was not found in Mongo.', terminal.name)
+            return True
+
+        storedHash = document["pdfHashRollcall"]
+        currentHash = terminal.pdfHashRollcall
+
+        if currentHash != storedHash:
+            logging.info('%s: rollcall updated.', terminal.name)
+            return True
+        else:
+            return False
 
     def get_terminal_by_name(self, terminalName):
         document = self.collection.find_one({"name": terminalName})
@@ -111,6 +163,37 @@ class MongoDB:
             return terminal
         
         return None
+
+    def store_terminal(self, terminal: Terminal):
+        # Get the logger
+        logger = logging.getLogger(__name__)
+
+        # Define result as None at the beginning, so it always has a value
+        result = None
+
+        # Find the document with the same name
+        doc = self.collection.find_one({"name": terminal.name})
+
+        if doc:
+            # Document exists, prepare the update query
+            update_query = {}
+            for key, value in terminal.to_dict().items():
+                # If the document's field value is not the same as the Terminal object's field value
+                # then add to the update query
+                if doc.get(key) != value:
+                    update_query[key] = value
+            # Update the document
+            if update_query:
+                result = self.collection.update_one({"name": terminal.name}, {"$set": update_query})
+                logger.info(f"Updated document, matched {result.matched_count} document(s)")
+            else:
+                logger.info("No fields to update")
+        else:
+            # Document does not exist, insert a new one
+            result = self.collection.insert_one(terminal.to_dict())
+            logger.info(f"Inserted new document with ID {result.inserted_id}")
+
+        return result
 
     def get_all_terminals(self):
         documents = self.collection.find()

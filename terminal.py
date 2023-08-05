@@ -16,7 +16,7 @@ class Terminal:
         self.pdfHashRollcall = "empty"
 
         self.group = "empty"
-        self.pagePosition = -1
+        self.pagePosition = "empty"
         self.location = "empty"
         self.chatIDs = []
 

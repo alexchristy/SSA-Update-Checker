@@ -2,18 +2,13 @@ import scraper
 from utils import *
 from terminal import *
 from mongodb import *
-from telegram import Bot
-import asyncio
 import os
-import glob
 import sys
-from dotenv import load_dotenv
 import argparse
 import logging
 
 # List of ENV variables to check
 variablesToCheck = [
-    'TELEGRAM_API_TOKEN',
     'MONGO_DB',
     'MONGO_COLLECTION',
     'MONGO_USERNAME',
@@ -26,7 +21,6 @@ try:
     check_env_variables(variablesToCheck)
     
     # Load environment variables from .env file
-    api_token = os.getenv('TELEGRAM_API_TOKEN')
     mongoDBName = os.getenv('MONGO_DB')
     mongoCollectionName = os.getenv('MONGO_COLLECTION')
     mongoUsername = os.getenv('MONGO_USERNAME')
@@ -36,6 +30,15 @@ try:
 except ValueError as e:
     print(e)
     sys.exit(1)
+
+# Get the absolute path of the script
+scriptPath = os.path.abspath(__file__)
+
+# Set the home directory to the directory of the script
+homeDirectory = os.path.dirname(scriptPath)
+
+# Enter correct directory
+os.chdir(homeDirectory)
 
 # Create an arguement parser
 log_arg_parser = argparse.ArgumentParser(description='Set the logging level.')
@@ -57,82 +60,87 @@ argLoglevel = levels.get(args.log.upper(), logging.INFO)
 logging.basicConfig(filename='app.log', filemode='w', 
                     format='%(asctime)s - %(message)s', level=argLoglevel)
 
-
-async def send_pdf(terminalName, chatID, pdfPath):
-    bot = Bot(api_token)
-    await bot.send_message(chatID, "Update from " + terminalName)
-    with open(pdfPath, 'rb') as f:
-        await bot.send_document(chatID, f)
-
-async def main():
+def main():
     
     logging.info('Program started.')
 
-    # Get the absolute path of the script
-    scriptPath = os.path.abspath(__file__)
-
-    # Set the home directory to the directory of the script
-    homeDirectory = os.path.dirname(scriptPath)
-
-    url = 'https://www.amc.af.mil/AMC-Travel-Site'
-
     # Create PDF directories if they do not exist
-    baseDir, pdf72HourDir, pdf30DayDir, pdfRollcallDir = check_pdf_directories(basePDFDir)
-
-    # Enter correct directory
-    os.chdir(homeDirectory)
+    check_pdf_directories(basePDFDir)
 
     # Intialize MongoDB
     logging.info('Starting MongoDB.')
     db = MongoDB(mongoDBName, mongoCollectionName, username=mongoUsername, password=mongoPassword)
     db.connect()
 
-    # Every 5 mins
-    while True:
+    logging.debug('Starting PDF retrieval process.')
 
-        logging.debug('Starting PDF retrieval process.')
+    # Set URL to AMC Travel site and scrape Terminal information from it
+    url = 'https://www.amc.af.mil/AMC-Travel-Site'
+    listOfTerminals = scraper.get_terminals(url)
 
-        scraper.get_terminal_info(db, url)
+    # Get links to all the most up to date PDFs on Terminal sites
+    listOfTerminals = scraper.get_terminals_info(listOfTerminals, basePDFDir)
 
-        # Download PDFs
-        scraper.download_pdfs(db, pdf72HourDir, "pdfLink72Hour")
-        scraper.download_pdfs(db, pdf30DayDir, "pdfLink30Day")
-        scraper.download_pdfs(db, pdfRollcallDir, "pdfLinkRollcall")
+    # Download all the PDFs for each Terminal
+    for terminal in listOfTerminals:
+        terminal = scraper.download_terminal_pdfs(terminal, basePDFDir)
 
-        # Check each PDF directory
-        dirs_to_check = [pdf72HourDir, pdf30DayDir, pdfRollcallDir]
-        successful_downloads = [check_downloaded_pdfs(dir_path) for dir_path in dirs_to_check]
-        if all(successful_downloads):
-            logging.info("PDFs were successfully downloaded in all directories.")
-        else:
-            logging.warning("Some directories did not have successful PDF downloads.")
+    # Check each PDF directory
+    dirs_to_check = [basePDFDir + 'tmp/72_HR/', basePDFDir + 'tmp/30_DAY/', basePDFDir + 'tmp/ROLLCALL/']
+    successful_downloads = [check_downloaded_pdfs(dir_path) for dir_path in dirs_to_check]
+    if all(successful_downloads):
+        logging.info("PDFs were successfully downloaded in all directories.")
+    else:
+        logging.warning("Some directories did not have successful PDF downloads.")
 
-        # Check which PDFs changed; compare with db stored hashes
-        updatedTerminals = scraper.calc_pdf_hashes(db, basePDFDir)
+    # Calc hashes for terminal's PDFs
+    for terminal in listOfTerminals:
+        terminal = scraper.calc_terminal_pdf_hashes(terminal)
 
-        # Will be always be empty on the first run
-        if updatedTerminals != []:
+    # Check for any updates to terminal's PDFs
+    terminalUpdates = []
+    for terminal in listOfTerminals:
 
-            logging.info('%d terminals have updated their PDFs.', len(updatedTerminals))
-            logging.debug('The following terminals have updated their PDFs: %s', updatedTerminals)
+        updatedPdfsDict = {}
 
-            for terminalName in updatedTerminals:
-                # Info temrinal info from DB
-                currentTerminal = db.get_terminal_by_name(terminalName)
-                subscribers = currentTerminal.chatIDs
-                pdfName = currentTerminal.pdfName72Hour
+        if db.is_72hr_updated(terminal):
+            # Rotate the updated PDF to the current directory
+            terminal.pdfName72Hour = rotate_pdf_to_current(basePDFDir, terminal.pdfName72Hour)
 
-                logging.info('%d subscribers will recieve the %s terminal update.', len(subscribers), terminalName)
-                logging.debug('The following chatIDs will recieve the %s terminal update: %s', terminalName, subscribers)
+            updatedPdfsDict['72_HR'] = terminal.pdfName72Hour
+            logging.info('%s updated their 72 hour schedule.', terminal.name)
+        
+        if db.is_30day_updated(terminal):
+            # Rotate the updated PDF to the current directory
+            terminal.pdfName30Day = rotate_pdf_to_current(basePDFDir, terminal.pdfName30Day)
 
-                # Send PDFs to all subscribers
-                for chatID in subscribers:
-                    await send_pdf(terminalName, chatID, os.path.join(basePDFDir, pdfName))
-        else:
-            logging.info('%d PDFs were updated.', 0)
+            updatedPdfsDict['30_DAY'] = terminal.pdfName30Day
+            logging.info('%s updated their 30 day schedule', terminal.name)
+        
+        if db.is_rollcall_updated(terminal):
+            # Rotate the updated PDF to the current directory
+            terminal.pdfNameRollcall = rotate_pdf_to_current(basePDFDir, terminal.pdfNameRollcall)
 
-        # Wait 10 minutes
-        await asyncio.sleep(300)
+            updatedPdfsDict['ROLLCALL'] = terminal.pdfNameRollcall
+            logging.info('%s updated their rollcall.', terminal.name)
+        
+        # Create tuple of terminal name and update dict
+        terminalTuple = (terminal.name, updatedPdfsDict)
+
+        # Save to array of terminal updates
+        terminalUpdates.append(terminalTuple)
+
+    # Rotate out old PDFs to archive for AI training data
+    archiveDirDict = gen_archive_dirs(listOfTerminals, basePDFDir)
+    archive_old_pdfs(db, terminalUpdates, archiveDirDict)
+
+    ##################################################
+    # Place holder for Azure AI Services Upload func #
+    ##################################################
+
+    # Store any change in MongoDB
+    for terminal in listOfTerminals:
+        db.store_terminal(terminal)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
