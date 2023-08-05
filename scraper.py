@@ -213,8 +213,11 @@ def get_terminals_info(listOfTerminals: List[Terminal], baseDir: str) -> List[Te
         pdfRollcallFound = False
 
         for a_tag in a_tags:
-            partialPdfLink = a_tag["href"]
-            
+            extractedPdfLink = a_tag["href"]
+
+            # Correct encoding from BS4
+            partialPdfLink = extractedPdfLink.replace('×tamp', '&timestamp')
+
             # Get name of PDF as it appears on site
             pdfName = utils.get_pdf_name(partialPdfLink)
 
