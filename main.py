@@ -142,5 +142,7 @@ def main():
     for terminal in listOfTerminals:
         db.store_terminal(terminal)
 
+    logging.info('Successfully finished program!')
+
 if __name__ == "__main__":
     main()
