@@ -16,14 +16,22 @@ class MongoDB:
         self.password = quote_plus(password)
 
     def connect(self):
-        if self.username and self.password:
-            uri = f"mongodb://{self.username}:{self.password}@{self.host}:{self.port}/{self.db_name}?authMechanism=SCRAM-SHA-256&authSource=admin"
-            self.client = MongoClient(uri)
-        else:
-            self.client = MongoClient(self.host, self.port)
-
-        self.db = self.client[self.db_name]
-        self.collection = self.db[self.collection_name]
+        try:
+            if self.username and self.password:
+                uri = f"mongodb://{self.username}:{self.password}@{self.host}:{self.port}/{self.db_name}?authMechanism=SCRAM-SHA-256&authSource=admin"
+                self.client = MongoClient(uri)
+            else:
+                self.client = MongoClient(self.host, self.port)
+            
+            # Try to list databases which will verify the authentication
+            self.client.list_database_names()
+            
+            self.db = self.client[self.db_name]
+            self.collection = self.db[self.collection_name]
+            
+        except Exception as e:
+            logging.error(f"MongoDB authentication failed: {e}")
+            raise
 
 
     def add_terminal(self, terminal: Terminal):
