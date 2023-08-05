@@ -17,13 +17,14 @@ class MongoDB:
 
     def connect(self):
         if self.username and self.password:
-            uri = f"mongodb://{self.username}:{self.password}@{self.host}:{self.port}/{self.db_name}?authMechanism=DEFAULT&authSource=admin"
+            uri = f"mongodb://{self.username}:{self.password}@{self.host}:{self.port}/{self.db_name}?authMechanism=SCRAM-SHA-256&authSource=admin"
             self.client = MongoClient(uri)
         else:
             self.client = MongoClient(self.host, self.port)
 
         self.db = self.client[self.db_name]
         self.collection = self.db[self.collection_name]
+
 
     def add_terminal(self, terminal: Terminal):
         existing_document = self.collection.find_one({'name': terminal.name, 'link': terminal.link})
