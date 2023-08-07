@@ -11,6 +11,7 @@ import logging
 variablesToCheck = [
     'MONGO_DB',
     'MONGO_COLLECTION',
+    'MONGO_HOST',
     'MONGO_USERNAME',
     'MONGO_PASSWORD',
     'PDF_DIR'
@@ -26,6 +27,7 @@ try:
     mongoUsername = os.getenv('MONGO_USERNAME')
     mongoPassword = os.getenv('MONGO_PASSWORD')
     basePDFDir = os.getenv('PDF_DIR')
+    mongoHost = os.getenv('MONGO_HOST')
 
 except ValueError as e:
     print(e)
@@ -72,8 +74,13 @@ def main():
 
     # Intialize MongoDB
     logging.info('Starting MongoDB.')
-    db = MongoDB(mongoDBName, mongoCollectionName, username=mongoUsername, password=mongoPassword)
-    db.connect()
+    db = MongoDB(mongoDBName, mongoCollectionName, host=mongoHost, username=mongoUsername, password=mongoPassword)
+
+    # Connect to the correct Mongo server
+    if mongoHost == 'localhost':
+        db.connect_local()
+    else:
+        db.connect_atlas()
 
     logging.debug('Starting PDF retrieval process.')
 
