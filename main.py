@@ -67,6 +67,9 @@ def main():
     # Create PDF directories if they do not exist
     check_pdf_directories(basePDFDir)
 
+    # Clean up left over PDFs in tmp
+    clean_up_tmp_pdfs(basePDFDir)
+
     # Intialize MongoDB
     logging.info('Starting MongoDB.')
     db = MongoDB(mongoDBName, mongoCollectionName, username=mongoUsername, password=mongoPassword)
