@@ -7,6 +7,7 @@ from typing import List, Dict, Tuple
 from urllib.parse import quote, unquote, urlparse
 from dotenv import load_dotenv
 from mongodb import MongoDB
+import uuid
 
 from terminal import Terminal
 
@@ -209,19 +210,19 @@ def rotate_pdf_to_current(baseDir: str, pdfPath: str) -> str:
 
     # If this is a 72 hour schedule PDF
     if '72_HR' in pdfPath:
-        new72HrDir = baseDir + 'current/72_HR/'
+        new72HrDir = baseDir + 'current/72_HR/' + gen_pdf_name_uuid10(pdfPath)
         dest = shutil.move(pdfPath, new72HrDir)
         logging.info('Rotated 72 Hour schedule PDF to current directory: %s ---> %s', pdfPath, dest)
         return dest
     
     if '30_DAY' in pdfPath:
-        new30DayDir = baseDir + 'current/30_DAY/'
+        new30DayDir = baseDir + 'current/30_DAY/' + gen_pdf_name_uuid10(pdfPath)
         dest = shutil.move(pdfPath, new30DayDir)
         logging.info('Rotated 30 Day schedule PDF current directory: %s ---> %s', pdfPath, dest)
         return dest
 
     if 'ROLLCALL' in pdfPath:
-        newRollcallDir = baseDir + 'current/ROLLCALL/'
+        newRollcallDir = baseDir + 'current/ROLLCALL/' + gen_pdf_name_uuid10(pdfPath)
         dest = shutil.move(pdfPath, newRollcallDir)
         logging.info('Rotated rollcall PDF to current directory: %s ---> %s', pdfPath, dest)
         return dest
@@ -273,3 +274,20 @@ def ensure_url_encoded(url):
     else:
         # If the URLs are different, it was already encoded.
         return url
+    
+def gen_pdf_name_uuid10(file_path):
+    # Extract the directory, base name, and extension
+    dir_path, file_name = os.path.split(file_path)
+    base_name, ext = os.path.splitext(file_name)
+    
+    # Ensure the file is a PDF
+    if ext.lower() != '.pdf':
+        logging.error("%s is not a PDF!", file_path)
+    
+    # Generate a random UUID and take the first few characters for brevity
+    random_uuid = str(uuid.uuid4())[:10]
+    
+    # Construct the new file name
+    new_name = f"{base_name}_{random_uuid}.pdf"
+    
+    return new_name
