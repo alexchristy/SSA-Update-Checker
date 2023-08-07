@@ -157,7 +157,7 @@ def archive_old_pdfs(db: MongoDB, terminalUpdates: List[Tuple[str, Dict[str, str
             if os.path.exists(old72HourPdfPath):
 
                 # Generate a new name for the PDF that will be archived
-                archivedName = generate_pdf_name(terminalName, '72HR')
+                archivedName = generate_pdf_archive_name(terminalName, '72HR')
 
                 # Move old PDF to archive directory and rename
                 archiveDest = terminalArchiveDir + '72_HR/' + archivedName
@@ -176,7 +176,7 @@ def archive_old_pdfs(db: MongoDB, terminalUpdates: List[Tuple[str, Dict[str, str
             if os.path.exists(old30DayPdfPath):
 
                 # Generate a new name for the PDF that will be archived
-                archivedName = generate_pdf_name(terminalName, '30DAY')
+                archivedName = generate_pdf_archive_name(terminalName, '30DAY')
 
                 # Move old PDF to archive directory and rename
                 archiveDest = terminalArchiveDir + '30_DAY/' + archivedName
@@ -193,7 +193,7 @@ def archive_old_pdfs(db: MongoDB, terminalUpdates: List[Tuple[str, Dict[str, str
             # If old PDF exists
             if os.path.exists(oldRollcallPdfPath):
                 # Generate a new name for the PDF that will be archived
-                archivedName = generate_pdf_name(terminalName, 'ROLLCALL')
+                archivedName = generate_pdf_archive_name(terminalName, 'ROLLCALL')
 
                 # Move old PDF to archive directory and rename
                 shutil.move(oldRollcallPdfPath, terminalArchiveDir + 'ROLLCALL/' + archivedName)
@@ -246,7 +246,7 @@ def get_pdf_name(url) -> str:
     except Exception as e:
         return str(e)
     
-def generate_pdf_name(terminalName, nameModifier):
+def generate_pdf_archive_name(terminalName, nameModifier):
     # Replace spaces with underscore in terminalName
     terminalName = terminalName.replace(' ', '_')
     
