@@ -1,6 +1,7 @@
 import logging
 import time
 from pymongo import MongoClient
+from pymongo.server_api import ServerApi
 from pymongo.errors import WriteError
 from terminal import Terminal
 from urllib.parse import quote_plus
@@ -15,7 +16,7 @@ class MongoDB:
         self.username = quote_plus(username)
         self.password = quote_plus(password)
 
-    def connect(self):
+    def connect_local(self):
         try:
             if self.username and self.password:
                 uri = f"mongodb://{self.username}:{self.password}@{self.host}:{self.port}/{self.db_name}?authMechanism=SCRAM-SHA-256&authSource=admin"
@@ -33,6 +34,27 @@ class MongoDB:
             logging.error(f"MongoDB authentication failed: {e}")
             raise
 
+    def connect_atlas(self):
+        try:
+            if self.username and self.password and self.host != 'localhost':
+                uri = f'mongodb+srv://{self.username}:{self.password}@{self.host}/?retryWrites=true&w=majority'
+                self.client = MongoClient(uri, server_api=ServerApi('1'))
+            else:
+                logging.error('Failed to connect to Atlas cluster: %s', self.host)
+        except Exception as e:
+            logging.error(f'MongoDB authentication failed: {e}')
+            raise
+
+        # Send a ping to confirm a successful connection
+        try:
+            self.client.admin.command('ping')
+            logging.info("Pinged your deployment. You successfully connected to Atlas cluster!")
+        except Exception as e:
+            print(e)
+
+        # Once connected
+        self.db = self.client[self.db_name]
+        self.collection = self.db[self.collection_name]
 
     def add_terminal(self, terminal: Terminal):
         existing_document = self.collection.find_one({'name': terminal.name, 'link': terminal.link})
