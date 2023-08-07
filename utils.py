@@ -24,7 +24,20 @@ def check_env_variables(variables):
     if emptyVariables:
         errorMessage = f"The following variable(s) are missing or empty in .env: {', '.join(emptyVariables)}"
         raise ValueError(errorMessage)
-    
+
+def clean_up_tmp_pdfs(baseDir: str) -> None:
+    tmpDir = os.path.join(baseDir, 'tmp')
+
+    # Look for all PDF files in the directory and its subdirectories
+    pdf_files = glob.glob(os.path.join(tmpDir, '**', '*.pdf'), recursive=True)
+
+    for pdf_file in pdf_files:
+        try:
+            os.remove(pdf_file)
+            logging.info(f"Removed {pdf_file}")
+        except Exception as e:
+            logging.error(f"Error removing {pdf_file}. Error: {e}")
+
 def check_pdf_directories(baseDir):
 
     '''
