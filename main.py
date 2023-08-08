@@ -14,6 +14,9 @@ variablesToCheck = [
     'MONGO_HOST',
     'MONGO_USERNAME',
     'MONGO_PASSWORD',
+    'AWS_BUCKET_NAME',
+    'AWS_ACCESS_KEY_ID',
+    'AWS_SECRET_ACCESS_KEY',
     'PDF_DIR'
 ]
 
@@ -21,13 +24,14 @@ variablesToCheck = [
 try:
     check_env_variables(variablesToCheck)
     
-    # Load environment variables from .env file
+    # Load in environment variables from .env file
     mongoDBName = os.getenv('MONGO_DB')
     mongoCollectionName = os.getenv('MONGO_COLLECTION')
     mongoUsername = os.getenv('MONGO_USERNAME')
     mongoPassword = os.getenv('MONGO_PASSWORD')
     basePDFDir = os.getenv('PDF_DIR')
     mongoHost = os.getenv('MONGO_HOST')
+    s3BucketName = os.getenv('AWS_BUCKET_NAME')
 
 except ValueError as e:
     print(e)
