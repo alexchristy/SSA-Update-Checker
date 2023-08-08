@@ -6,6 +6,7 @@ import os
 import sys
 import argparse
 import logging
+from s3_bucket import s3Bucket
 
 # List of ENV variables to check
 variablesToCheck = [
@@ -14,6 +15,9 @@ variablesToCheck = [
     'MONGO_HOST',
     'MONGO_USERNAME',
     'MONGO_PASSWORD',
+    'AWS_BUCKET_NAME',
+    'AWS_ACCESS_KEY_ID',
+    'AWS_SECRET_ACCESS_KEY',
     'PDF_DIR'
 ]
 
@@ -21,13 +25,14 @@ variablesToCheck = [
 try:
     check_env_variables(variablesToCheck)
     
-    # Load environment variables from .env file
+    # Load in environment variables from .env file
     mongoDBName = os.getenv('MONGO_DB')
     mongoCollectionName = os.getenv('MONGO_COLLECTION')
     mongoUsername = os.getenv('MONGO_USERNAME')
     mongoPassword = os.getenv('MONGO_PASSWORD')
     basePDFDir = os.getenv('PDF_DIR')
     mongoHost = os.getenv('MONGO_HOST')
+    s3BucketName = os.getenv('AWS_BUCKET_NAME')
 
 except ValueError as e:
     print(e)
@@ -71,6 +76,12 @@ def main():
 
     # Clean up left over PDFs in tmp
     clean_up_tmp_pdfs(basePDFDir)
+
+    # Create S3 bucket object
+    bucket = s3Bucket()
+
+    # Sync current directory from S3
+    bucket.sync_folder_from_s3(basePDFDir + 'current/', 'current', delete_extra_files_locally=True)
 
     # Intialize MongoDB
     logging.info('Starting MongoDB.')
@@ -151,6 +162,9 @@ def main():
     # Store any change in MongoDB
     for terminal in listOfTerminals:
         db.store_terminal(terminal)
+    
+    # Sync PDFs to S3 bucket
+    bucket.sync_folder_to_s3(basePDFDir, '', delete_extra_files_in_s3=True)
 
     logging.info('Successfully finished program!')
 
