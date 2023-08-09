@@ -208,11 +208,28 @@ class MongoDB:
         if doc:
             # Document exists, prepare the update query
             update_query = {}
-            for key, value in terminal.to_dict().items():
+            terminal_dict = terminal.to_dict()
+
+            for key, value in terminal_dict.items():
+                # Ensure the isUpdated attributes are always considered for update
+                if key in ["is72HourUpdated", "is30DayUpdated", "isRollcallUpdated"]:
+                    if doc.get(key) != value:
+                        update_query[key] = value
+                    continue
+
+                # Skip PDF-related keys based on their respective isUpdated flags
+                if "72Hour" in key and not terminal.is72HourUpdated:
+                    continue  
+                if "30Day" in key and not terminal.is30DayUpdated:
+                    continue  
+                if "Rollcall" in key and not terminal.isRollcallUpdated:
+                    continue  
+                
                 # If the document's field value is not the same as the Terminal object's field value
                 # then add to the update query
                 if doc.get(key) != value:
                     update_query[key] = value
+            
             # Update the document
             if update_query:
                 result = self.collection.update_one({"name": terminal.name}, {"$set": update_query})

@@ -127,6 +127,7 @@ def main():
         if db.is_72hr_updated(terminal):
             # Rotate the updated PDF to the current directory
             terminal.pdfName72Hour = rotate_pdf_to_current(basePDFDir, terminal.pdfName72Hour)
+            terminal.is72HourUpdated = True
 
             updatedPdfsDict['72_HR'] = terminal.pdfName72Hour
             logging.info('%s updated their 72 hour schedule.', terminal.name)
@@ -134,6 +135,7 @@ def main():
         if db.is_30day_updated(terminal):
             # Rotate the updated PDF to the current directory
             terminal.pdfName30Day = rotate_pdf_to_current(basePDFDir, terminal.pdfName30Day)
+            terminal.is30DayUpdated = True
 
             updatedPdfsDict['30_DAY'] = terminal.pdfName30Day
             logging.info('%s updated their 30 day schedule', terminal.name)
@@ -141,6 +143,7 @@ def main():
         if db.is_rollcall_updated(terminal):
             # Rotate the updated PDF to the current directory
             terminal.pdfNameRollcall = rotate_pdf_to_current(basePDFDir, terminal.pdfNameRollcall)
+            terminal.isRollcallUpdated = True
 
             updatedPdfsDict['ROLLCALL'] = terminal.pdfNameRollcall
             logging.info('%s updated their rollcall.', terminal.name)

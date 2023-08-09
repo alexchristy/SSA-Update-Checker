@@ -6,14 +6,17 @@ class Terminal:
         self.pdfLink72Hour = "empty"
         self.pdfName72Hour = "empty"
         self.pdfHash72Hour = "empty"
+        self.is72HourUpdated = False
 
         self.pdfLink30Day = "empty"
         self.pdfName30Day = "empty"
         self.pdfHash30Day = "empty"
+        self.is30DayUpdated = False
 
         self.pdfLinkRollcall = "empty"
         self.pdfNameRollcall = "empty"
         self.pdfHashRollcall = "empty"
+        self.isRollcallUpdated = False
 
         self.group = "empty"
         self.pagePosition = "empty"
@@ -42,14 +45,17 @@ class Terminal:
             'pdfLink72Hour': self.pdfLink72Hour,
             'pdfName72Hour': self.pdfName72Hour,
             'pdfHash72Hour': self.pdfHash72Hour,
+            'is72HourUpdated': self.is72HourUpdated,
 
             'pdfLink30Day': self.pdfLink30Day,
             'pdfName30Day': self.pdfName30Day,
             'pdfHash30Day': self.pdfHash30Day,
+            'is30DayUpdated': self.is30DayUpdated,
 
             'pdfLinkRollcall': self.pdfLinkRollcall,
             'pdfNameRollcall': self.pdfNameRollcall,
             'pdfHashRollcall': self.pdfHashRollcall,
+            'isRollcallUpdated': self.isRollcallUpdated,
 
             'group': self.group,
             'pagePosition': self.pagePosition,
