@@ -32,7 +32,7 @@ def get_with_retry(url: str):
 
     url = utils.ensure_url_encoded(url)
 
-    for attempt in range(5):
+    for attempt in range(3):
 
         try:
 
@@ -44,7 +44,7 @@ def get_with_retry(url: str):
             logging.error('Request to %s failed in get_with_retry().', url, exc_info=True)
 
             # If it was not the last attempt
-            if attempt < 4:
+            if attempt < 2:
                 logging.info('Retrying request to %s in %d seconds...', url, delay)
                 time.sleep(delay) # Wait before next attempt
                 delay *= 2
