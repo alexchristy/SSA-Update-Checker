@@ -167,7 +167,8 @@ def main():
         db.store_terminal(terminal)
     
     # Sync PDFs to S3 bucket
-    bucket.sync_folder_to_s3(basePDFDir, '', delete_extra_files_in_s3=True)
+    bucket.sync_folder_to_s3(basePDFDir + 'current/', 'current', delete_extra_files_in_s3=True)
+    bucket.sync_folder_to_s3(basePDFDir + 'archive/', 'archive', delete_extra_files_in_s3=False)
 
     logging.info('Successfully finished program!')
 
