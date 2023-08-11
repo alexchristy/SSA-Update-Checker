@@ -118,38 +118,35 @@ def main():
     for terminal in listOfTerminals:
         terminal = scraper.calc_terminal_pdf_hashes(terminal)
 
-    # Check for any updates to terminal's PDFs
+    # Check for any updates to terminal's PDFs by comparing against DB
     terminalUpdates = []
     for terminal in listOfTerminals:
 
         updatedPdfsDict = {}
 
         if db.is_72hr_updated(terminal):
-            # Rotate the updated PDF to the current directory
-            terminal.pdfName72Hour = rotate_pdf_to_current(basePDFDir, terminal.pdfName72Hour)
             terminal.is72HourUpdated = True
 
             updatedPdfsDict['72_HR'] = terminal.pdfName72Hour
             logging.info('%s updated their 72 hour schedule.', terminal.name)
         
         if db.is_30day_updated(terminal):
-            # Rotate the updated PDF to the current directory
-            terminal.pdfName30Day = rotate_pdf_to_current(basePDFDir, terminal.pdfName30Day)
             terminal.is30DayUpdated = True
 
             updatedPdfsDict['30_DAY'] = terminal.pdfName30Day
             logging.info('%s updated their 30 day schedule', terminal.name)
         
         if db.is_rollcall_updated(terminal):
-            # Rotate the updated PDF to the current directory
-            terminal.pdfNameRollcall = rotate_pdf_to_current(basePDFDir, terminal.pdfNameRollcall)
             terminal.isRollcallUpdated = True
 
             updatedPdfsDict['ROLLCALL'] = terminal.pdfNameRollcall
             logging.info('%s updated their rollcall.', terminal.name)
         
-        # Create tuple of terminal name and update dict
-        terminalTuple = (terminal.name, updatedPdfsDict)
+        # If dictionary is not empty --> There was an update.
+        # Then we can apped it.
+        if updatedPdfsDict:
+            # Create tuple of terminal name and update dict
+            terminalTuple = (terminal.name, updatedPdfsDict)
 
         # Save to array of terminal updates
         terminalUpdates.append(terminalTuple)
