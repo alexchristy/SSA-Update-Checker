@@ -479,42 +479,37 @@ def download_terminal_pdfs(terminal: Terminal, baseDir: str):
 
         filename = download_pdf(pdf72HourDownloadDir, terminal.pdfLink72Hour)
 
-        # Get relative path for compatability when changing PDF_DIR
-        relativePath = utils.get_relative_path(pdf72HourSubPath, filename)
-
         # If PDF was downloaded successfully
-        if relativePath is not None:
+        if filename is not None:
+            # Get relative path for compatability when changing PDF_DIR
+            relativePath = utils.get_relative_path(pdf72HourSubPath, filename)
+
             terminal.pdfName72Hour = relativePath
-        else:
-            logging.error('Unable to extract subpath: %s from path: %s', pdf72HourSubPath, filename)
-    
+
     # Download 30 Day PDF
     if terminal.pdfLink30Day != "empty":
 
         filename = download_pdf(pdf30DayDownloadDir, terminal.pdfLink30Day)
 
-        # Get relative path for compatability when changing PDF_DIR
-        relativePath = utils.get_relative_path(pdf30DaySubPath, filename)
-
         # If PDF was downloaded successfully
-        if relativePath is not None:
+        if filename is not None:
+            # Get relative path for compatability when changing PDF_DIR
+            relativePath = utils.get_relative_path(pdf30DaySubPath, filename)
+
             terminal.pdfName30Day = relativePath
-        else:
-            logging.error('Unable to extract subpath: %s from path: %s', pdf30DaySubPath, filename)
     
+    # Download Rollcall PDF
     if terminal.pdfLinkRollcall != "empty":
 
         filename = download_pdf(pdfRollcallDownloadDir, terminal.pdfLinkRollcall)
 
-        # Get relative path for compatability when changing PDF_DIR
-        relativePath = utils.get_relative_path(pdfRollcallSubPath, filename)
-
         # If PDF was downloaded successfully
         if filename is not None:
-            terminal.pdfNameRollcall = filename
-        else:
-            logging.error('Unable to extract subpath: %s from path: %s', pdfRollcallSubPath, filename)
+            # Get relative path for compatability when changing PDF_DIR
+            relativePath = utils.get_relative_path(pdfRollcallSubPath, filename)
 
+            terminal.pdfNameRollcall =  relativePath
+      
     return terminal
 
 def calculate_sha256(file_path):
