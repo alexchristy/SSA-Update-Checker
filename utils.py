@@ -304,3 +304,13 @@ def gen_pdf_name_uuid10(file_path):
     new_name = f"{base_name}_{random_uuid}.pdf"
     
     return new_name
+
+def get_relative_path(subpath, pdf_path):
+    # Check if subpath exists in pdf_path
+    if subpath in pdf_path:
+        # Find the index of the subpath in the pdf_path
+        index = pdf_path.index(subpath)
+        # Return the relative path
+        return pdf_path[index:]
+    else:
+        return None

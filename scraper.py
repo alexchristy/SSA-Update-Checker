@@ -7,7 +7,6 @@ from pdfminer.pdfpage import PDFPage
 import requests
 import hashlib
 import os
-import shutil
 from terminal import *
 from mongodb import *
 from bs4 import BeautifulSoup
@@ -167,8 +166,6 @@ def get_terminals(url: str):
 def get_terminals_info(listOfTerminals: List[Terminal], baseDir: str) -> List[Terminal]:
     logging.debug('Entering get_terminals_info().')
 
-    downloadDir = baseDir + 'tmp/'
-
     terminalsWithPDFLinks = []
 
     regex72HourFilter = r"(?i)72[- _%20]{0,1}hr|72[- _%20]{0,1}hour"
@@ -263,6 +260,7 @@ def get_terminals_info(listOfTerminals: List[Terminal], baseDir: str) -> List[Te
             continue
 
         # Not all PDFs found sort unmatched PDFs by content and return their paths
+        downloadDir = baseDir + 'tmp/'
         pdfs72Hour, pdfs30Day, pdfsRollcall = sort_pdfs_by_content(downloadDir, noMatchPdfs)
 
         # Check each type of PDF type. If the type was already found skip sorting
@@ -276,22 +274,15 @@ def get_terminals_info(listOfTerminals: List[Terminal], baseDir: str) -> List[Te
             if newest72HourPdf is not None:
                 # Store the link to the PDF and new path to PDF
                 currentTerminal.pdfLink72Hour = pdfs72Hour[0][0]
-                dest = downloadDir + '72_HR/'
-
-                # Move PDF to proper directory
-                currentTerminal.pdfName72Hour = shutil.move(pdfs72Hour[0][1], dest)
-
-                # Delete from array now that we have dealth with PDF
-                del pdfs72Hour[0]
-
+ 
                 # We have found the 72 hour schedule
                 pdf72HourFound = True
 
         # Remove unused downloaded PDFs from the full
         # text PDF search.
-        logging.info('Removing %d left over 72 hour PDFs.', len(pdfs72Hour))
+        logging.info('Removing %d left over 72 hour PDFs from full text search.', len(pdfs72Hour))
         for link, path in pdfs72Hour:
-            logging.debug('Removing rollcall pdf: %s', path)
+            logging.debug('Removing 72 hour pdf: %s', path)
             os.remove(path)
 
         if not pdf30DayFound:
@@ -300,22 +291,15 @@ def get_terminals_info(listOfTerminals: List[Terminal], baseDir: str) -> List[Te
             if newest30DayPdf is not None:
                 # Store the link to the PDF and new path to PDF
                 currentTerminal.pdfLink30Day = pdfs30Day[0][0]
-                dest = downloadDir + '30_DAY/'
-                
-                # Move PDF to proper directory
-                currentTerminal.pdfName30Day = shutil.move(pdfs30Day[0][1], dest)
-
-                # Delete from array now that we have dealt with PDF
-                del pdfs30Day[0]
 
                 # We have found the 30 day schedule
                 pdf30DayFound = True
             
         # Remove unused downloaded PDFs from the full
         # text PDF search.
-        logging.info('Removing %d left over 30 Day PDFs.', len(pdfs30Day))
+        logging.info('Removing %d left over 30 Day PDFs from full text search.', len(pdfs30Day))
         for link, path in pdfs30Day:
-            logging.debug('Removing rollcall pdf: %s', path)
+            logging.debug('Removing 30 day pdf: %s', path)
             os.remove(path)
 
         if not pdfRollcallFound:
@@ -324,20 +308,13 @@ def get_terminals_info(listOfTerminals: List[Terminal], baseDir: str) -> List[Te
             if newestRollcallPdf is not None:
                 # Store the link to the PDF and new path to PDF
                 currentTerminal.pdfLinkRollcall = pdfsRollcall[0][0]
-                dest = downloadDir + 'ROLLCALL/'
-
-                # Move PDF to proper directory
-                currentTerminal.pdfNameRollcall = shutil.move(pdfsRollcall[0][1], dest)
-
-                # Delete from array now that we have dealth with PDF
-                del pdfsRollcall[0]
 
                 # We have found the rollcall
                 pdfRollcallFound = True
 
         # Remove unused downloaded PDFs from the full
         # text PDF search.
-        logging.info('Removing %d left over rollcall PDFs.', len(pdfsRollcall))
+        logging.info('Removing %d left over rollcall PDFs from full text search.', len(pdfsRollcall))
         for link, path in pdfsRollcall:
             logging.debug('Removing rollcall pdf: %s', path)
             os.remove(path)
@@ -489,36 +466,50 @@ def download_pdf(dir: str, url:str) -> str:
 def download_terminal_pdfs(terminal: Terminal, baseDir: str):
     logging.debug('Entering download_terminal_pdfs().')
 
-    pdf72HourDir = baseDir + "tmp/72_HR/"
-    pdf30DayDir = baseDir + "tmp/30_DAY/"
-    pdfRollcallDir = baseDir + "tmp/ROLLCALL/"
+    pdf72HourSubPath = "tmp/72_HR/"
+    pdf30DaySubPath = "tmp/30_DAY/"
+    pdfRollcallSubPath = "tmp/ROLLCALL/"
+
+    pdf72HourDownloadDir = baseDir + pdf72HourSubPath
+    pdf30DayDownloadDir = baseDir + pdf30DaySubPath
+    pdfRollcallDownloadDir = baseDir + pdfRollcallSubPath
 
     # Download 72 Hour PDF
     if terminal.pdfLink72Hour != "empty":
 
-        filename = download_pdf(pdf72HourDir, terminal.pdfLink72Hour)
+        filename = download_pdf(pdf72HourDownloadDir, terminal.pdfLink72Hour)
 
         # If PDF was downloaded successfully
         if filename is not None:
-            terminal.pdfName72Hour = filename
-    
+            # Get relative path for compatability when changing PDF_DIR
+            relativePath = utils.get_relative_path(pdf72HourSubPath, filename)
+
+            terminal.pdfName72Hour = relativePath
+
     # Download 30 Day PDF
     if terminal.pdfLink30Day != "empty":
 
-        filename = download_pdf(pdf30DayDir, terminal.pdfLink30Day)
+        filename = download_pdf(pdf30DayDownloadDir, terminal.pdfLink30Day)
 
         # If PDF was downloaded successfully
         if filename is not None:
-            terminal.pdfName30Day = filename
+            # Get relative path for compatability when changing PDF_DIR
+            relativePath = utils.get_relative_path(pdf30DaySubPath, filename)
+
+            terminal.pdfName30Day = relativePath
     
+    # Download Rollcall PDF
     if terminal.pdfLinkRollcall != "empty":
 
-        filename = download_pdf(pdfRollcallDir, terminal.pdfLinkRollcall)
+        filename = download_pdf(pdfRollcallDownloadDir, terminal.pdfLinkRollcall)
 
         # If PDF was downloaded successfully
         if filename is not None:
-            terminal.pdfNameRollcall = filename
+            # Get relative path for compatability when changing PDF_DIR
+            relativePath = utils.get_relative_path(pdfRollcallSubPath, filename)
 
+            terminal.pdfNameRollcall =  relativePath
+      
     return terminal
 
 def calculate_sha256(file_path):
@@ -536,9 +527,11 @@ def calculate_sha256(file_path):
 def calc_terminal_pdf_hashes(terminal: Terminal):
     logging.debug('Entering calc_terminal_pdf_hashes().')
 
-    pdf72HourPath = terminal.pdfName72Hour
-    pdf30DayPath = terminal.pdfName30Day
-    pdfRollcallPath = terminal.pdfNameRollcall
+    baseDir = os.getenv('PDF_DIR')
+
+    pdf72HourPath = baseDir + terminal.pdfName72Hour
+    pdf30DayPath = baseDir + terminal.pdfName30Day
+    pdfRollcallPath = baseDir + terminal.pdfNameRollcall
 
     if os.path.exists(pdf72HourPath):
         terminal.pdfHash72Hour = calculate_sha256(pdf72HourPath)
