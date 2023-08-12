@@ -1,4 +1,5 @@
 import re
+import time
 from typing import List, Optional, Tuple
 from PyPDF2 import PdfReader
 from pdfminer.pdfdocument import PDFDocument
