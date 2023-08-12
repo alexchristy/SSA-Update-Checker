@@ -280,10 +280,11 @@ def get_terminals_info(db: MongoDB):
 
         # Remove unused downloaded PDFs from the full
         # text PDF search.
-        logging.info(f'Removing {len(pdfs72Hour)} left over 72 hour PDFs from {currentTerminal.name} full text search.')
-        for link, path in pdfs72Hour:
-            logging.debug('Removing 72 hour pdf: %s', path)
-            os.remove(path)
+        if len(pdfs72Hour) > 0:
+            logging.info(f'Removing {len(pdfs72Hour)} left over 72 hour PDFs from {currentTerminal.name} full text search.')
+            for link, path in pdfs72Hour:
+                logging.debug('Removing 72 hour pdf: %s', path)
+                os.remove(path)
 
         if not pdf30DayFound:
             newest30DayPdf = get_newest_pdf(pdfs30Day)
@@ -298,10 +299,11 @@ def get_terminals_info(db: MongoDB):
             
         # Remove unused downloaded PDFs from the full
         # text PDF search.
-        logging.info(f'Removing {len(pdfs30Day)} left over 30 Day PDFs from {currentTerminal.name} full text search.')
-        for link, path in pdfs30Day:
-            logging.debug('Removing 30 day pdf: %s', path)
-            os.remove(path)
+        if len(pdfs30Day) > 0:
+            logging.info(f'Removing {len(pdfs30Day)} left over 30 Day PDFs from {currentTerminal.name} full text search.')
+            for link, path in pdfs30Day:
+                logging.debug('Removing 30 day pdf: %s', path)
+                os.remove(path)
 
         if not pdfRollcallFound:
             newestRollcallPdf = get_newest_pdf(pdfsRollcall)
@@ -316,10 +318,11 @@ def get_terminals_info(db: MongoDB):
 
         # Remove unused downloaded PDFs from the full
         # text PDF search.
-        logging.info(f'Removing {len(pdfsRollcall)} left over rollcall PDFs from {currentTerminal.name} full text search.')
-        for link, path in pdfsRollcall:
-            logging.debug('Removing rollcall pdf: %s', path)
-            os.remove(path)
+        if len(pdfsRollcall) > 0:
+            logging.info(f'Removing {len(pdfsRollcall)} left over rollcall PDFs from {currentTerminal.name} full text search.')
+            for link, path in pdfsRollcall:
+                logging.debug('Removing rollcall pdf: %s', path)
+                os.remove(path)
 
 
 def sort_pdfs_by_content(dir:str, pdfLinks: List[str]) -> List[Tuple[str, str]]:
