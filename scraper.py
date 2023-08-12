@@ -478,7 +478,7 @@ def download_pdf(dir: str, url:str) -> str:
         logging.warning('Failed to download: %s', url)
         return None
     
-def download_terminals_pdfs(db: MongoDB):
+def download_terminals_pdfs(db: MongoDB) -> List[Terminal]:
     logging.debug('Entering download_terminals_pdfs().')
 
     pdf72HourSubPath = "tmp/72_HR/"
@@ -492,6 +492,7 @@ def download_terminals_pdfs(db: MongoDB):
     pdfRollcallDownloadDir = baseDir + pdfRollcallSubPath
 
     listOfTerminals = db.get_all_terminals()
+    returnTerminals = []
 
     for terminal in listOfTerminals:
         # Download 72 Hour PDF
@@ -504,8 +505,7 @@ def download_terminals_pdfs(db: MongoDB):
                 # Get relative path for compatability when changing PDF_DIR
                 relativePath = utils.get_relative_path(pdf72HourSubPath, filename)
 
-                # Save in DB
-                db.set_terminal_field(terminal.name, 'pdfName72Hour', relativePath)
+                terminal.pdfName72Hour = relativePath
 
         # Download 30 Day PDF
         if terminal.pdfLink30Day != "empty":
@@ -517,8 +517,7 @@ def download_terminals_pdfs(db: MongoDB):
                 # Get relative path for compatability when changing PDF_DIR
                 relativePath = utils.get_relative_path(pdf30DaySubPath, filename)
 
-                # Save in DB
-                db.set_terminal_field(terminal.name, 'pdfName30Day', relativePath)
+                terminal.pdfName30Day = relativePath
         
         # Download Rollcall PDF
         if terminal.pdfLinkRollcall != "empty":
@@ -530,9 +529,11 @@ def download_terminals_pdfs(db: MongoDB):
                 # Get relative path for compatability when changing PDF_DIR
                 relativePath = utils.get_relative_path(pdfRollcallSubPath, filename)
 
-                # Save in DB
-                db.set_terminal_field(terminal.name, 'pdfNameRollcall', relativePath)
+                terminal.pdfNameRollcall =  relativePath
         
+        returnTerminals.append(terminal)
+        
+    return returnTerminals
 
 def calculate_sha256(file_path):
     logging.debug('Entering calculate_sha256().')
