@@ -72,14 +72,15 @@ def main():
     
     logging.info('Program started.')
 
-    # Create PDF directories if they do not exist
-    check_pdf_directories(basePDFDir)
-
-    # Clean up left over PDFs in tmp
-    clean_up_tmp_pdfs(basePDFDir)
+    # Prep local dirs
+    check_local_pdf_dirs()
+    clean_up_tmp_pdfs()
 
     # Create S3 bucket object
     s3 = s3Bucket()
+
+    # Prep s3 bucket
+    check_s3_pdf_dirs(s3)
 
     # Intialize MongoDB
     logging.info('Starting MongoDB.')
@@ -146,21 +147,13 @@ def main():
         if wasUpdated:
             updatedTerminals.append(terminal)
     
-    # # Archive the PDFs that will be replaced updated PDFs
-    # archive_pdfs_s3(db, s3, updatedTerminals)
-    
-
-        
-
-
+    # Archive the PDFs that will be replaced updated PDFs
+    archive_pdfs_s3(db, s3, updatedTerminals)
+    rotate_pdfs_to_current_s3(db, s3, updatedTerminals)
 
     # ##################################################
     # # Place holder for Azure AI Services Upload func #
     # ##################################################
-
-    # # Store any change in MongoDB
-    # for terminal in listOfTerminals:
-    #     db.store_terminal(terminal)
     
     logging.info('Successfully finished program!')
 

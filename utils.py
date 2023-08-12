@@ -26,7 +26,8 @@ def check_env_variables(variables):
         errorMessage = f"The following variable(s) are missing or empty in .env: {', '.join(emptyVariables)}"
         raise ValueError(errorMessage)
 
-def clean_up_tmp_pdfs(baseDir: str) -> None:
+def clean_up_tmp_pdfs() -> None:
+    baseDir = os.getenv('PDF_DIR')
     tmpDir = os.path.join(baseDir, 'tmp')
 
     # Look for all PDF files in the directory and its subdirectories
@@ -39,7 +40,7 @@ def clean_up_tmp_pdfs(baseDir: str) -> None:
         except Exception as e:
             logging.error(f"Error removing {pdf_file}. Error: {e}")
 
-def check_pdf_directories(baseDir):
+def check_local_pdf_dirs():
 
     '''
     The PDFs will be stored in this structure under whatever is set as the
@@ -75,7 +76,9 @@ def check_pdf_directories(baseDir):
        (...)
     '''
 
-    pdfUseDir = ['tmp/', 'current/']
+    baseDir = os.getenv('PDF_DIR')
+
+    pdfUseDir = ['tmp/']
 
     typeOfPdfDirs = ['72_HR/', '30_DAY/', 'ROLLCALL']
 
@@ -86,11 +89,6 @@ def check_pdf_directories(baseDir):
     # Check base directory exists
     if not os.path.exists(baseDir):
         os.mkdir(baseDir)
-
-    # Create archive directory seperately
-    archiveDir = baseDir + 'archive/'
-    if not os.path.exists(archiveDir):
-        os.mkdir(archiveDir)
 
     # Iterate through the use directories: tmp/, current/, archive/
     for useDir in pdfUseDir:
@@ -114,29 +112,96 @@ def check_pdf_directories(baseDir):
     
     return None
 
-def rotate_pdf_to_current(baseDir: str, pdfPath: str) -> str:
+def check_s3_pdf_dirs(s3: s3Bucket):
 
-    # If this is a 72 hour schedule PDF
-    if '72_HR' in pdfPath:
-        new72HrDir = baseDir + 'current/72_HR/' + gen_pdf_name_uuid10(pdfPath)
-        dest = shutil.move(pdfPath, new72HrDir)
-        logging.info('Rotated 72 Hour schedule PDF to current directory: %s ---> %s', pdfPath, dest)
-        return dest
-    
-    if '30_DAY' in pdfPath:
-        new30DayDir = baseDir + 'current/30_DAY/' + gen_pdf_name_uuid10(pdfPath)
-        dest = shutil.move(pdfPath, new30DayDir)
-        logging.info('Rotated 30 Day schedule PDF current directory: %s ---> %s', pdfPath, dest)
-        return dest
+    currentDir = 'current/'
+    archiveDir = 'archive/'
+    typeOfPdfDirs = ['72_HR/', '30_DAY/', 'ROLLCALL/']
 
-    if 'ROLLCALL' in pdfPath:
-        newRollcallDir = baseDir + 'current/ROLLCALL/' + gen_pdf_name_uuid10(pdfPath)
-        dest = shutil.move(pdfPath, newRollcallDir)
-        logging.info('Rotated rollcall PDF to current directory: %s ---> %s', pdfPath, dest)
-        return dest
+    if not s3.directory_exists(currentDir):
+        s3.create_directory(currentDir)
+
+    for dirType in typeOfPdfDirs:
+        currPath = os.path.join(currentDir, dirType)
+
+        if not s3.directory_exists(currPath):
+            s3.create_directory(currPath)
     
-    logging.error('Unable to rotate PDF no valid category. Path: %s', pdfPath)
-    return 'empty'
+    if not s3.directory_exists(archiveDir):
+        s3.create_directory(archiveDir)
+    
+
+def rotate_pdfs_to_current_s3(db: MongoDB, s3: s3Bucket, updatedTerminals: List[Terminal]):
+
+    baseDir = os.getenv('PDF_DIR')
+
+    for terminal in updatedTerminals:
+
+        # If 72 hour is updated
+        if terminal.is72HourUpdated:
+
+            # Check if pdf still exists
+            tmpPdfPath = os.path.join(baseDir, terminal.pdfName72Hour)
+            if os.path.exists(terminal.pdfName72Hour):
+                tmpPdfName = os.path.basename(terminal.pdfName72Hour)
+
+                # Create s3 destination path
+                dest = os.path.join('current/72_HR/', tmpPdfName)
+
+                # Upload to s3 current directory
+                s3.upload_to_s3(tmpPdfPath, dest)
+                logging.info(f'Uploaded {tmpPdfPath} to s3 at {dest}.')
+
+                # Update the db to reflect new PDF
+                db.set_terminal_field(terminal.name, 'pdfName72Hour', dest)
+                db.set_terminal_field(terminal.name, 'pdfHash72Hour', terminal.pdfHash72Hour)
+                db.set_terminal_field(terminal.name, 'is72HourUpdated', True)
+            else:
+                logging.error(f'Unable to upload {tmpPdfPath} to s3.')
+
+        # If 30 day is updated
+        if terminal.is30DayUpdated:
+
+            # Check if pdf still exists
+            tmpPdfPath = os.path.join(baseDir, terminal.pdfName30Day)
+            if os.path.exists(terminal.pdfName30Day):
+                tmpPdfName = os.path.basename(terminal.pdfName30Day)
+
+                # Create s3 destination path
+                dest = os.path.join('current/30_DAY/', tmpPdfName)
+
+                # Uploaded to s3 current directory
+                s3.upload_to_s3(tmpPdfPath, dest)
+                logging.info(f'Uploaded {tmpPdfPath} to s3 at {dest}.')
+
+                # Update the db to reflect the new PDF
+                db.set_terminal_field(terminal.name, 'pdfName30Day', dest)
+                db.set_terminal_field(terminal.name, 'pdfHash30Day', terminal.pdfHash30Day)
+                db.set_terminal_field(terminal.name, 'is30DayUpdated', True)
+            else:
+                logging.error(f'Unable to upload {tmpPdfPath} to s3.')
+        
+        # If rollcall is updated
+        if terminal.isRollcallUpdated:
+
+            # Check if pdf still exists
+            tmpPdfPath = os.path.join(baseDir, terminal.pdfNameRollcall)
+            if os.path.exists(terminal.pdfNameRollcall):
+                tmpPdfName = os.path.basename(terminal.pdfNameRollcall)
+
+                # Create s3 destination path
+                dest = os.path.join('current/ROLLCALL/', tmpPdfName)
+
+                # Uploaded to s3 current directory
+                s3.upload_to_s3(tmpPdfPath, dest)
+                logging.info(f'Uploaded {tmpPdfPath} to s3 at {dest}.')
+
+                # Update the db to reflect the new PDF
+                db.set_terminal_field(terminal.name, 'pdfNameRollcall', dest)
+                db.set_terminal_field(terminal.name, 'pdfHashRollcall', terminal.pdfHashRollcall)
+                db.set_terminal_field(terminal.name, 'isRollcallUpdated', True)
+            else:
+                logging.error(f'Unable to upload {tmpPdfPath} to s3.')   
 
 def check_downloaded_pdfs(directory_path):
     """Check if at least one PDF was downloaded and log the number of PDFs in the directory."""
@@ -244,6 +309,93 @@ def gen_archive_dir_s3(s3: s3Bucket, terminalName: str) -> str:
         raise
 
     return terminalArchiveDir
+
+def archive_pdfs_s3(db: MongoDB, s3: s3Bucket, updatedTerminals: List[Terminal]):
+
+    for terminal in updatedTerminals:
+
+        # Retrieve terminal doc from DB
+        storedTerminal = db.get_doc_by_field_value('name', terminal.name)
+
+        # Get archive directory
+        if storedTerminal['archiveDir'] == 'empty':
+            archiveDir = gen_archive_dir_s3(s3, terminal.name)
+            db.set_terminal_field(terminal.name, 'archiveDir', archiveDir)
+        else:
+            archiveDir = storedTerminal['archiveDir']
+
+        # Check archive directory exists
+        if not s3.directory_exists(archiveDir):
+            logging.error(f'{archiveDir} was not found in S3. Skipping archive function...')
+            continue
+
+        # 72 hour schedule was updated
+        if terminal.is72HourUpdated:
+
+            # Retrieve the old current pdf
+            oldPdfPath = storedTerminal['pdfName72Hour']
+
+            # If there is a 72 hour pdf in s3
+            if oldPdfPath != 'empty':
+
+                # Generate archive name for the PDF
+                archiveName = gen_pdf_archive_name(terminal.name, '72_HR')
+
+                # Generate archive path
+                dest = os.path.join(archiveDir, '72_HR/')
+                dest = os.path.join(dest, archiveName)
+
+                # Move it to archive directory in s3
+                s3.move_object(oldPdfPath, dest)
+                logging.info(f'Archived {terminal.name} 72 hour pdf {oldPdfPath} at {dest}.')
+            else:
+                logging.info(f'No 72 hour schedule to archive for {terminal.name}.')
+            
+        # 30 Day schedule was updated
+        if terminal.is30DayUpdated:
+
+            # Retrieve the old current pdf
+            oldPdfPath = storedTerminal['pdfName30Day']
+
+            # If there is a 30 day pdf in s3
+            if oldPdfPath != 'empty':
+
+                # Generate archive name for the PDF
+                archiveName = gen_pdf_archive_name(terminal.name, '30_DAY')
+
+                # Generate archive path
+                dest = os.path.join(archiveDir, '30_DAY/')
+                dest = os.path.join(dest, archiveName)
+
+                # Move it to archive directory in s3
+                s3.move_object(oldPdfPath, dest)
+                logging.info(f'Archived {terminal.name} 30 day pdf {oldPdfPath} at {dest}.')
+            else:
+                logging.info(f'No 30 day schedule to archive for {terminal.name}.')
+
+        # Rollcall was updated
+        if terminal.isRollcallUpdated:
+
+            # Retrieve the old current pdf
+            oldPdfPath = storedTerminal['pdfNameRollcall']
+
+            # If there is a rollcall pdf in s3
+            if oldPdfPath != 'empty':
+                # Generate archive name for the PDF
+                archiveName = gen_pdf_archive_name(terminal.name, 'ROLLCALL')
+
+                # Generate archive path
+                dest = os.path.join(archiveDir, 'ROLLCALL/')
+                dest = os.path.join(dest, archiveName)
+
+                # Move it to archive directory in s3
+                s3.move_object(oldPdfPath, dest)
+                logging.info(f'Archived {terminal.name} rollcall pdf {oldPdfPath} at {dest}.')
+            else:
+                logging.info(f'No rollcall pdf to archive for {terminal.name}.')
+
+
+
 
 
 
