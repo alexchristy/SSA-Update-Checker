@@ -151,9 +151,7 @@ def main():
             # Save to array of terminal updates
             terminalUpdates.append(terminalTuple)
 
-    # Rotate out old PDFs to archive for AI training data
-    archiveDirDict = gen_archive_dirs(listOfTerminals, basePDFDir)
-    archive_old_pdfs(db, terminalUpdates, archiveDirDict)
+    
 
     ##################################################
     # Place holder for Azure AI Services Upload func #
