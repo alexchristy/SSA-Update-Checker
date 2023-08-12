@@ -119,31 +119,32 @@ def main():
         logging.warning("Some directories did not have successful PDF downloads.")
 
     # Calc hashes of the tmp downloaded terminal PDFs
+    # using the temp Terminal objects.
     for terminal in listOfTerminals:
         terminal = scraper.calc_terminal_pdf_hashes(terminal)
 
-    # # Check for updates by comparing current terminal objects hashes
-    # # with the stored hashes in MongoDB. If the document does not exist
-    # # like during the first run. is_XXX_updated() will return True.
-    # updatedTerminals = []
-    # for terminal in listOfTerminals:
+    # Check for updates by comparing current terminal objects hashes
+    # with the stored hashes in MongoDB. If the document does not exist
+    # like during the first run. is_XXX_updated() will return True.
+    updatedTerminals = []
+    for terminal in listOfTerminals:
 
-    #     wasUpdated = False
+        wasUpdated = False
 
-    #     if db.is_72hr_updated(terminal):
-    #         terminal.is72HourUpdated = True
-    #         wasUpdated = True
+        if db.is_72hr_updated(terminal):
+            terminal.is72HourUpdated = True
+            wasUpdated = True
         
-    #     if db.is_30day_updated(terminal):
-    #         terminal.is30DayUpdated = True
-    #         wasUpdated = True
+        if db.is_30day_updated(terminal):
+            terminal.is30DayUpdated = True
+            wasUpdated = True
 
-    #     if db.is_rollcall_updated(terminal):
-    #         terminal.isRollcallUpdated = True
-    #         wasUpdated = True
+        if db.is_rollcall_updated(terminal):
+            terminal.isRollcallUpdated = True
+            wasUpdated = True
         
-    #     if wasUpdated:
-    #         updatedTerminals.append(terminal)
+        if wasUpdated:
+            updatedTerminals.append(terminal)
     
     # # Archive the PDFs that will be replaced updated PDFs
     # archive_pdfs_s3(db, s3, updatedTerminals)
