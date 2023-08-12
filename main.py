@@ -104,11 +104,10 @@ def main():
     # Get links to all the most up to date PDFs on Terminal sites
     scraper.get_terminals_pdf_links(db)
 
-    # # Download all the PDFs for each Terminal and
-    # # save downloaded tmp paths of these PDFs
-    # for terminal in listOfTerminals:
-    #     terminal = scraper.download_terminal_pdfs(terminal, basePDFDir)
-
+    # Download all the PDFs for each Terminal and
+    # save downloaded tmp paths of these PDFs
+    scraper.download_terminals_pdfs(db)
+    
     # # Check each PDF directory to confirm something was
     # # downloaded.
     # dirs_to_check = [basePDFDir + 'tmp/72_HR/', basePDFDir + 'tmp/30_DAY/', basePDFDir + 'tmp/ROLLCALL/']

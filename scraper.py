@@ -478,54 +478,61 @@ def download_pdf(dir: str, url:str) -> str:
         logging.warning('Failed to download: %s', url)
         return None
     
-def download_terminal_pdfs(terminal: Terminal, baseDir: str) -> Terminal:
-    logging.debug('Entering download_terminal_pdfs().')
+def download_terminals_pdfs(db: MongoDB):
+    logging.debug('Entering download_terminals_pdfs().')
 
     pdf72HourSubPath = "tmp/72_HR/"
     pdf30DaySubPath = "tmp/30_DAY/"
     pdfRollcallSubPath = "tmp/ROLLCALL/"
 
+    baseDir = os.getenv('PDF_DIR')
+
     pdf72HourDownloadDir = baseDir + pdf72HourSubPath
     pdf30DayDownloadDir = baseDir + pdf30DaySubPath
     pdfRollcallDownloadDir = baseDir + pdfRollcallSubPath
 
-    # Download 72 Hour PDF
-    if terminal.pdfLink72Hour != "empty":
+    listOfTerminals = db.get_all_terminals()
 
-        filename = download_pdf(pdf72HourDownloadDir, terminal.pdfLink72Hour)
+    for terminal in listOfTerminals:
+        # Download 72 Hour PDF
+        if terminal.pdfLink72Hour != "empty":
 
-        # If PDF was downloaded successfully
-        if filename is not None:
-            # Get relative path for compatability when changing PDF_DIR
-            relativePath = utils.get_relative_path(pdf72HourSubPath, filename)
+            filename = download_pdf(pdf72HourDownloadDir, terminal.pdfLink72Hour)
 
-            terminal.pdfName72Hour = relativePath
+            # If PDF was downloaded successfully
+            if filename is not None:
+                # Get relative path for compatability when changing PDF_DIR
+                relativePath = utils.get_relative_path(pdf72HourSubPath, filename)
 
-    # Download 30 Day PDF
-    if terminal.pdfLink30Day != "empty":
+                # Save in DB
+                db.set_terminal_field(terminal.name, 'pdfName72Hour', relativePath)
 
-        filename = download_pdf(pdf30DayDownloadDir, terminal.pdfLink30Day)
+        # Download 30 Day PDF
+        if terminal.pdfLink30Day != "empty":
 
-        # If PDF was downloaded successfully
-        if filename is not None:
-            # Get relative path for compatability when changing PDF_DIR
-            relativePath = utils.get_relative_path(pdf30DaySubPath, filename)
+            filename = download_pdf(pdf30DayDownloadDir, terminal.pdfLink30Day)
 
-            terminal.pdfName30Day = relativePath
-    
-    # Download Rollcall PDF
-    if terminal.pdfLinkRollcall != "empty":
+            # If PDF was downloaded successfully
+            if filename is not None:
+                # Get relative path for compatability when changing PDF_DIR
+                relativePath = utils.get_relative_path(pdf30DaySubPath, filename)
 
-        filename = download_pdf(pdfRollcallDownloadDir, terminal.pdfLinkRollcall)
+                # Save in DB
+                db.set_terminal_field(terminal.name, 'pdfName30Day', relativePath)
+        
+        # Download Rollcall PDF
+        if terminal.pdfLinkRollcall != "empty":
 
-        # If PDF was downloaded successfully
-        if filename is not None:
-            # Get relative path for compatability when changing PDF_DIR
-            relativePath = utils.get_relative_path(pdfRollcallSubPath, filename)
+            filename = download_pdf(pdfRollcallDownloadDir, terminal.pdfLinkRollcall)
 
-            terminal.pdfNameRollcall =  relativePath
-      
-    return terminal
+            # If PDF was downloaded successfully
+            if filename is not None:
+                # Get relative path for compatability when changing PDF_DIR
+                relativePath = utils.get_relative_path(pdfRollcallSubPath, filename)
+
+                # Save in DB
+                db.set_terminal_field(terminal.name, 'pdfNameRollcall', relativePath)
+        
 
 def calculate_sha256(file_path):
     logging.debug('Entering calculate_sha256().')
