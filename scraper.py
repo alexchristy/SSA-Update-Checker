@@ -369,10 +369,15 @@ def sort_pdfs_by_content(dir:str, pdfLinks: List[str]) -> List[Tuple[str, str]]:
                 continue
 
         text = extract_text(pdfPath)
-        text = text.lower()
+        text = text.lower().strip()
 
         # Roll calls
         if any(key in text for key in rollcallKeys):
+            pdfRollcallOpts.append((link, pdfPath))
+            continue
+
+        # Additional regex seach to match roll call pdfs
+        if re.search(r'seats\s*released', text, re.DOTALL):
             pdfRollcallOpts.append((link, pdfPath))
             continue
         
