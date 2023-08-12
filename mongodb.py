@@ -56,11 +56,11 @@ class MongoDB:
         self.db = self.client[self.db_name]
         self.collection = self.db[self.collection_name]
 
-    def set_terminal_attr(self, terminalName, attr, value):
-        return self.collection.update_one({"name": terminalName}, {"$set": {attr: value}})
+    def set_terminal_field(self, terminalName, field, value):
+        return self.collection.update_one({"name": terminalName}, {"$set": {field: value}})
     
-    def get_doc_by_field_value(self, attr, value):
-        return self.collection.find_one({attr: {"$eq": value}})
+    def get_doc_by_field_value(self, field, value):
+        return self.collection.find_one({field: {"$eq": value}})
 
     def remove_by_field_value(self, field_name: str, value: any) -> None:
         try:
