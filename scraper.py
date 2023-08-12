@@ -272,7 +272,7 @@ def get_terminals_info(db: MongoDB):
             # If there are 72 Hour PDFs
             if newest72HourPdf is not None:
                 # Store the link to the PDF
-                link = newest72HourPdf[0][0]
+                link = newest72HourPdf
                 db.set_terminal_field(currentTerminal.name, 'pdfLink72Hour', link)
  
                 # We have found the 72 hour schedule
@@ -290,7 +290,7 @@ def get_terminals_info(db: MongoDB):
 
             if newest30DayPdf is not None:
                 # Store the link to the PDF
-                link = newest30DayPdf[0][0]
+                link = newest30DayPdf
                 db.set_terminal_field(currentTerminal.name, 'pdfLink30Day', link)
                
                 # We have found the 30 day schedule
@@ -308,7 +308,7 @@ def get_terminals_info(db: MongoDB):
 
             if newestRollcallPdf is not None:
                 # Store the link to the PDF
-                link = newestRollcallPdf[0][0]
+                link = newestRollcallPdf
                 db.set_terminal_field(currentTerminal.name, 'pdfLinkRollcall', link)
 
                 # We have found the rollcall
@@ -427,7 +427,7 @@ def get_newest_pdf(pdfs: List[Tuple[str, str]]) -> Optional[Tuple[str, str]]:
     # Return only the newest PDF, if one exists.
     # Returning only the link and file path.
     if pdfs_with_dates:
-        return (pdfs_with_dates[0][0], pdfs_with_dates[0][1])
+        return pdfs_with_dates[0][0]
     
     # No PDFs with date metadata exist
     if pdfs_no_dates:
