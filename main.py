@@ -148,8 +148,8 @@ def main():
             # Create tuple of terminal name and update dict
             terminalTuple = (terminal.name, updatedPdfsDict)
 
-        # Save to array of terminal updates
-        terminalUpdates.append(terminalTuple)
+            # Save to array of terminal updates
+            terminalUpdates.append(terminalTuple)
 
     # Rotate out old PDFs to archive for AI training data
     archiveDirDict = gen_archive_dirs(listOfTerminals, basePDFDir)
