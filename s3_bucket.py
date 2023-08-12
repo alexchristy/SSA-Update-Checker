@@ -48,3 +48,32 @@ class s3Bucket:
             logging.info(f"Downloaded {s3_path} to {local_path}")
         except Exception as e:
             logging.error(f"Error downloading {s3_path} to {local_path}: {e}")
+        
+    def move_object(self, source_key, destination_key):
+        try:
+            # Copy the object to the new location
+            copy_source = {'Bucket': self.bucket_name, 'Key': source_key}
+            self.client.copy_object(CopySource=copy_source, Bucket=self.bucket_name, Key=destination_key)
+            logging.info(f"Successfully copied object from {source_key} to {destination_key} in bucket {self.bucket_name}.")
+
+            # Delete the original object
+            self.client.delete_object(Bucket=self.bucket_name, Key=source_key)
+            logging.info(f"Successfully deleted object from {source_key} in bucket {self.bucket_name}.")
+
+        except Exception as e:
+            logging.error(f"Failed to move object from {source_key} to {destination_key}. Error: {str(e)}")
+            raise
+
+    def create_directory(self, path):
+        try:
+            # Make sure the path ends with a '/'
+            if not path.endswith('/'):
+                path += '/'
+
+            # Creating an empty object representing the directory
+            self.client.put_object(Bucket=self.bucket_name, Key=path, Body='')
+            logging.info(f"Successfully created directory at {path} in bucket {self.bucket_name}.")
+
+        except Exception as e:
+            logging.error(f"Failed to create directory at {path}. Error: {str(e)}")
+            raise
