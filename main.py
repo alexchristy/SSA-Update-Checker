@@ -97,65 +97,69 @@ def main():
     url = 'https://www.amc.af.mil/AMC-Travel-Site'
     listOfTerminals = scraper.get_terminals(url)
 
-    # Get links to all the most up to date PDFs on Terminal sites
-    listOfTerminals = scraper.get_terminals_info(listOfTerminals, basePDFDir)
-
-    # Download all the PDFs for each Terminal and
-    # save downloaded tmp paths of these PDFs
+    # Populate the DB
     for terminal in listOfTerminals:
-        terminal = scraper.download_terminal_pdfs(terminal, basePDFDir)
+        db.upsert_terminal(terminal)
 
-    # Check each PDF directory to confirm something was
-    # downloaded.
-    dirs_to_check = [basePDFDir + 'tmp/72_HR/', basePDFDir + 'tmp/30_DAY/', basePDFDir + 'tmp/ROLLCALL/']
-    successful_downloads = [check_downloaded_pdfs(dir_path) for dir_path in dirs_to_check]
-    if all(successful_downloads):
-        logging.info("PDFs were successfully downloaded in all directories.")
-    else:
-        logging.warning("Some directories did not have successful PDF downloads.")
+    # # Get links to all the most up to date PDFs on Terminal sites
+    # listOfTerminals = scraper.get_terminals_info(listOfTerminals, basePDFDir)
 
-    # Calc hashes of the tmp downloaded terminal PDFs
-    for terminal in listOfTerminals:
-        terminal = scraper.calc_terminal_pdf_hashes(terminal)
+    # # Download all the PDFs for each Terminal and
+    # # save downloaded tmp paths of these PDFs
+    # for terminal in listOfTerminals:
+    #     terminal = scraper.download_terminal_pdfs(terminal, basePDFDir)
 
-    # Check for updates by comparing current terminal objects hashes
-    # with the stored hashes in MongoDB. If the document does not exist
-    # like during the first run. is_XXX_updated() will return True.
-    updatedTerminals = []
-    for terminal in listOfTerminals:
+    # # Check each PDF directory to confirm something was
+    # # downloaded.
+    # dirs_to_check = [basePDFDir + 'tmp/72_HR/', basePDFDir + 'tmp/30_DAY/', basePDFDir + 'tmp/ROLLCALL/']
+    # successful_downloads = [check_downloaded_pdfs(dir_path) for dir_path in dirs_to_check]
+    # if all(successful_downloads):
+    #     logging.info("PDFs were successfully downloaded in all directories.")
+    # else:
+    #     logging.warning("Some directories did not have successful PDF downloads.")
 
-        wasUpdated = False
+    # # Calc hashes of the tmp downloaded terminal PDFs
+    # for terminal in listOfTerminals:
+    #     terminal = scraper.calc_terminal_pdf_hashes(terminal)
 
-        if db.is_72hr_updated(terminal):
-            terminal.is72HourUpdated = True
-            wasUpdated = True
+    # # Check for updates by comparing current terminal objects hashes
+    # # with the stored hashes in MongoDB. If the document does not exist
+    # # like during the first run. is_XXX_updated() will return True.
+    # updatedTerminals = []
+    # for terminal in listOfTerminals:
+
+    #     wasUpdated = False
+
+    #     if db.is_72hr_updated(terminal):
+    #         terminal.is72HourUpdated = True
+    #         wasUpdated = True
         
-        if db.is_30day_updated(terminal):
-            terminal.is30DayUpdated = True
-            wasUpdated = True
+    #     if db.is_30day_updated(terminal):
+    #         terminal.is30DayUpdated = True
+    #         wasUpdated = True
 
-        if db.is_rollcall_updated(terminal):
-            terminal.isRollcallUpdated = True
-            wasUpdated = True
+    #     if db.is_rollcall_updated(terminal):
+    #         terminal.isRollcallUpdated = True
+    #         wasUpdated = True
         
-        if wasUpdated:
-            updatedTerminals.append(terminal)
+    #     if wasUpdated:
+    #         updatedTerminals.append(terminal)
     
-    # Archive the PDFs that will be replaced updated PDFs
-    archive_pdfs_s3(db, s3, updatedTerminals)
+    # # Archive the PDFs that will be replaced updated PDFs
+    # archive_pdfs_s3(db, s3, updatedTerminals)
     
 
         
 
 
 
-    ##################################################
-    # Place holder for Azure AI Services Upload func #
-    ##################################################
+    # ##################################################
+    # # Place holder for Azure AI Services Upload func #
+    # ##################################################
 
-    # Store any change in MongoDB
-    for terminal in listOfTerminals:
-        db.store_terminal(terminal)
+    # # Store any change in MongoDB
+    # for terminal in listOfTerminals:
+    #     db.store_terminal(terminal)
     
     logging.info('Successfully finished program!')
 
