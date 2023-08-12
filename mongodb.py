@@ -1,4 +1,5 @@
 import logging
+from typing import List
 from pymongo import MongoClient
 from pymongo.server_api import ServerApi
 from pymongo.errors import WriteError, DuplicateKeyError
@@ -242,9 +243,10 @@ class MongoDB:
 
         return result
 
-    def get_all_terminals(self):
+    def get_all_terminals(self) -> List[Terminal]:
         documents = self.collection.find()
-        return list(documents)
+        terminals = [Terminal.from_dict(document) for document in documents]
+        return terminals
     
     def get_subscribed_terminals(self, chatID):
         # find all documents where chatIDs contains chatID
