@@ -1,8 +1,7 @@
 import logging
-import time
 from pymongo import MongoClient
 from pymongo.server_api import ServerApi
-from pymongo.errors import WriteError
+from pymongo.errors import WriteError, DuplicateKeyError
 from terminal import Terminal
 from urllib.parse import quote_plus
 
@@ -263,3 +262,22 @@ class MongoDB:
             subscribed_terminals.append(doc['name'])
 
         return subscribed_terminals
+    
+    def upsert_terminal(self, terminal: Terminal):
+        # Try to find the terminal by its name
+        existing_terminal = self.collection.find_one({'name': terminal.name})
+        
+        if not existing_terminal:
+            # If terminal doesn't exist, insert it
+            try:
+                # Use the to_dict method to convert the Terminal object to its dict representation
+                terminal_dict = terminal.to_dict()
+                
+                # Inserting the terminal into the collection
+                self.collection.insert_one(terminal_dict)
+            except DuplicateKeyError:
+                # Handle duplicate key error, if needed (for example if 'name' is a unique index)
+                logging.error(f"Terminal {terminal.name} already exists in the database.")
+            except Exception as e:
+                # Handle other errors
+                logging.error(f"Error inserting terminal {terminal.name}. Error: {str(e)}")
