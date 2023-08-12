@@ -434,7 +434,7 @@ def get_newest_pdf(pdfs: List[Tuple[str, str]]) -> Optional[Tuple[str, str]]:
     
     # No PDFs with date metadata exist
     if pdfs_no_dates:
-        return pdfs_no_dates[0]
+        return pdfs_no_dates[0][0]
 
 def download_pdf(dir: str, url:str) -> str:
     logging.debug('Entering download_pdf()')
