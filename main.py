@@ -7,6 +7,7 @@ import sys
 import argparse
 import logging
 from s3_bucket import s3Bucket
+from typing import List
 
 # List of ENV variables to check
 variablesToCheck = [
@@ -78,7 +79,7 @@ def main():
     clean_up_tmp_pdfs(basePDFDir)
 
     # Create S3 bucket object
-    bucket = s3Bucket()
+    s3 = s3Bucket()
 
     # Intialize MongoDB
     logging.info('Starting MongoDB.')
@@ -99,11 +100,13 @@ def main():
     # Get links to all the most up to date PDFs on Terminal sites
     listOfTerminals = scraper.get_terminals_info(listOfTerminals, basePDFDir)
 
-    # Download all the PDFs for each Terminal
+    # Download all the PDFs for each Terminal and
+    # save downloaded tmp paths of these PDFs
     for terminal in listOfTerminals:
         terminal = scraper.download_terminal_pdfs(terminal, basePDFDir)
 
-    # Check each PDF directory
+    # Check each PDF directory to confirm something was
+    # downloaded.
     dirs_to_check = [basePDFDir + 'tmp/72_HR/', basePDFDir + 'tmp/30_DAY/', basePDFDir + 'tmp/ROLLCALL/']
     successful_downloads = [check_downloaded_pdfs(dir_path) for dir_path in dirs_to_check]
     if all(successful_downloads):
@@ -111,42 +114,38 @@ def main():
     else:
         logging.warning("Some directories did not have successful PDF downloads.")
 
-    # Calc hashes for terminal's PDFs
+    # Calc hashes of the tmp downloaded terminal PDFs
     for terminal in listOfTerminals:
         terminal = scraper.calc_terminal_pdf_hashes(terminal)
 
-    # Check for any updates to terminal's PDFs by comparing against DB
-    terminalUpdates = []
+    # Check for updates by comparing current terminal objects hashes
+    # with the stored hashes in MongoDB. If the document does not exist
+    # like during the first run. is_XXX_updated() will return True.
+    updatedTerminals = []
     for terminal in listOfTerminals:
 
-        updatedPdfsDict = {}
+        wasUpdated = False
 
         if db.is_72hr_updated(terminal):
             terminal.is72HourUpdated = True
-
-            updatedPdfsDict['72_HR'] = terminal.pdfName72Hour
-            logging.info('%s updated their 72 hour schedule.', terminal.name)
+            wasUpdated = True
         
         if db.is_30day_updated(terminal):
             terminal.is30DayUpdated = True
+            wasUpdated = True
 
-            updatedPdfsDict['30_DAY'] = terminal.pdfName30Day
-            logging.info('%s updated their 30 day schedule', terminal.name)
-        
         if db.is_rollcall_updated(terminal):
             terminal.isRollcallUpdated = True
-
-            updatedPdfsDict['ROLLCALL'] = terminal.pdfNameRollcall
-            logging.info('%s updated their rollcall.', terminal.name)
+            wasUpdated = True
         
-        # If dictionary is not empty --> There was an update.
-        # Then we can apped it.
-        if updatedPdfsDict:
-            # Create tuple of terminal name and update dict
-            terminalTuple = (terminal.name, updatedPdfsDict)
+        if wasUpdated:
+            updatedTerminals.append(terminal)
+    
+    # Archive the PDFs that will be replaced updated PDFs
+    archive_pdfs_s3(db, s3, updatedTerminals)
+    
 
-            # Save to array of terminal updates
-            terminalUpdates.append(terminalTuple)
+        
 
 
 
