@@ -18,6 +18,7 @@ import logging
 from datetime import datetime
 from pdfminer.high_level import extract_text
 import utils
+from mongodb import MongoDB
 
 valid_locations = ['AMC CONUS Terminals', 'EUCOM Terminals', 'INDOPACOM Terminals',
                    'CENTCOM Terminals', 'SOUTHCOM TERMINALS', 'Non-AMC CONUS Terminals',
@@ -157,7 +158,7 @@ def get_terminals(url: str) -> List[Terminal]:
 
     return listOfTerminals
 
-def get_terminals_info(listOfTerminals: List[Terminal], baseDir: str) -> List[Terminal]:
+def get_terminals_info(db: MongoDB) -> List[Terminal]:
     logging.debug('Entering get_terminals_info().')
 
     terminalsWithPDFLinks = []
@@ -166,8 +167,15 @@ def get_terminals_info(listOfTerminals: List[Terminal], baseDir: str) -> List[Te
     regex30DayFilter = r"(?i)30[-_ ]?day"
     regexRollcallFilter = r"(?i)(roll[-_ ]?call)|roll"
 
+    baseDir = os.getenv('PDF_DIR')
+
+    listOfTerminals = db.get_all_terminals()
+
     # Grab terminal pages
     for currentTerminal in listOfTerminals:
+
+        # Retrieve terminal dcoument from Mongo
+        currTermDoc = db.get_doc_by_attr_value('name', currentTerminal.name)
 
         # URL of terminal page
         url = currentTerminal.link
@@ -175,6 +183,8 @@ def get_terminals_info(listOfTerminals: List[Terminal], baseDir: str) -> List[Te
         # Skip terminals with no page
         if url == "empty":
             logging.warning('%s terminal has no terminal page link.', currentTerminal.name)
+            logging.info(f'Removing {currentTerminal.name} with no page link...')
+            db.remove_by_field_value('name', currentTerminal.name)
             continue
 
         logging.debug('Downloading %s terminal page.', currentTerminal.name)
