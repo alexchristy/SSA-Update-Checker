@@ -263,6 +263,7 @@ class MongoDB:
 
         return subscribed_terminals
     
+
     def upsert_terminal(self, terminal: Terminal):
         # Try to find the terminal by its name
         existing_terminal = self.collection.find_one({'name': terminal.name})
@@ -275,9 +276,15 @@ class MongoDB:
                 
                 # Inserting the terminal into the collection
                 self.collection.insert_one(terminal_dict)
+                logging.info(f"Successfully inserted terminal {terminal.name} into the database.")
             except DuplicateKeyError:
                 # Handle duplicate key error, if needed (for example if 'name' is a unique index)
-                logging.error(f"Terminal {terminal.name} already exists in the database.")
+                logging.warning(f"Terminal {terminal.name} already exists in the database. Consider updating it instead of inserting.")
             except Exception as e:
                 # Handle other errors
                 logging.error(f"Error inserting terminal {terminal.name}. Error: {str(e)}")
+        else:
+            # If terminal exists, you can consider updating it.
+            # For simplicity, I'm just logging the existence. However, you can enhance this part to handle updates if needed.
+            logging.info(f"Terminal with name {terminal.name} already exists in the database.")
+
