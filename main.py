@@ -105,17 +105,18 @@ def main():
     scraper.get_terminals_pdf_links(db)
 
     # Download all the PDFs for each Terminal and
-    # save downloaded tmp paths of these PDFs
-    scraper.download_terminals_pdfs(db)
-    
-    # # Check each PDF directory to confirm something was
-    # # downloaded.
-    # dirs_to_check = [basePDFDir + 'tmp/72_HR/', basePDFDir + 'tmp/30_DAY/', basePDFDir + 'tmp/ROLLCALL/']
-    # successful_downloads = [check_downloaded_pdfs(dir_path) for dir_path in dirs_to_check]
-    # if all(successful_downloads):
-    #     logging.info("PDFs were successfully downloaded in all directories.")
-    # else:
-    #     logging.warning("Some directories did not have successful PDF downloads.")
+    # save downloaded tmp paths of these PDFs to 
+    # a list of terminal objects.
+    listOfTerminals = scraper.download_terminals_pdfs(db)
+
+    # Check each PDF directory to confirm something was
+    # downloaded.
+    dirs_to_check = [basePDFDir + 'tmp/72_HR/', basePDFDir + 'tmp/30_DAY/', basePDFDir + 'tmp/ROLLCALL/']
+    successful_downloads = [check_downloaded_pdfs(dir_path) for dir_path in dirs_to_check]
+    if all(successful_downloads):
+        logging.info("PDFs were successfully downloaded in all directories.")
+    else:
+        logging.warning("Some directories did not have successful PDF downloads.")
 
     # # Calc hashes of the tmp downloaded terminal PDFs
     # for terminal in listOfTerminals:
