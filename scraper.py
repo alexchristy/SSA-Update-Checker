@@ -174,13 +174,10 @@ def get_terminals_info(db: MongoDB) -> List[Terminal]:
     # Grab terminal pages
     for currentTerminal in listOfTerminals:
 
-        # Retrieve terminal dcoument from Mongo
-        currTermDoc = db.get_doc_by_attr_value('name', currentTerminal.name)
-
         # URL of terminal page
         url = currentTerminal.link
         
-        # Skip terminals with no page
+        # Skip terminals with no page and remove from DB
         if url == "empty":
             logging.warning('%s terminal has no terminal page link.', currentTerminal.name)
             logging.info(f'Removing {currentTerminal.name} with no page link...')
