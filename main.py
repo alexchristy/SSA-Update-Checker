@@ -102,7 +102,7 @@ def main():
         db.upsert_terminal(terminal)
 
     # Get links to all the most up to date PDFs on Terminal sites
-    scraper.get_terminals_info(db)
+    scraper.get_terminals_pdf_links(db)
 
     # # Download all the PDFs for each Terminal and
     # # save downloaded tmp paths of these PDFs
