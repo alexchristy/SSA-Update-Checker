@@ -22,6 +22,7 @@ class Terminal:
         self.pagePosition = "empty"
         self.location = "empty"
         self.chatIDs = []
+        self.archiveDir = "empty"
 
     def print(self):
         print("Name: " + self.name)
@@ -60,5 +61,6 @@ class Terminal:
             'group': self.group,
             'pagePosition': self.pagePosition,
             'location': self.location,
-            'chatIDs': self.chatIDs
+            'chatIDs': self.chatIDs,
+            'archiveDir': self.archiveDir
         }
