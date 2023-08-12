@@ -8,6 +8,7 @@ from urllib.parse import quote, unquote, urlparse
 from dotenv import load_dotenv
 from mongodb import MongoDB
 import uuid
+from s3_bucket import s3Bucket
 
 from terminal import Terminal
 
@@ -154,7 +155,7 @@ def get_pdf_name(url) -> str:
     except Exception as e:
         return str(e)
     
-def generate_pdf_archive_name(terminalName, nameModifier):
+def gen_pdf_archive_name(terminalName, nameModifier):
     # Replace spaces with underscore in terminalName
     terminalName = terminalName.replace(' ', '_')
     
@@ -163,9 +164,12 @@ def generate_pdf_archive_name(terminalName, nameModifier):
     
     # Format date and time as per your requirement
     timestamp = now.strftime('%d-%b-%Y_%H%M')
-    
+
     # Generate new name
     new_name = f"{terminalName}_{nameModifier}_{timestamp}.pdf"
+
+    # Add uuid
+    new_name = gen_pdf_name_uuid10(new_name)
     
     return new_name
 
@@ -208,3 +212,38 @@ def get_relative_path(subpath, pdf_path):
         return pdf_path[index:]
     else:
         return None
+
+def gen_archive_dir_s3(s3: s3Bucket, terminalName: str) -> str:
+    logging.info('Creating archive directories in s3 bucket: %s', s3.bucket_name)
+
+    archiveDir = 'archive/'
+
+    # Sub directories for sorting the different types of
+    # PDFs a terminal can generate.
+    dirTypes = ['72_HR/', '30_DAY/', 'ROLLCALL/']
+
+    # Convert terminal name to snake case
+    snakeCaseName = terminalName.replace(' ', '_')
+    terminalArchiveDir = archiveDir + snakeCaseName + '/'
+
+    try:
+        # Create base terminal folder in archive if it doesn't exist.
+        if not s3.directory_exists(terminalArchiveDir):
+            s3.create_directory(terminalArchiveDir)
+            logging.info('Created directory %s in s3.', terminalArchiveDir)
+
+        for dirType in dirTypes:
+            subDir = terminalArchiveDir + dirType
+
+            if not s3.directory_exists(subDir):
+                s3.create_directory(subDir)
+                logging.info('Created sub directory %s in s3.', subDir)
+
+    except Exception as e:
+        logging.error(f"Error while generating archive directories for {terminalName} in bucket {s3.bucket_name}. Error: {str(e)}")
+        raise
+
+    return terminalArchiveDir
+
+
+
