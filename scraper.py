@@ -73,12 +73,6 @@ def get_terminals(url: str) -> List[Terminal]:
         logging.critical('Failed to download AMC Travel page. Exiting program...')
         raise
 
-    '''
-    ####################################
-    # Find all terminals doing Space A #
-    ####################################
-    '''
-
     # Create empty array of terminals to store data
     listOfTerminals = []
 
