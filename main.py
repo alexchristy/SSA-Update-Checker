@@ -118,9 +118,9 @@ def main():
     else:
         logging.warning("Some directories did not have successful PDF downloads.")
 
-    # # Calc hashes of the tmp downloaded terminal PDFs
-    # for terminal in listOfTerminals:
-    #     terminal = scraper.calc_terminal_pdf_hashes(terminal)
+    # Calc hashes of the tmp downloaded terminal PDFs
+    for terminal in listOfTerminals:
+        terminal = scraper.calc_terminal_pdf_hashes(terminal)
 
     # # Check for updates by comparing current terminal objects hashes
     # # with the stored hashes in MongoDB. If the document does not exist

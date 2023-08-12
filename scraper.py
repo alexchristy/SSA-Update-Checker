@@ -560,19 +560,13 @@ def calc_terminal_pdf_hashes(terminal: Terminal) -> Terminal:
     if os.path.exists(pdf72HourPath):
         terminal.pdfHash72Hour = calculate_sha256(pdf72HourPath)
         logging.debug('%s hash was calculated.', pdf72HourPath)
-    else:
-        logging.warning('72 hour schedule PDF was not found for %s in calc_terminal_pdf_hashes(). Is it missing?', terminal.name)
 
     if os.path.exists(pdf30DayPath):
         terminal.pdfHash30Day = calculate_sha256(pdf30DayPath)
         logging.debug('%s hash was calculated.', pdf30DayPath)
-    else:
-        logging.warning('30 day schedule PDF was not found for %s in calc_terminal_pdf_hashes(). Is it missing?', terminal.name)
     
     if os.path.exists(pdfRollcallPath):
         terminal.pdfHashRollcall = calculate_sha256(pdfRollcallPath)
         logging.debug('%s hash was calculated.', pdfRollcallPath)
-    else:
-        logging.warning('Rollcall PDF was not found for %s in calc_terminal_pdf_hashes(). Is it missing?', terminal.name)
 
     return terminal
