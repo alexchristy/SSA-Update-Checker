@@ -80,9 +80,6 @@ def main():
     # Create S3 bucket object
     bucket = s3Bucket()
 
-    # Sync current directory from S3
-    bucket.sync_folder_from_s3(basePDFDir + 'current/', 'current', delete_extra_files_locally=True)
-
     # Intialize MongoDB
     logging.info('Starting MongoDB.')
     db = MongoDB(mongoDBName, mongoCollectionName, host=mongoHost, username=mongoUsername, password=mongoPassword)
@@ -151,7 +148,7 @@ def main():
             # Save to array of terminal updates
             terminalUpdates.append(terminalTuple)
 
-    
+
 
     ##################################################
     # Place holder for Azure AI Services Upload func #
@@ -161,10 +158,6 @@ def main():
     for terminal in listOfTerminals:
         db.store_terminal(terminal)
     
-    # Sync PDFs to S3 bucket
-    bucket.sync_folder_to_s3(basePDFDir + 'current/', 'current', delete_extra_files_in_s3=True)
-    bucket.sync_folder_to_s3(basePDFDir + 'archive/', 'archive', delete_extra_files_in_s3=False)
-
     logging.info('Successfully finished program!')
 
 if __name__ == "__main__":
