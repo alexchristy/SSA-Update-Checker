@@ -159,8 +159,8 @@ def get_terminals(url: str) -> List[Terminal]:
 
     return listOfTerminals
 
-def get_terminals_info(db: MongoDB):
-    logging.debug('Entering get_terminals_info().')
+def get_terminals_pdf_links(db: MongoDB):
+    logging.debug('Entering get_terminals_pdf_links().')
 
     # Define regex filters for PDF names
     regex72HourFilter = r"(?i)72[- _%20]{0,1}hr|72[- _%20]{0,1}hour"
@@ -384,7 +384,7 @@ def sort_pdfs_by_content(dir:str, pdfLinks: List[str]) -> List[Tuple[str, str]]:
 
     return pdf72HourOpts, pdf30DayOpts, pdfRollcallOpts
 
-def get_newest_pdf(pdfs: List[Tuple[str, str]]) -> Optional[Tuple[str, str]]:
+def get_newest_pdf(pdfs: List[Tuple[str, str]]) -> str:
     logging.debug('Entering get_newest_pdf().')
 
     # Create a list to store tuples of (link, path, date)
@@ -397,7 +397,7 @@ def get_newest_pdf(pdfs: List[Tuple[str, str]]) -> Optional[Tuple[str, str]]:
     
     # If there is only one item in the list return the only item
     if len(pdfs) == 1:
-        return pdfs[0]
+        return pdfs[0][0]
 
     for link, path in pdfs:
         if not os.path.isfile(path):
