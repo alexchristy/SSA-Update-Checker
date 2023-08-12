@@ -77,3 +77,24 @@ class s3Bucket:
         except Exception as e:
             logging.error(f"Failed to create directory at {path}. Error: {str(e)}")
             raise
+    
+    def directory_exists(self, path):
+        try:
+            # Make sure the path ends with a '/'
+            if not path.endswith('/'):
+                path += '/'
+
+            # List objects with the given prefix (i.e., directory)
+            response = self.client.list_objects_v2(Bucket=self.bucket_name, Prefix=path, MaxKeys=1)
+            
+            # Check if any objects are returned with the given prefix
+            if 'Contents' in response and response['Contents']:
+                logging.info(f"Directory {path} exists in bucket {self.bucket_name}.")
+                return True
+            else:
+                logging.info(f"Directory {path} does not exist in bucket {self.bucket_name}.")
+                return False
+
+        except Exception as e:
+            logging.error(f"Failed to check if directory {path} exists in bucket {self.bucket_name}. Error: {str(e)}")
+            raise
