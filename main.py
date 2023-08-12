@@ -101,8 +101,8 @@ def main():
     for terminal in listOfTerminals:
         db.upsert_terminal(terminal)
 
-    # # Get links to all the most up to date PDFs on Terminal sites
-    # listOfTerminals = scraper.get_terminals_info(listOfTerminals, basePDFDir)
+    # Get links to all the most up to date PDFs on Terminal sites
+    scraper.get_terminals_info(db)
 
     # # Download all the PDFs for each Terminal and
     # # save downloaded tmp paths of these PDFs
