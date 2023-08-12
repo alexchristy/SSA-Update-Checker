@@ -62,7 +62,7 @@ def normalize_url(url: str):
     normalizedUrl = 'https://' + hostname + '/'
     return normalizedUrl
 
-def get_terminals(url: str):
+def get_terminals(url: str) -> List[Terminal]:
     logging.debug('Running get_terminal_info().')
 
     # Download the AMC travel page
@@ -463,7 +463,7 @@ def download_pdf(dir: str, url:str) -> str:
         logging.warning('Failed to download: %s', url)
         return None
     
-def download_terminal_pdfs(terminal: Terminal, baseDir: str):
+def download_terminal_pdfs(terminal: Terminal, baseDir: str) -> Terminal:
     logging.debug('Entering download_terminal_pdfs().')
 
     pdf72HourSubPath = "tmp/72_HR/"
@@ -524,7 +524,7 @@ def calculate_sha256(file_path):
 
     return sha256_hash.hexdigest()
 
-def calc_terminal_pdf_hashes(terminal: Terminal):
+def calc_terminal_pdf_hashes(terminal: Terminal) -> Terminal:
     logging.debug('Entering calc_terminal_pdf_hashes().')
 
     baseDir = os.getenv('PDF_DIR')
