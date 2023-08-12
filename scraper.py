@@ -336,6 +336,8 @@ def sort_pdfs_by_content(dir:str, pdfLinks: List[str]) -> List[Tuple[str, str]]:
     pdfRollcallOpts = []
 
     sch72HourKeys = ['roll call', 'destination', 'seats']
+    sch30DayKeys = ['30-day', 'monthly']
+    rollcallKeys = ['pax', 'seats released']
 
     for link in pdfLinks:
         
@@ -364,12 +366,12 @@ def sort_pdfs_by_content(dir:str, pdfLinks: List[str]) -> List[Tuple[str, str]]:
         text = text.lower()
 
         # Roll calls
-        if 'pax' in text:
+        if any(key in text for key in rollcallKeys):
             pdfRollcallOpts.append((link, pdfPath))
             continue
         
         # 30 Day schedules
-        if '30-day' in text or 'monthly' in text:
+        if any(key in text for key in sch30DayKeys):
             pdf30DayOpts.append((link, pdfPath))
             continue
 
