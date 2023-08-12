@@ -157,7 +157,13 @@ def get_terminals(url: str) -> List[Terminal]:
         # Increment so next link and name is put in correct terminal object
         index += 1
 
-    return listOfTerminals
+    # Remove terminals with empty names
+    nonEmptyTerminals = []
+    for terminal in listOfTerminals:
+        if terminal.name != 'empty':
+            nonEmptyTerminals.append(terminal)
+
+    return nonEmptyTerminals
 
 def get_terminals_pdf_links(db: MongoDB):
     logging.debug('Entering get_terminals_pdf_links().')
