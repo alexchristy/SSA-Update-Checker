@@ -454,6 +454,7 @@ def download_pdf(dir: str, url:str) -> str:
 
     # Get the filename from the URL
     filename = utils.get_pdf_name(url)
+    filename = utils.gen_pdf_name_uuid10(filename)
 
     # Send a GET request to the URL
     response = get_with_retry(url)
