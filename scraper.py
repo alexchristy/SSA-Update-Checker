@@ -158,17 +158,17 @@ def get_terminals(url: str) -> List[Terminal]:
 
     return listOfTerminals
 
-def get_terminals_info(db: MongoDB) -> List[Terminal]:
+def get_terminals_info(db: MongoDB):
     logging.debug('Entering get_terminals_info().')
 
-    terminalsWithPDFLinks = []
-
+    # Define regex filters for PDF names
     regex72HourFilter = r"(?i)72[- _%20]{0,1}hr|72[- _%20]{0,1}hour"
     regex30DayFilter = r"(?i)30[-_ ]?day"
     regexRollcallFilter = r"(?i)(roll[-_ ]?call)|roll"
 
     baseDir = os.getenv('PDF_DIR')
 
+    # Retrieve all stored terminals in Mongo
     listOfTerminals = db.get_all_terminals()
 
     # Grab terminal pages
@@ -214,50 +214,47 @@ def get_terminals_info(db: MongoDB) -> List[Terminal]:
             extractedPdfLink = a_tag["href"]
 
             # Correct encoding from BS4
-            partialPdfLink = extractedPdfLink.replace('×tamp', '&timestamp')
+            pdfLink = extractedPdfLink.replace('×tamp', '&timestamp')
+
+            # Correct relative pdf links
+            if not pdfLink.lower().startswith('https://'):
+                pdfLink = hostname + pdfLink
 
             # Get name of PDF as it appears on site
-            pdfName = utils.get_pdf_name(partialPdfLink)
+            pdfName = utils.get_pdf_name(pdfLink)
 
             # Check if 72 hour schedule
             if not pdf72HourFound:
+                # If its a 72 hour pdf
                 if re.search(regex72HourFilter, pdfName):
-                    # Check if terminal used relative or full link
-                    if partialPdfLink.lower().startswith('https://'):
-                        currentTerminal.pdfLink72Hour = partialPdfLink
-                    else:
-                        currentTerminal.pdfLink72Hour = hostname + partialPdfLink
+                    # Update DB
+                    db.set_terminal_field(currentTerminal.name, 'pdfLink72Hour', pdfLink)
                     pdf72HourFound = True
                     continue
 
             # Check if 30 day schedule
             if not pdf30DayFound:
+                # If its a 30 day pdf
                 if re.search(regex30DayFilter, pdfName):
-                    # Check if terminal used relative or full link
-                    if partialPdfLink.lower().startswith('https://'):
-                        currentTerminal.pdfLink30Day = partialPdfLink
-                    else:
-                        currentTerminal.pdfLink30Day = hostname + partialPdfLink
+                    # Update DB
+                    db.set_terminal_field(currentTerminal.name, 'pdfLink30Day', pdfLink)
                     pdf30DayFound = True
                     continue
 
             # Check if rollcall
             if not pdfRollcallFound:
+                # If its a rollcall pdf
                 if re.search(regexRollcallFilter, pdfName):
-                    # Check if terminal used relative or full link
-                    if partialPdfLink.lower().startswith('https://'):
-                        currentTerminal.pdfLinkRollcall = partialPdfLink
-                    else:
-                        currentTerminal.pdfLinkRollcall = hostname + partialPdfLink
+                    # Update DB
+                    db.set_terminal_field(currentTerminal.name, 'pdfLinkRollcall', pdfLink)
                     pdfRollcallFound = True
                     continue
 
             # PDF's name did not match any of the regex filters
-            noMatchPdfs.append(hostname + partialPdfLink)
+            noMatchPdfs.append(pdfLink)
         
         # If all PDFs are found continue to next terminal
         if pdf72HourFound and pdf30DayFound and pdfRollcallFound:
-            terminalsWithPDFLinks.append(currentTerminal)
             continue
 
         # Not all PDFs found sort unmatched PDFs by content and return their paths
@@ -273,15 +270,16 @@ def get_terminals_info(db: MongoDB) -> List[Terminal]:
 
             # If there are 72 Hour PDFs
             if newest72HourPdf is not None:
-                # Store the link to the PDF and new path to PDF
-                currentTerminal.pdfLink72Hour = pdfs72Hour[0][0]
+                # Store the link to the PDF
+                link = newest72HourPdf[0][0]
+                db.set_terminal_field(currentTerminal.name, 'pdfLink72Hour', link)
  
                 # We have found the 72 hour schedule
                 pdf72HourFound = True
 
         # Remove unused downloaded PDFs from the full
         # text PDF search.
-        logging.info('Removing %d left over 72 hour PDFs from full text search.', len(pdfs72Hour))
+        logging.info(f'Removing {len(pdfs72Hour)} left over 72 hour PDFs from {currentTerminal.name} full text search.')
         for link, path in pdfs72Hour:
             logging.debug('Removing 72 hour pdf: %s', path)
             os.remove(path)
@@ -290,15 +288,16 @@ def get_terminals_info(db: MongoDB) -> List[Terminal]:
             newest30DayPdf = get_newest_pdf(pdfs30Day)
 
             if newest30DayPdf is not None:
-                # Store the link to the PDF and new path to PDF
-                currentTerminal.pdfLink30Day = pdfs30Day[0][0]
-
+                # Store the link to the PDF
+                link = newest30DayPdf[0][0]
+                db.set_terminal_field(currentTerminal.name, 'pdfLink30Day', link)
+               
                 # We have found the 30 day schedule
                 pdf30DayFound = True
             
         # Remove unused downloaded PDFs from the full
         # text PDF search.
-        logging.info('Removing %d left over 30 Day PDFs from full text search.', len(pdfs30Day))
+        logging.info(f'Removing {len(pdfs30Day)} left over 30 Day PDFs from {currentTerminal.name} full text search.')
         for link, path in pdfs30Day:
             logging.debug('Removing 30 day pdf: %s', path)
             os.remove(path)
@@ -307,22 +306,20 @@ def get_terminals_info(db: MongoDB) -> List[Terminal]:
             newestRollcallPdf = get_newest_pdf(pdfsRollcall)
 
             if newestRollcallPdf is not None:
-                # Store the link to the PDF and new path to PDF
-                currentTerminal.pdfLinkRollcall = pdfsRollcall[0][0]
+                # Store the link to the PDF
+                link = newestRollcallPdf[0][0]
+                db.set_terminal_field(currentTerminal.name, 'pdfLinkRollcall', link)
 
                 # We have found the rollcall
                 pdfRollcallFound = True
 
         # Remove unused downloaded PDFs from the full
         # text PDF search.
-        logging.info('Removing %d left over rollcall PDFs from full text search.', len(pdfsRollcall))
+        logging.info(f'Removing {len(pdfsRollcall)} left over rollcall PDFs from {currentTerminal.name} full text search.')
         for link, path in pdfsRollcall:
             logging.debug('Removing rollcall pdf: %s', path)
             os.remove(path)
 
-        terminalsWithPDFLinks.append(currentTerminal)
-    
-    return terminalsWithPDFLinks
 
 def sort_pdfs_by_content(dir:str, pdfLinks: List[str]) -> List[Tuple[str, str]]:
     logging.debug('Entering sort_pdfs_by_content()')
