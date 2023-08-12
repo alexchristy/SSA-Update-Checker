@@ -2,7 +2,7 @@ import logging
 from typing import List
 from pymongo import MongoClient
 from pymongo.server_api import ServerApi
-from pymongo.errors import WriteError, DuplicateKeyError
+from pymongo.errors import WriteError, DuplicateKeyError, PyMongoError
 from terminal import Terminal
 from urllib.parse import quote_plus
 
@@ -133,7 +133,19 @@ class MongoDB:
     
     def get_doc_by_attr_value(self, attr, value):
         return self.collection.find_one({attr: {"$eq": value}})
-    
+
+    def remove_by_field_value(self, field_name: str, value: any) -> None:
+        try:
+            result = self.collection.delete_one({field_name: value})
+
+            if result.deleted_count:
+                logging.info(f"Successfully deleted {result.deleted_count} document(s) with {field_name} = {value}.")
+            else:
+                logging.warning(f"No documents found with {field_name} = {value}.")
+
+        except PyMongoError as e:
+            logging.error(f"An error occurred while trying to delete a document with {field_name} = {value}. Error: {str(e)}")
+
     def is_72hr_updated(self, terminal: Terminal) -> bool:
 
         document = self.collection.find_one({"name": {"$eq": terminal.name}})
