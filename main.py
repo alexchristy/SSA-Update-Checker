@@ -135,14 +135,20 @@ def main():
         if db.is_72hr_updated(terminal):
             terminal.is72HourUpdated = True
             wasUpdated = True
+        else:
+            db.set_terminal_field(terminal.name, 'is72HourUpdated', False)
         
         if db.is_30day_updated(terminal):
             terminal.is30DayUpdated = True
             wasUpdated = True
+        else:
+            db.set_terminal_field(terminal.name, 'is30DayUpdated', False)
 
         if db.is_rollcall_updated(terminal):
             terminal.isRollcallUpdated = True
             wasUpdated = True
+        else:
+            db.set_terminal_field(terminal.name, 'isRollcallUpdated', False)
         
         if wasUpdated:
             updatedTerminals.append(terminal)
