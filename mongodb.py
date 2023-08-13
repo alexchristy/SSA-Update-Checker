@@ -1,8 +1,8 @@
 import logging
-import time
+from typing import List
 from pymongo import MongoClient
 from pymongo.server_api import ServerApi
-from pymongo.errors import WriteError
+from pymongo.errors import WriteError, DuplicateKeyError, PyMongoError
 from terminal import Terminal
 from urllib.parse import quote_plus
 
@@ -56,84 +56,24 @@ class MongoDB:
         self.db = self.client[self.db_name]
         self.collection = self.db[self.collection_name]
 
-    def add_terminal(self, terminal: Terminal):
-        existing_document = self.collection.find_one({'name': terminal.name, 'link': terminal.link})
-
-        if existing_document is None:
-            # If no such document exists, insert the new Terminal object into the MongoDB collection
-            result = self.collection.insert_one(terminal.to_dict())
-            return result
-        
-        # Document exists check if pdfLink72Hour has changed
-        else:
-            stored3DayLink = existing_document['pdfLink72Hour']
-
-            # PDF 3 Day link has changed
-            if terminal.pdfLink72Hour != stored3DayLink:
-                self.collection.update_one({'name': terminal.name}, {'$set': {'pdfLink72Hour': terminal.pdfLink72Hour}})
-
-
-
-    def is_user_subscribed(self, terminalName, userId):
-        terminalDocument = self.collection.find_one({"name": terminalName})
-        
-        # If terminal does not exist
-        if terminalDocument is None:
-            return False
-
-        # If userId is in the chatIDs list
-        if userId in terminalDocument["chatIDs"]:
-            return True
-        else:
-            return False
-
-    def add_subscription(self, terminalName, chatID):
-        # Check if document exists
-        existingDocument = self.collection.find_one({"name": terminalName})
-        if existingDocument:
-            try:
-                result = self.collection.update_one(
-                    {"name": terminalName},
-                    {"$push": {"chatIDs": chatID}}
-                )
-                if result.modified_count > 0:
-                    print("New subscription added")
-                else:
-                    print("No matching document found for the provided terminalID")
-
-            except WriteError as e:
-                print("Error occurred while inserting subscription:", str(e))
-        else:
-            print(f"No document found with terminalID: {terminalName}")
-
-    def remove_subscription(self, terminalName, chatID):
-        # Check if document exists
-        existingDocument = self.collection.find_one({"name": terminalName})
-        if existingDocument:
-            try:
-                result = self.collection.update_one(
-                    {"name": terminalName},
-                    {"$pull": {"chatIDs": chatID}}
-                )
-                if result.modified_count > 0:
-                    print("Subscription removed")
-                else:
-                    print("No matching document found for the provided terminalID or chatID is not in chatIDs")
-
-            except WriteError as e:
-                print("Error occurred while removing subscription:", str(e))
-        else:
-            print(f"No document found with terminalID: {terminalName}")
+    def set_terminal_field(self, terminalName, field, value):
+        return self.collection.update_one({"name": terminalName}, {"$set": {field: value}})
     
-    def get_docs_with_attr(self, attr):
-        return self.collection.find({attr: {"$ne": "empty"}})
-    
-    def set_terminal_attr(self, terminalName, attr, value):
-        return self.collection.update_one({"name": terminalName}, {"$set": {attr: value}})
-    
-    def get_doc_by_attr_value(self, attr, value):
-        return self.collection.find_one({attr: {"$eq": value}})
-    
+    def get_doc_by_field_value(self, field, value):
+        return self.collection.find_one({field: {"$eq": value}})
+
+    def remove_by_field_value(self, field_name: str, value: any) -> None:
+        try:
+            result = self.collection.delete_one({field_name: value})
+
+            if result.deleted_count:
+                logging.info(f"Successfully deleted {result.deleted_count} document(s) with {field_name} = {value}.")
+            else:
+                logging.warning(f"No documents found with {field_name} = {value}.")
+
+        except PyMongoError as e:
+            logging.error(f"An error occurred while trying to delete a document with {field_name} = {value}. Error: {str(e)}")
+
     def is_72hr_updated(self, terminal: Terminal) -> bool:
 
         document = self.collection.find_one({"name": {"$eq": terminal.name}})
@@ -184,82 +124,33 @@ class MongoDB:
             return True
         else:
             return False
-
-    def get_terminal_by_name(self, terminalName):
-        document = self.collection.find_one({"name": terminalName})
         
-        if document is not None:
-            # Convert the document into a Terminal object
-            terminal = Terminal.from_dict(document)
-            return terminal
-        
-        return None
-
-    def store_terminal(self, terminal: Terminal):
-        # Get the logger
-        logger = logging.getLogger(__name__)
-
-        # Define result as None at the beginning, so it always has a value
-        result = None
-
-        # Find the document with the same name
-        doc = self.collection.find_one({"name": terminal.name})
-
-        if doc:
-            # Document exists, prepare the update query
-            update_query = {}
-            terminal_dict = terminal.to_dict()
-
-            for key, value in terminal_dict.items():
-                # Ensure the isUpdated attributes are always considered for update
-                if key in ["is72HourUpdated", "is30DayUpdated", "isRollcallUpdated"]:
-                    if doc.get(key) != value:
-                        update_query[key] = value
-                    continue
-
-                # Skip PDF-related keys based on their respective isUpdated flags
-                if "72Hour" in key and not terminal.is72HourUpdated:
-                    continue  
-                if "30Day" in key and not terminal.is30DayUpdated:
-                    continue  
-                if "Rollcall" in key and not terminal.isRollcallUpdated:
-                    continue  
-                
-                # If the document's field value is not the same as the Terminal object's field value
-                # then add to the update query
-                if doc.get(key) != value:
-                    update_query[key] = value
-            
-            # Update the document
-            if update_query:
-                result = self.collection.update_one({"name": terminal.name}, {"$set": update_query})
-                logger.info(f"Updated document, matched {result.matched_count} document(s)")
-            else:
-                logger.info("No fields to update")
-        else:
-            # Document does not exist, insert a new one
-            result = self.collection.insert_one(terminal.to_dict())
-            logger.info(f"Inserted new document with ID {result.inserted_id}")
-
-        return result
-
-    def get_all_terminals(self):
+    def get_all_terminals(self) -> List[Terminal]:
         documents = self.collection.find()
-        return list(documents)
-    
-    def get_subscribed_terminals(self, chatID):
-        # find all documents where chatIDs contains chatID
-        documents = self.collection.find({"chatIDs": chatID})
+        terminals = [Terminal.from_dict(document) for document in documents]
+        return terminals
 
-        # convert to list
-        documents = list(documents)
+    def upsert_terminal(self, terminal: Terminal):
+        # Try to find the terminal by its name
+        existing_terminal = self.collection.find_one({'name': terminal.name})
+        
+        if not existing_terminal:
+            # If terminal doesn't exist, insert it
+            try:
+                # Use the to_dict method to convert the Terminal object to its dict representation
+                terminal_dict = terminal.to_dict()
+                
+                # Inserting the terminal into the collection
+                self.collection.insert_one(terminal_dict)
+                logging.info(f"Successfully inserted terminal {terminal.name} into the database.")
+            except DuplicateKeyError:
+                # Handle duplicate key error, if needed (for example if 'name' is a unique index)
+                logging.warning(f"Terminal {terminal.name} already exists in the database. Consider updating it instead of inserting.")
+            except Exception as e:
+                # Handle other errors
+                logging.error(f"Error inserting terminal {terminal.name}. Error: {str(e)}")
+        else:
+            # If terminal exists, you can consider updating it.
+            # For simplicity, I'm just logging the existence. However, you can enhance this part to handle updates if needed.
+            logging.info(f"Terminal with name {terminal.name} already exists in the database.")
 
-        # create a list to hold the terminal names
-        subscribed_terminals = []
-
-        # iterate over documents
-        for doc in documents:
-            # append the terminal name to the list
-            subscribed_terminals.append(doc['name'])
-
-        return subscribed_terminals

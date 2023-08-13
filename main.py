@@ -7,6 +7,7 @@ import sys
 import argparse
 import logging
 from s3_bucket import s3Bucket
+from typing import List
 
 # List of ENV variables to check
 variablesToCheck = [
@@ -71,17 +72,15 @@ def main():
     
     logging.info('Program started.')
 
-    # Create PDF directories if they do not exist
-    check_pdf_directories(basePDFDir)
-
-    # Clean up left over PDFs in tmp
-    clean_up_tmp_pdfs(basePDFDir)
+    # Prep local dirs
+    check_local_pdf_dirs()
+    clean_up_tmp_pdfs()
 
     # Create S3 bucket object
-    bucket = s3Bucket()
+    s3 = s3Bucket()
 
-    # Sync current directory from S3
-    bucket.sync_folder_from_s3(basePDFDir + 'current/', 'current', delete_extra_files_locally=True)
+    # Prep s3 bucket
+    check_s3_pdf_dirs(s3)
 
     # Intialize MongoDB
     logging.info('Starting MongoDB.')
@@ -99,14 +98,20 @@ def main():
     url = 'https://www.amc.af.mil/AMC-Travel-Site'
     listOfTerminals = scraper.get_terminals(url)
 
-    # Get links to all the most up to date PDFs on Terminal sites
-    listOfTerminals = scraper.get_terminals_info(listOfTerminals, basePDFDir)
-
-    # Download all the PDFs for each Terminal
+    # Populate the DB
     for terminal in listOfTerminals:
-        terminal = scraper.download_terminal_pdfs(terminal, basePDFDir)
+        db.upsert_terminal(terminal)
 
-    # Check each PDF directory
+    # Get links to all the most up to date PDFs on Terminal sites
+    scraper.get_terminals_pdf_links(db)
+
+    # Download all the PDFs for each Terminal and
+    # save downloaded tmp paths of these PDFs to 
+    # a list of terminal objects.
+    listOfTerminals = scraper.download_terminals_pdfs(db)
+
+    # Check each PDF directory to confirm something was
+    # downloaded.
     dirs_to_check = [basePDFDir + 'tmp/72_HR/', basePDFDir + 'tmp/30_DAY/', basePDFDir + 'tmp/ROLLCALL/']
     successful_downloads = [check_downloaded_pdfs(dir_path) for dir_path in dirs_to_check]
     if all(successful_downloads):
@@ -114,62 +119,48 @@ def main():
     else:
         logging.warning("Some directories did not have successful PDF downloads.")
 
-    # Calc hashes for terminal's PDFs
+    # Calc hashes of the tmp downloaded terminal PDFs
+    # using the temp Terminal objects.
     for terminal in listOfTerminals:
         terminal = scraper.calc_terminal_pdf_hashes(terminal)
 
-    # Check for any updates to terminal's PDFs
-    terminalUpdates = []
+    # Check for updates by comparing current terminal objects hashes
+    # with the stored hashes in MongoDB. If the document does not exist
+    # like during the first run. is_XXX_updated() will return True.
+    updatedTerminals = []
     for terminal in listOfTerminals:
 
-        updatedPdfsDict = {}
+        wasUpdated = False
 
         if db.is_72hr_updated(terminal):
-            # Rotate the updated PDF to the current directory
-            terminal.pdfName72Hour = rotate_pdf_to_current(basePDFDir, terminal.pdfName72Hour)
             terminal.is72HourUpdated = True
-
-            updatedPdfsDict['72_HR'] = terminal.pdfName72Hour
-            logging.info('%s updated their 72 hour schedule.', terminal.name)
+            wasUpdated = True
+        else:
+            db.set_terminal_field(terminal.name, 'is72HourUpdated', False)
         
         if db.is_30day_updated(terminal):
-            # Rotate the updated PDF to the current directory
-            terminal.pdfName30Day = rotate_pdf_to_current(basePDFDir, terminal.pdfName30Day)
             terminal.is30DayUpdated = True
+            wasUpdated = True
+        else:
+            db.set_terminal_field(terminal.name, 'is30DayUpdated', False)
 
-            updatedPdfsDict['30_DAY'] = terminal.pdfName30Day
-            logging.info('%s updated their 30 day schedule', terminal.name)
-        
         if db.is_rollcall_updated(terminal):
-            # Rotate the updated PDF to the current directory
-            terminal.pdfNameRollcall = rotate_pdf_to_current(basePDFDir, terminal.pdfNameRollcall)
             terminal.isRollcallUpdated = True
-
-            updatedPdfsDict['ROLLCALL'] = terminal.pdfNameRollcall
-            logging.info('%s updated their rollcall.', terminal.name)
+            wasUpdated = True
+        else:
+            db.set_terminal_field(terminal.name, 'isRollcallUpdated', False)
         
-        # Create tuple of terminal name and update dict
-        terminalTuple = (terminal.name, updatedPdfsDict)
-
-        # Save to array of terminal updates
-        terminalUpdates.append(terminalTuple)
-
-    # Rotate out old PDFs to archive for AI training data
-    archiveDirDict = gen_archive_dirs(listOfTerminals, basePDFDir)
-    archive_old_pdfs(db, terminalUpdates, archiveDirDict)
-
-    ##################################################
-    # Place holder for Azure AI Services Upload func #
-    ##################################################
-
-    # Store any change in MongoDB
-    for terminal in listOfTerminals:
-        db.store_terminal(terminal)
+        if wasUpdated:
+            updatedTerminals.append(terminal)
     
-    # Sync PDFs to S3 bucket
-    bucket.sync_folder_to_s3(basePDFDir + 'current/', 'current', delete_extra_files_in_s3=True)
-    bucket.sync_folder_to_s3(basePDFDir + 'archive/', 'archive', delete_extra_files_in_s3=False)
+    # Archive the PDFs that will be replaced updated PDFs
+    archive_pdfs_s3(db, s3, updatedTerminals)
+    rotate_pdfs_to_current_s3(db, s3, updatedTerminals)
 
+    # ##################################################
+    # # Place holder for Azure AI Services Upload func #
+    # ##################################################
+    
     logging.info('Successfully finished program!')
 
 if __name__ == "__main__":

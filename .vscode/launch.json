@@ -1,14 +1,24 @@
 {
     "version": "0.2.0",
     "configurations": [
+    
         {
-            "name": "Debug with Logging",
+            "name": "Debug with DEBUG",
             "type": "python",
             "request": "launch",
             "program": "${workspaceFolder}/main.py",
             "console": "integratedTerminal",
             "justMyCode": true,
             "args": ["--log", "DEBUG"]
+        },
+        {
+            "name": "Debug with INFO",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": ["--log", "INFO"]
         }
     ]
 }
