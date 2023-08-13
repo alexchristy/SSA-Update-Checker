@@ -142,7 +142,7 @@ def rotate_pdfs_to_current_s3(db: MongoDB, s3: s3Bucket, updatedTerminals: List[
 
             # Check if pdf still exists
             tmpPdfPath = os.path.join(baseDir, terminal.pdfName72Hour)
-            if os.path.exists(terminal.pdfName72Hour):
+            if os.path.exists(tmpPdfPath):
                 tmpPdfName = os.path.basename(terminal.pdfName72Hour)
 
                 # Create s3 destination path
@@ -150,7 +150,6 @@ def rotate_pdfs_to_current_s3(db: MongoDB, s3: s3Bucket, updatedTerminals: List[
 
                 # Upload to s3 current directory
                 s3.upload_to_s3(tmpPdfPath, dest)
-                logging.info(f'Uploaded {tmpPdfPath} to s3 at {dest}.')
 
                 # Update the db to reflect new PDF
                 db.set_terminal_field(terminal.name, 'pdfName72Hour', dest)
@@ -164,7 +163,7 @@ def rotate_pdfs_to_current_s3(db: MongoDB, s3: s3Bucket, updatedTerminals: List[
 
             # Check if pdf still exists
             tmpPdfPath = os.path.join(baseDir, terminal.pdfName30Day)
-            if os.path.exists(terminal.pdfName30Day):
+            if os.path.exists(tmpPdfPath):
                 tmpPdfName = os.path.basename(terminal.pdfName30Day)
 
                 # Create s3 destination path
@@ -172,7 +171,6 @@ def rotate_pdfs_to_current_s3(db: MongoDB, s3: s3Bucket, updatedTerminals: List[
 
                 # Uploaded to s3 current directory
                 s3.upload_to_s3(tmpPdfPath, dest)
-                logging.info(f'Uploaded {tmpPdfPath} to s3 at {dest}.')
 
                 # Update the db to reflect the new PDF
                 db.set_terminal_field(terminal.name, 'pdfName30Day', dest)
@@ -186,7 +184,7 @@ def rotate_pdfs_to_current_s3(db: MongoDB, s3: s3Bucket, updatedTerminals: List[
 
             # Check if pdf still exists
             tmpPdfPath = os.path.join(baseDir, terminal.pdfNameRollcall)
-            if os.path.exists(terminal.pdfNameRollcall):
+            if os.path.exists(tmpPdfPath):
                 tmpPdfName = os.path.basename(terminal.pdfNameRollcall)
 
                 # Create s3 destination path
@@ -194,7 +192,6 @@ def rotate_pdfs_to_current_s3(db: MongoDB, s3: s3Bucket, updatedTerminals: List[
 
                 # Uploaded to s3 current directory
                 s3.upload_to_s3(tmpPdfPath, dest)
-                logging.info(f'Uploaded {tmpPdfPath} to s3 at {dest}.')
 
                 # Update the db to reflect the new PDF
                 db.set_terminal_field(terminal.name, 'pdfNameRollcall', dest)
