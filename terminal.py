@@ -1,15 +1,14 @@
 class Terminal:
     def __init__(self):
-        self.name = ""
-        self.link = ""
-        self.pdf72HourHash = ""
-        self.pdf30DayHash = ""
-        self.pdfRollcallHash = ""
-        self.group = ""
-        self.pagePosition = ""
-        self.location = ""
-        self.chatIDs = []
-        self.archiveDir = ""
+        self.name = None
+        self.link = None
+        self.pdf72HourHash = None
+        self.pdf30DayHash = None
+        self.pdfRollcallHash = None
+        self.group = None
+        self.pagePosition = None
+        self.location = None
+        self.archiveDir = None
 
     def to_dict(self):
         """
@@ -24,7 +23,6 @@ class Terminal:
             'group': self.group,
             'pagePosition': self.pagePosition,
             'location': self.location,
-            'chatIDs': self.chatIDs,
             'archiveDir': self.archiveDir
         }
 
@@ -34,15 +32,14 @@ class Terminal:
         Create a Terminal object from a dictionary (e.g., a Firestore document)
         """
         terminal = cls()
-        terminal.name = data.get('name', "")
+        terminal.name = data.get('name', None)
         terminal.link = data.get('link', "")
-        terminal.pdf72HourHash = data.get('pdf72HourHash', "")
-        terminal.pdf30DayHash = data.get('pdf30DayHash', "")
-        terminal.pdfRollcallHash = data.get('pdfRollcallHash', "")
-        terminal.group = data.get('group', "")
-        terminal.pagePosition = data.get('pagePosition', "")
-        terminal.location = data.get('location', "")
-        terminal.chatIDs = data.get('chatIDs', [])
-        terminal.archiveDir = data.get('archiveDir', "")
+        terminal.pdf72HourHash = data.get('pdf72HourHash', None)
+        terminal.pdf30DayHash = data.get('pdf30DayHash', None)
+        terminal.pdfRollcallHash = data.get('pdfRollcallHash', None)
+        terminal.group = data.get('group', None)
+        terminal.pagePosition = data.get('pagePosition', None)
+        terminal.location = data.get('location', None)
+        terminal.archiveDir = data.get('archiveDir', None)
         
         return terminal
