@@ -4,6 +4,7 @@
 /index.html
 /pdfs
 .env
+/creds.json
 /SSA-ENV
 /app.log
 /testing
