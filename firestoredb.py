@@ -25,3 +25,14 @@ class FirestoreClient:
         """
         doc_ref = self.db.collection(collection_name).document(document_name)
         doc_ref.set(data)
+        
+    def upsert_document(self, collection_name, document_name, data):
+        """
+        Upsert data for a document in a collection.
+        This will update the document with the provided data, or create it if it doesn't exist.
+        :param collection_name: The name of the collection
+        :param document_name: The name of the document
+        :param data: The data to set for the document
+        """
+        doc_ref = self.db.collection(collection_name).document(document_name)
+        doc_ref.set(data, merge=True)
