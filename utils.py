@@ -1,18 +1,13 @@
-import datetime
 import glob
 import hashlib
 import logging
 import os
 import re
 import time
-from typing import List, Dict, Tuple
 from urllib.parse import quote, unquote, urlparse
-from dotenv import load_dotenv
 import uuid
+from dotenv import load_dotenv
 import requests
-from s3_bucket import s3Bucket
-
-from terminal import Terminal
 
 def check_env_variables(variables):
     # Load environment variables from .env file
@@ -167,7 +162,7 @@ def get_with_retry(url: str):
 
     return None
 
-def calc_sha256_hash(input_string):
+def calc_sha256_hash(input_string: str) -> str:
     """
     Calculate the SHA-256 hash of a given input string.
     
@@ -185,7 +180,7 @@ def calc_sha256_hash(input_string):
     
     return hex_digest
 
-def is_valid_sha256(s):
+def is_valid_sha256(s: str) -> bool:
     """
     Check if the given string is a valid SHA256 checksum.
     
@@ -204,10 +199,50 @@ def is_valid_sha256(s):
     
     return False
 
-def normalize_url(url: str):
+def normalize_url(url: str) -> str:
     logging.debug('Entering normarlize_url()')
 
     parsedUrl = urlparse(url)
     hostname = str(parsedUrl.netloc)
     normalizedUrl = 'https://' + hostname + '/'
     return normalizedUrl
+
+def is_valid_string(value) -> bool:
+    return isinstance(value, str)
+
+def get_pdf_name(url) -> str:
+    try:
+        result = urlparse(url)
+        path = unquote(result.path)
+        return path.split('/')[-1]
+    except Exception as e:
+        return str(e)
+    
+def gen_pdf_name_uuid10(file_path):
+    # Extract the directory, base name, and extension
+    dir_path, file_name = os.path.split(file_path)
+    base_name, ext = os.path.splitext(file_name)
+    
+    # Ensure the file is a PDF
+    if ext.lower() != '.pdf':
+        logging.error("%s is not a PDF!", file_path)
+    
+    # Generate a random UUID and take the first few characters for brevity
+    random_uuid = str(uuid.uuid4())[:10]
+    
+    # Construct the new file name
+    new_name = f"{base_name}_{random_uuid}.pdf"
+    
+    return new_name
+
+def format_pdf_metadata_date(date_str):
+    if date_str is None:
+        return None
+    
+    # Regular expression to extract the date components
+    match = re.match(r"D:(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})", date_str)
+    if match:
+        # Format the date to YYYYMMDDHHMMSS
+        return ''.join(match.groups())
+    else:
+        return None
