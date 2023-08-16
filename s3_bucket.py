@@ -1,6 +1,7 @@
 import boto3
 import os
 import logging
+from pdf import Pdf
 
 
 class s3Bucket:
@@ -98,3 +99,85 @@ class s3Bucket:
         except Exception as e:
             logging.error(f"Failed to check if directory {path} exists in bucket {self.bucket_name}. Error: {str(e)}")
             raise
+
+    def gen_archive_dir_s3(self, terminalName: str) -> str:
+        logging.info('Creating archive directories in s3 bucket: %s', self.bucket_name)
+
+        archiveDir = 'archive/'
+
+        # Sub directories for sorting the different types of
+        # PDFs a terminal can generate.
+        dirTypes = ['72_HR/', '30_DAY/', 'ROLLCALL/']
+
+        # Convert terminal name to snake case
+        snakeCaseName = terminalName.replace(' ', '_')
+        terminalArchiveDir = archiveDir + snakeCaseName + '/'
+
+        try:
+            # Create base terminal folder in archive if it doesn't exist.
+            if not self.directory_exists(terminalArchiveDir):
+                self.create_directory(terminalArchiveDir)
+                logging.info('Created directory %s in s3.', terminalArchiveDir)
+
+            for dirType in dirTypes:
+                subDir = terminalArchiveDir + dirType
+
+                if not self.directory_exists(subDir):
+                    self.create_directory(subDir)
+                    logging.info('Created sub directory %s in s3.', subDir)
+
+        except Exception as e:
+            logging.error(f"Error while generating archive directories for {terminalName} in bucket {self.bucket_name}. Error: {str(e)}")
+            raise
+
+        return terminalArchiveDir
+
+    def archive_pdf(self, pdf: Pdf):
+
+        # Verify the archive directory for the PDF exists 
+        # if not we'll make it.
+        terminalArchiveDir = self.gen_archive_dir_s3(pdf.terminal)
+
+        # Create destination path
+        destDir = os.path.join(terminalArchiveDir, pdf.type)
+
+        # Move PDF to archive directory
+        self.move_object(pdf.cloud_path, destDir)
+        logging.info(f'{pdf.filename} was successfully archived.')
+
+        # Set new cloud path for the pdf
+        pdf.cloud_path = destDir
+
+    def upload_pdf_to_current_s3(self, pdf: Pdf):
+
+        """
+        Upload a PDF to the current directory of the S3 bucket.
+        """
+
+        local_path = pdf.get_local_path()
+
+        dest_path = os.path.join('current/', pdf.type)
+        dest_path = os.path.join(dest_path, pdf.filename)
+
+        # Update pdf object
+        pdf.cloud_path = dest_path
+
+        self.upload_to_s3(local_path, dest_path)
+
+    def check_s3_pdf_dirs(self):
+
+        currentDir = 'current/'
+        archiveDir = 'archive/'
+        typeOfPdfDirs = ['72_HR/', '30_DAY/', 'ROLLCALL/']
+
+        if not self.directory_exists(currentDir):
+            self.create_directory(currentDir)
+
+        for dirType in typeOfPdfDirs:
+            currPath = os.path.join(currentDir, dirType)
+
+            if not self.directory_exists(currPath):
+                self.create_directory(currPath)
+        
+        if not self.directory_exists(archiveDir):
+            self.create_directory(archiveDir)
