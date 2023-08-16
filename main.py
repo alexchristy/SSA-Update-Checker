@@ -6,12 +6,14 @@ import sys
 import argparse
 import logging
 from s3_bucket import s3Bucket
-from typing import List
 from firestoredb import FirestoreClient
+from pdf_utils import sort_terminal_pdfs
 
 # List of ENV variables to check
 variablesToCheck = [
     'FS_CRED_PATH',
+    'TERMINAL_COLL',
+    'PDF_ARCHIVE_COLL',
     'AWS_BUCKET_NAME',
     'AWS_ACCESS_KEY_ID',
     'AWS_SECRET_ACCESS_KEY',
@@ -66,81 +68,118 @@ def main():
     s3 = s3Bucket()
 
     # Prep s3 bucket
-    check_s3_pdf_dirs(s3)
+    s3.check_s3_pdf_dirs()
 
     # Connect to Firestore
     fs = FirestoreClient()
 
-    # logging.debug('Starting PDF retrieval process.')
+    # Get enviroment variables
+    pdf_archive_coll = os.getenv('PDF_ARCHIVE_COLL')
 
-    # # Set URL to AMC Travel site and scrape Terminal information from it
-    # url = 'https://www.amc.af.mil/AMC-Travel-Site'
-    # listOfTerminals = scraper.get_terminals(url)
+    logging.debug('Starting PDF retrieval process.')
 
-    # # Populate the DB
-    # for terminal in listOfTerminals:
-    #     db.upsert_terminal(terminal)
+    # Set URL to AMC Travel site and scrape Terminal information from it
+    url = 'https://www.amc.af.mil/AMC-Travel-Site'
+    list_of_terminals = scraper.get_terminals(url)
 
-    # # Get links to all the most up to date PDFs on Terminal sites
-    # scraper.get_terminals_pdf_links(db)
+    # Populate the DB
+    for terminal in list_of_terminals:
 
-    # # Download all the PDFs for each Terminal and
-    # # save downloaded tmp paths of these PDFs to 
-    # # a list of terminal objects.
-    # listOfTerminals = scraper.download_terminals_pdfs(db)
+        # Generate archive directories for the temrinal
+        # if they have not been made.
+        if terminal.archiveDir is None:
+            terminal.archiveDir = s3.gen_archive_dir_s3(terminal.name)
 
-    # # Check each PDF directory to confirm something was
-    # # downloaded.
-    # dirs_to_check = [basePDFDir + 'tmp/72_HR/', basePDFDir + 'tmp/30_DAY/', basePDFDir + 'tmp/ROLLCALL/']
-    # successful_downloads = [check_downloaded_pdfs(dir_path) for dir_path in dirs_to_check]
-    # if all(successful_downloads):
-    #     logging.info("PDFs were successfully downloaded in all directories.")
-    # else:
-    #     logging.warning("Some directories did not have successful PDF downloads.")
+        fs.upsert_terminal_info(terminal)
 
-    # # Calc hashes of the tmp downloaded terminal PDFs
-    # # using the temp Terminal objects.
-    # for terminal in listOfTerminals:
-    #     terminal = scraper.calc_terminal_pdf_hashes(terminal)
+    for terminal in list_of_terminals:
 
-    # # Check for updates by comparing current terminal objects hashes
-    # # with the stored hashes in MongoDB. If the document does not exist
-    # # like during the first run. is_XXX_updated() will return True.
-    # updatedTerminals = []
-    # for terminal in listOfTerminals:
+        # Get list of PDF objects from terminal
+        pdfs = scraper.get_terminal_pdfs(terminal)
 
-    #     wasUpdated = False
+        # Check if any PDFs are new
+        for pdf in pdfs:
+            if fs.pdf_seen_before(pdf):
+                # Should discard PDFs we have seen before
+                pdf.should_discard = True
+                
+            pdf.set_terminal(terminal.name)
 
-    #     if db.is_72hr_updated(terminal):
-    #         terminal.is72HourUpdated = True
-    #         wasUpdated = True
-    #     else:
-    #         db.set_terminal_field(terminal.name, 'is72HourUpdated', False)
+        # Try to determine the type of each new PDF
+        # and return the most plausible new PDF of
+        # each type.
+        pdf72Hour, pdf30Day, pdfRollcall = sort_terminal_pdfs(pdfs)
+
+        # If new 72 hour schedule was found
+        if pdf72Hour is not None and not pdf72Hour.should_discard:
+
+            # Check if there is a PDF to archive
+            if terminal.pdf72HourHash is not None:
+                old72HourPdf = fs.get_pdf_by_hash(terminal.pdf72HourHash)
+
+                # Archive the old 72 hour schedule and
+                # update it with its new archived path
+                # in S3.
+                s3.archive_pdf(old72HourPdf)
+                fs.upsert_pdf(old72HourPdf)
+
+            # Upload new PDF to current directory of S3
+            s3.upload_pdf_to_current_s3(pdf72Hour)
+
+            # Update terminal with new hash
+            fs.update_terminal_pdf_hash(pdf72Hour)
         
-    #     if db.is_30day_updated(terminal):
-    #         terminal.is30DayUpdated = True
-    #         wasUpdated = True
-    #     else:
-    #         db.set_terminal_field(terminal.name, 'is30DayUpdated', False)
+        # If a new 30 day schedule was found
+        if pdf30Day is not None and not pdf30Day.should_discard:
 
-    #     if db.is_rollcall_updated(terminal):
-    #         terminal.isRollcallUpdated = True
-    #         wasUpdated = True
-    #     else:
-    #         db.set_terminal_field(terminal.name, 'isRollcallUpdated', False)
+            # Check if there is a PDF to archive
+            if terminal.pdf30DayHash is not None:
+                old30DayPdf = fs.get_pdf_by_hash(terminal.pdf30DayHash)
+
+                # Archive the old 30 day schedule and
+                # update it with its new archived path 
+                # in S3.
+                s3.archive_pdf(old30DayPdf)
+                fs.upsert_pdf(old30DayPdf)
+
+            # Upload new PDF to current directory of S3
+            s3.upload_pdf_to_current_s3(pdf30Day)
+
+            # Update terminal with new hash
+            fs.update_terminal_pdf_hash(pdf30Day)
         
-    #     if wasUpdated:
-    #         updatedTerminals.append(terminal)
-    
-    # # Archive the PDFs that will be replaced updated PDFs
-    # archive_pdfs_s3(db, s3, updatedTerminals)
-    # rotate_pdfs_to_current_s3(db, s3, updatedTerminals)
+        # If new rollcall was found
+        if pdfRollcall is not None and not pdfRollcall.should_discard:
 
-    # # ##################################################
-    # # # Place holder for Azure AI Services Upload func #
-    # # ##################################################
+            # Check if there is a PDF to archive
+            if terminal.pdfRollcallHash is not None:
+                oldRollcallPdf = fs.get_pdf_by_hash(terminal.pdfRollcallHash)
+
+                # Archive the old rollcall and update
+                # it with its new archived path in S3.
+                s3.archive_pdf(oldRollcallPdf)
+                fs.upsert_pdf(oldRollcallPdf)
+
+            # Upload new PDF to current directory of S3
+            s3.upload_pdf_to_current_s3(pdfRollcall)
+
+            # Update terminal with new hash
+            fs.update_terminal_pdf_hash(pdfRollcall)
+
+
+        # Insert new PDFs to PDF Archive/seen before collection
+        # in the DB to prevent reprocessing them in subsequent
+        # runs.
+        for pdf in pdfs:
+            if not pdf.should_discard:
+                fs.upsert_pdf(pdf)
+        
+
+    ##################################################
+    # Place holder for Azure AI Services Upload func #
+    ##################################################
     
-    # logging.info('Successfully finished program!')
+    logging.info('Successfully finished program!')
 
 if __name__ == "__main__":
     main()
