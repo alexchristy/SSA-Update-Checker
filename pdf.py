@@ -16,6 +16,7 @@ class Pdf:
         self.cloud_path = ""
         self.modify_time = ""
         self.creation_time = ""
+        self.type = ""
         self.should_discard = False
 
         # Set first_seen_time
@@ -148,7 +149,8 @@ class Pdf:
             'firstSeenTime': self.first_seen_time,
             'cloud_path': self.cloud_path,
             'modifyTime': self.modify_time,
-            'creationTime': self.creation_time
+            'creationTime': self.creation_time,
+            'type': self.type
             # 'shouldDiscard': self.should_discard  # This line is intentionally omitted
         }
     
@@ -167,6 +169,7 @@ class Pdf:
         pdf.cloud_path = data['cloud_path']
         pdf.modify_time = data['modifyTime']
         pdf.creation_time = data['creationTime']
+        pdf.type = data['type']
 
         # Setting should_discard to False when object is unmarshalled from the database
         pdf.should_discard = False
