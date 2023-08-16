@@ -82,9 +82,24 @@ class Pdf:
             return
         
     def get_local_path(self):
+
+        if self.cloud_path is None:
+            return None
+        
         base_dir = os.getenv('PDF_DIR')
         local_path = os.path.join(base_dir, self.cloud_path)
         return local_path
+    
+    def set_type(self, type: str) -> None:
+
+        valid_types = ['72_HR', '30_DAY', 'ROLLCALL']
+        
+        if type in valid_types:
+            self.type = type
+            logging.info(f'{self.filename} type set to {self.type}.')
+        else:
+            self.type = None
+            logging.error(f'Failed to set {self.filename} type. Invalid type {type}.')
     
     def _calc_hash(self):
         logging.info(f'Calculating hash for {self.filename}.')
