@@ -2,6 +2,7 @@ from datetime import datetime
 import hashlib
 import os
 import logging
+from urllib.parse import unquote, urlparse
 from PyPDF2 import PdfReader
 import utils
 
@@ -17,6 +18,7 @@ class Pdf:
         self.modify_time = ""
         self.creation_time = ""
         self.type = ""
+        self.terminal = ""
         self.should_discard = False
 
         # Set first_seen_time
@@ -100,6 +102,14 @@ class Pdf:
         else:
             self.type = None
             logging.error(f'Failed to set {self.filename} type. Invalid type {type}.')
+
+    def set_terminal(self, terminal_name: str) -> None:
+
+        if utils.is_valid_string(terminal_name):
+            self.terminal = terminal_name
+            logging.info(f'Set {self.filename} terminal to {terminal_name}.')
+        else:
+            logging.error(f'Unable to set {self.filename} terminal. Invalid terminal string: {terminal_name}.')
     
     def _calc_hash(self):
         logging.info(f'Calculating hash for {self.filename}.')
@@ -151,7 +161,7 @@ class Pdf:
             logging.error(f'Unexpected error reading PDF metadata for {self.get_local_path()}. Exception: {e}', exc_info=True)
             self.creation_time = None
             self.modify_time = None
-
+          
     def to_dict(self):
         """
         Convert this PDF object to a dictionary, suitable for storing in Firestore.
@@ -165,7 +175,8 @@ class Pdf:
             'cloud_path': self.cloud_path,
             'modifyTime': self.modify_time,
             'creationTime': self.creation_time,
-            'type': self.type
+            'type': self.type,
+            'terminal': self.terminal
             # 'shouldDiscard': self.should_discard  # This line is intentionally omitted
         }
     
@@ -185,6 +196,7 @@ class Pdf:
         pdf.modify_time = data['modifyTime']
         pdf.creation_time = data['creationTime']
         pdf.type = data['type']
+        pdf.terminal = data['terminal']
 
         # Setting should_discard to False when object is unmarshalled from the database
         pdf.should_discard = False
