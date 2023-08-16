@@ -186,7 +186,6 @@ class Pdf:
             return
 
         download_dir = os.path.join(download_dir, "tmp/")
-        download_dir = os.path.join(download_dir, self.type)
 
         # Get the filename from the URL
         filename = utils.get_pdf_name(self.link)
@@ -213,8 +212,7 @@ class Pdf:
             self.filename = filename
 
             # Store relative path for compatability
-            sub_path = os.path.join('tmp/', self.type)
-            self.cloud_path = utils.get_relative_path(sub_path, filepath)
+            self.cloud_path = utils.get_relative_path('tmp/', filepath)
             return
         else:
             logging.warning(f'Download failed for link: {self.link}')
