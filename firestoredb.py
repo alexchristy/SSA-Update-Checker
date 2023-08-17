@@ -196,3 +196,23 @@ class FirestoreClient:
             
             # Return None to indicate that no PDF was found
             return None
+        
+    def get_all_terminals(self):
+
+        """
+        This function returns all the stored terminal objects stored in the database.
+        """
+
+        terminal_coll = os.getenv('TERMINAL_COLL')
+
+        terminals_ref = self.db.collection(terminal_coll)
+
+        terminals = terminals_ref.stream()
+
+        terminal_objects = []
+
+        for terminal in terminals:
+            curr_terminal = Terminal.from_dict(terminal.to_dict())  # Convert to dict here
+            terminal_objects.append(curr_terminal)
+
+        return terminal_objects
