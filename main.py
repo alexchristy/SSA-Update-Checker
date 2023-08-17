@@ -92,6 +92,9 @@ def main():
 
         fs.upsert_terminal_info(terminal)
 
+    # Retrieve all updated terminal infomation
+    list_of_terminals = fs.get_all_terminals()
+
     for terminal in list_of_terminals:
 
         # Get list of PDF objects from terminal
@@ -173,7 +176,6 @@ def main():
         for pdf in pdfs:
             if not pdf.should_discard:
                 fs.upsert_pdf(pdf)
-        
 
     ##################################################
     # Place holder for Azure AI Services Upload func #
