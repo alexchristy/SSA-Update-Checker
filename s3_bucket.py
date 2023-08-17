@@ -139,7 +139,9 @@ class s3Bucket:
         terminalArchiveDir = self.gen_archive_dir_s3(pdf.terminal)
 
         # Create destination path
-        destDir = os.path.join(terminalArchiveDir, pdf.type)
+        pdfTypeDir = pdf.type + '/'
+        destDir = os.path.join(terminalArchiveDir, pdfTypeDir)
+        destDir = os.path.join(destDir, pdf.filename)
 
         # Move PDF to archive directory
         self.move_object(pdf.cloud_path, destDir)
