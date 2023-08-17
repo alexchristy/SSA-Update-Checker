@@ -3,7 +3,7 @@ import glob
 import logging
 import os
 import re
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 from pdfminer.pdfdocument import PDFDocument
 from pdfminer.pdfparser import PDFParser
 from pdfminer.pdfpage import PDFPage
@@ -20,7 +20,7 @@ def check_downloaded_pdfs(directory_path):
         logging.info('%d PDFs were downloaded in the directory: %s', num_pdf_files, directory_path)
     return num_pdf_files > 0
 
-def type_pdfs_by_content(list_of_pdfs: List[Pdf]):
+def type_pdfs_by_content(list_of_pdfs: List[Pdf], found: Dict[str, bool]):
 
     """
     Sort PDFs based on their text content. Give a list of
@@ -36,6 +36,7 @@ def type_pdfs_by_content(list_of_pdfs: List[Pdf]):
     sch72HourKeys = ['roll call', 'destination', 'seats']
     sch30DayKeys = ['30-day', 'monthly']
     rollcallKeys = ['pax', 'seats released']
+
 
     for pdf in list_of_pdfs:
 
@@ -63,26 +64,32 @@ def type_pdfs_by_content(list_of_pdfs: List[Pdf]):
         text = text.lower().strip()
 
         # Roll calls
-        if any(key in text for key in rollcallKeys):
-            pdf.set_type('ROLLCALL')
-            continue
+        if not found['ROLLCALL']:
+            if any(key in text for key in rollcallKeys):
+                pdf.set_type('ROLLCALL')
+                continue
 
-        # Additional regex seach to match roll call pdfs
-        if re.search(r'seats\s*released', text, re.DOTALL):
-            pdf.set_type('ROLLCALL')
-            continue
+            # Additional regex seach to match roll call pdfs
+            if re.search(r'seats\s*released', text, re.DOTALL):
+                pdf.set_type('ROLLCALL')
+                continue
 
         # 30 Day schedules
-        if any(key in text for key in sch30DayKeys):
-            pdf.set_type('30_DAY')
-            continue
+        if not found['30_DAY']:
+            if any(key in text for key in sch30DayKeys):
+                pdf.set_type('30_DAY')
+                continue
 
         # 72 Hour schedules
         # Check that all three strings are in the text.
-        if all(key in text for key in sch72HourKeys):
-            pdf.set_type('72_HR')
-            continue
-    
+        if not found['72_HR']:
+            if any(key in text for key in sch72HourKeys):
+                pdf.set_type('72_HR')
+                continue
+
+        # No match found
+        pdf.set_type('DISCARD')
+        
 def sort_terminal_pdfs(list_of_pdfs: List[Pdf]) -> Tuple[Pdf, Pdf, Pdf]:
 
     """
@@ -97,13 +104,20 @@ def sort_terminal_pdfs(list_of_pdfs: List[Pdf]) -> Tuple[Pdf, Pdf, Pdf]:
     pdf30Day = None
     pdfRollcall = None
 
+    # Booleans to filter with context
+    found = {
+        '72_HR': False,
+        '30_DAY': False,
+        'ROLLCALL': False
+    }
+
     # Sort PDFs based on filename
-    pdf72Hour, pdf30Day, pdfRollcall, no_match_pdfs = type_pdfs_by_filename(list_of_pdfs)
+    pdf72Hour, pdf30Day, pdfRollcall, no_match_pdfs = type_pdfs_by_filename(list_of_pdfs, found)
 
     # If there is PDF that was not typed by filename
     if len(no_match_pdfs) > 0:
         # Sort PDFs that did not match any filename filters
-        type_pdfs_by_content(no_match_pdfs)
+        type_pdfs_by_content(no_match_pdfs, found)
 
     # Sort each pdf by modify date metadata where the 
     # most recent pdf is at index 0.
@@ -145,6 +159,12 @@ def sort_terminal_pdfs(list_of_pdfs: List[Pdf]) -> Tuple[Pdf, Pdf, Pdf]:
             if pdf.type == 'ROLLCALL':
                 pdfRollcall = pdf
                 continue
+
+    # For PDFs who did not have a type determined
+    # set their type to discard.
+    for pdf in list_of_pdfs:
+        if pdf.type == "":
+            pdf.set_type('DISCARD')
     
     return pdf72Hour, pdf30Day, pdfRollcall
 
@@ -158,6 +178,13 @@ def metadata_sorting_key(pdf: Pdf, attribute: str) -> str:
     :return: Sorting key for the Pdf object
     """
     value = getattr(pdf, attribute, '0')
+
+    # If PDF does not have that metadata just set it 
+    # to '0'.
+    if value is None:
+        value = '0'
+        setattr(pdf, attribute, '0')
+
     if len(value) == 14 and value.isdigit():
         return value
     else:
@@ -183,7 +210,7 @@ def sort_pdfs_by_creation_time(pdfs: List[Pdf]) -> List[Pdf]:
     """
     return sorted(pdfs, key=lambda pdf: metadata_sorting_key(pdf, 'creation_time'), reverse=True)
 
-def type_pdfs_by_filename(list_of_pdfs: List[Pdf]) -> Tuple[Pdf, Pdf, Pdf, List[Pdf]]:
+def type_pdfs_by_filename(list_of_pdfs: List[Pdf], found: Dict[str, bool]) -> Tuple[Pdf, Pdf, Pdf, List[Pdf]]:
 
     """
     Sort a list of PDFs from ONE TERMINAL by filename using regex filters.
@@ -217,6 +244,7 @@ def type_pdfs_by_filename(list_of_pdfs: List[Pdf]) -> Tuple[Pdf, Pdf, Pdf, List[
         if not pdf_72_hr_found:
             if re.search(regex_72_hr_name_filter, pdf.filename):
                 pdf_72_hr_found = True
+                found['72_HR'] = True
                 pdf.set_type('72_HR')
                 pdf72Hour = pdf
                 continue
@@ -225,6 +253,7 @@ def type_pdfs_by_filename(list_of_pdfs: List[Pdf]) -> Tuple[Pdf, Pdf, Pdf, List[
         if not pdf_30_day_found:
             if re.search(regex_30_day_name_filter, pdf.filename):
                 pdf_30_day_found = True
+                found['30_DAY'] = True
                 pdf.set_type('30_DAY')
                 pdf30Day = pdf
                 continue
@@ -233,6 +262,7 @@ def type_pdfs_by_filename(list_of_pdfs: List[Pdf]) -> Tuple[Pdf, Pdf, Pdf, List[
         if not pdf_rollcall_found:
             if re.search(regex_rollcall_name_filter, pdf.filename):
                 pdf_rollcall_found = True
+                found['ROLLCALL'] = True
                 pdf.set_type('ROLLCALL')
                 pdfRollcall = pdf
                 continue
