@@ -94,7 +94,7 @@ class Pdf:
     
     def set_type(self, type: str) -> None:
 
-        valid_types = ['72_HR', '30_DAY', 'ROLLCALL']
+        valid_types = ['72_HR', '30_DAY', 'ROLLCALL', 'DISCARD']
         
         if type in valid_types:
             self.type = type
