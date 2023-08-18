@@ -230,25 +230,30 @@ def type_pdfs_by_filename(list_of_pdfs: List[Pdf], found: Dict[str, bool]) -> Li
     # Exclusion regex filters
     exclusion_regex_filters = [
         r'(?i)amc[-_ ]?(pe[-_ ])?gram', # AMC Gram
-        r'(^|\W)(?i)pet(\W|$)|(?i)pet\w+', # Pet
-        r'(^|\W)(?i)brochure(\W|$)|(?i)brochure\w+', # Brochure
-        r'(^|\W)(?i)advice(\W|$)|(?i)advice\w+', # Advice
-        r'(^|\W)(?i)guidance(\W|$)|(?i)guidance\w+', # Guidance
-        r'(^|\W)(?i)question(\W|$)|(?i)question\w+', # Question
-        r'(^|\W)(?i)map(\W|$)|(?i)map\w+' # Map
+        r'(?i)(^|\W)pet(\W|$)|pet\w+', # Pet
+        r'(?i)(^|\W)brochure(\W|$)|brochure\w+', # Brochure
+        r'(?i)(^|\W)advice(\W|$)|advice\w+', # Advice
+        r'(?i)(^|\W)guidance(\W|$)|guidance\w+', # Guidance
+        r'(?i)(^|\W)question(\W|$)|question\w+', # Question
+        r'(?i)(^|\W)map(\W|$)|map\w+' # Map
     ]
 
     # Buckets for sorting PDFs into
     no_match_pdfs = []
 
     for pdf in list_of_pdfs:
-
+        discard = False
+        
         # Exclude PDFs that aren't of interest
         for regex in exclusion_regex_filters:
             if re.search(regex, pdf.filename):
                 pdf.set_type('DISCARD')
-                continue
-
+                discard = True
+                break
+                
+        if discard:
+            continue
+        
         # Check if the PDF is a 72 hour schedule
         if re.search(regex_72_hr_name_filter, pdf.filename):
             found['72_HR'] = True
