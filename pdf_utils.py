@@ -99,11 +99,6 @@ def sort_terminal_pdfs(list_of_pdfs: List[Pdf]) -> Tuple[Pdf, Pdf, Pdf]:
     not work as the sort relies on the context of the other types of pdfs.
     """
 
-    # Set initial values for pdfTypes
-    pdf72Hour = None
-    pdf30Day = None
-    pdfRollcall = None
-
     # Booleans to filter with context
     found = {
         '72_HR': False,
@@ -111,8 +106,14 @@ def sort_terminal_pdfs(list_of_pdfs: List[Pdf]) -> Tuple[Pdf, Pdf, Pdf]:
         'ROLLCALL': False
     }
 
+    # Variables to hold the most up to date PDF
+    # of each type for the terminal.
+    pdf72Hour = None
+    pdf30Day = None
+    pdfRollcall = None
+
     # Sort PDFs based on filename
-    pdf72Hour, pdf30Day, pdfRollcall, no_match_pdfs = type_pdfs_by_filename(list_of_pdfs, found)
+    no_match_pdfs = type_pdfs_by_filename(list_of_pdfs, found)
 
     # If there is PDF that was not typed by filename
     if len(no_match_pdfs) > 0:
@@ -210,7 +211,7 @@ def sort_pdfs_by_creation_time(pdfs: List[Pdf]) -> List[Pdf]:
     """
     return sorted(pdfs, key=lambda pdf: metadata_sorting_key(pdf, 'creation_time'), reverse=True)
 
-def type_pdfs_by_filename(list_of_pdfs: List[Pdf], found: Dict[str, bool]) -> Tuple[Pdf, Pdf, Pdf, List[Pdf]]:
+def type_pdfs_by_filename(list_of_pdfs: List[Pdf], found: Dict[str, bool]) -> List[Pdf]:
 
     """
     Sort a list of PDFs from ONE TERMINAL by filename using regex filters.
@@ -221,55 +222,54 @@ def type_pdfs_by_filename(list_of_pdfs: List[Pdf], found: Dict[str, bool]) -> Tu
 
     logging.info(f'Entering type_pdfs_by_filename()')
 
-    # Bools to shorten sort time
-    pdf_72_hr_found = False
-    pdf_30_day_found = False
-    pdf_rollcall_found = False
+    # Inclusion regex filters
+    regex_72_hr_name_filter = r"(?i)72[- _%20]{0,1}hr|72[- _%20]{0,1}hour"
+    regex_30_day_name_filter = r"(?i)30[-_ ]?day"
+    regex_rollcall_name_filter = r"(?i)(roll[-_ ]?call)|roll"
 
-    # Pdf types
-    pdf72Hour = None
-    pdf30Day = None
-    pdfRollcall = None
+    # Exclusion regex filters
+    exclusion_regex_filters = [
+        r'(?i)amc[-_ ]?(pe[-_ ])?gram', # AMC Gram
+        r'(^|\W)(?i)pet(\W|$)|(?i)pet\w+', # Pet
+        r'(^|\W)(?i)brochure(\W|$)|(?i)brochure\w+', # Brochure
+        r'(^|\W)(?i)advice(\W|$)|(?i)advice\w+', # Advice
+        r'(^|\W)(?i)guidance(\W|$)|(?i)guidance\w+', # Guidance
+        r'(^|\W)(?i)question(\W|$)|(?i)question\w+', # Question
+        r'(^|\W)(?i)map(\W|$)|(?i)map\w+' # Map
+    ]
 
+    # Buckets for sorting PDFs into
     no_match_pdfs = []
-        
+
     for pdf in list_of_pdfs:
 
-        # Define regex filters for PDF names
-        regex_72_hr_name_filter = r"(?i)72[- _%20]{0,1}hr|72[- _%20]{0,1}hour"
-        regex_30_day_name_filter = r"(?i)30[-_ ]?day"
-        regex_rollcall_name_filter = r"(?i)(roll[-_ ]?call)|roll"
+        # Exclude PDFs that aren't of interest
+        for regex in exclusion_regex_filters:
+            if re.search(regex, pdf.filename):
+                pdf.set_type('DISCARD')
+                continue
 
         # Check if the PDF is a 72 hour schedule
-        if not pdf_72_hr_found:
-            if re.search(regex_72_hr_name_filter, pdf.filename):
-                pdf_72_hr_found = True
-                found['72_HR'] = True
-                pdf.set_type('72_HR')
-                pdf72Hour = pdf
-                continue
-        
+        if re.search(regex_72_hr_name_filter, pdf.filename):
+            found['72_HR'] = True
+            pdf.set_type('72_HR')
+            continue
+    
         # Check if the PDF is a 30 day schedule
-        if not pdf_30_day_found:
-            if re.search(regex_30_day_name_filter, pdf.filename):
-                pdf_30_day_found = True
-                found['30_DAY'] = True
-                pdf.set_type('30_DAY')
-                pdf30Day = pdf
-                continue
-        
+        if re.search(regex_30_day_name_filter, pdf.filename):
+            found['30_DAY'] = True
+            pdf.set_type('30_DAY')
+            continue
+    
         # Check if the PDF is a rollcall
-        if not pdf_rollcall_found:
-            if re.search(regex_rollcall_name_filter, pdf.filename):
-                pdf_rollcall_found = True
-                found['ROLLCALL'] = True
-                pdf.set_type('ROLLCALL')
-                pdfRollcall = pdf
-                continue
+        if re.search(regex_rollcall_name_filter, pdf.filename):
+            found['ROLLCALL'] = True
+            pdf.set_type('ROLLCALL')
+            continue
         
         # If the PDF filename did not get matched by the 
         # regex filters.
         no_match_pdfs.append(pdf)
 
-    return pdf72Hour, pdf30Day, pdfRollcall, no_match_pdfs
+    return no_match_pdfs
 
