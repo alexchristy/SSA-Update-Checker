@@ -40,7 +40,7 @@ source "$VENV_NAME/bin/activate"
 
 # Execute the python script and catch errors
 {
-    python main.py --log INFO
+    python3.11 main.py --log INFO
 } 2>> error.tmp
 
 # If the error.tmp file exists and is not empty, append its content to app.log
