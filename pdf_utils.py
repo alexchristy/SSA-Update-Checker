@@ -57,7 +57,7 @@ def type_pdfs_by_content(list_of_pdfs: List[Pdf], found: Dict[str, bool]):
             if len(list(PDFPage.create_pages(document))) > 15:
                 # Skip this PDF if it's longer than 15 pages
                 logging.info(f'Skipping pdf: {pdf.filename} has more than 15 pages.')
-                pdf.should_discard = True
+                pdf.seen_before = True
                 continue
             
         text = extract_text(pdf.get_local_path())

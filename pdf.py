@@ -19,7 +19,7 @@ class Pdf:
         self.creation_time = ""
         self.type = ""
         self.terminal = ""
-        self.should_discard = False
+        self.seen_before = False
 
         # Set first_seen_time
         self._gen_first_seen_time()
@@ -27,13 +27,13 @@ class Pdf:
         # Download PDF and set filename and cloud_path
         self._download()
         if self.filename is None:
-            self.should_discard = True
+            self.seen_before = True
             return
 
         # Calc PDF Hash and set hash
         self._calc_hash()
         if self.hash is None:
-            self.should_discard = True
+            self.seen_before = True
             return
 
         # Extract the metadata of the PDF
@@ -165,7 +165,7 @@ class Pdf:
     def to_dict(self):
         """
         Convert this PDF object to a dictionary, suitable for storing in Firestore.
-        The should_discard attribute is excluded from the returned dictionary.
+        The seen_before attribute is excluded from the returned dictionary.
         """
         return {
             'filename': self.filename,
@@ -177,14 +177,14 @@ class Pdf:
             'creationTime': self.creation_time,
             'type': self.type,
             'terminal': self.terminal
-            # 'shouldDiscard': self.should_discard  # This line is intentionally omitted
+            # 'seenBefore': self.seen_before  # This line is intentionally omitted
         }
     
     @classmethod
     def from_dict(cls, data):
         """
         Create a PDF object from a dictionary (e.g., a Firestore document).
-        The should_discard attribute is set to False by default.
+        The seen_before attribute is set to False by default.
         """
         pdf = cls(
             link=data['link'],
@@ -198,7 +198,7 @@ class Pdf:
         pdf.type = data['type']
         pdf.terminal = data['terminal']
 
-        # Setting should_discard to False when object is unmarshalled from the database
-        pdf.should_discard = False
+        # Setting seen_before to False when object is unmarshalled from the database
+        pdf.seen_before = False
 
         return pdf

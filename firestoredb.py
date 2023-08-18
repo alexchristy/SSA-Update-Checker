@@ -143,7 +143,7 @@ class FirestoreClient:
         
     def archive_pdf(self, pdf: Pdf) -> bool:
 
-        if pdf.should_discard:
+        if pdf.seen_before:
             logging.warning(f'Not archiving {pdf.filename}. Marked for being discarded.')
             return False
 

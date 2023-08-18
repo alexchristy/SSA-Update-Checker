@@ -104,7 +104,7 @@ def main():
         for pdf in pdfs:
             if fs.pdf_seen_before(pdf):
                 # Should discard PDFs we have seen before
-                pdf.should_discard = True
+                pdf.seen_before = True
                 
             pdf.set_terminal(terminal.name)
 
@@ -114,7 +114,7 @@ def main():
         pdf72Hour, pdf30Day, pdfRollcall = sort_terminal_pdfs(pdfs)
 
         # If new 72 hour schedule was found
-        if pdf72Hour is not None and not pdf72Hour.should_discard:
+        if pdf72Hour is not None and not pdf72Hour.seen_before:
 
             # Check if there is a PDF to archive
             if terminal.pdf72HourHash is not None:
@@ -133,7 +133,7 @@ def main():
             fs.update_terminal_pdf_hash(pdf72Hour)
         
         # If a new 30 day schedule was found
-        if pdf30Day is not None and not pdf30Day.should_discard:
+        if pdf30Day is not None and not pdf30Day.seen_before:
 
             # Check if there is a PDF to archive
             if terminal.pdf30DayHash is not None:
@@ -152,7 +152,7 @@ def main():
             fs.update_terminal_pdf_hash(pdf30Day)
         
         # If new rollcall was found
-        if pdfRollcall is not None and not pdfRollcall.should_discard:
+        if pdfRollcall is not None and not pdfRollcall.seen_before:
 
             # Check if there is a PDF to archive
             if terminal.pdfRollcallHash is not None:
@@ -174,7 +174,7 @@ def main():
         # in the DB to prevent reprocessing them in subsequent
         # runs.
         for pdf in pdfs:
-            if not pdf.should_discard:
+            if not pdf.seen_before:
                 fs.upsert_pdf(pdf)
 
     ##################################################

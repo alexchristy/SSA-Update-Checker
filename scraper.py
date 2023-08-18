@@ -160,7 +160,7 @@ def get_terminal_pdfs(terminal: Terminal) -> List[Pdf]:
         
         curr_pdf = Pdf(pdf_link)
 
-        if not curr_pdf.should_discard:
+        if not curr_pdf.seen_before:
             terminal_pdfs.append(curr_pdf)
     
     return terminal_pdfs
