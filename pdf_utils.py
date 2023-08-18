@@ -235,7 +235,8 @@ def type_pdfs_by_filename(list_of_pdfs: List[Pdf], found: Dict[str, bool]) -> Li
         r'(?i)(^|\W)advice(\W|$)|advice\w+', # Advice
         r'(?i)(^|\W)guidance(\W|$)|guidance\w+', # Guidance
         r'(?i)(^|\W)question(\W|$)|question\w+', # Question
-        r'(?i)(^|\W)map(\W|$)|map\w+' # Map
+        r'(?i)(^|\W)map(\W|$)|map\w+', # Map
+        r'(?i)(^|\W)flyer(\W|$)|flyer\w+'
     ]
 
     # Buckets for sorting PDFs into
