@@ -1,66 +1,45 @@
 class Terminal:
     def __init__(self):
-        self.name = "empty"
-        self.link = "empty"
-
-        self.pdfLink72Hour = "empty"
-        self.pdfName72Hour = "empty"
-        self.pdfHash72Hour = "empty"
-        self.is72HourUpdated = False
-
-        self.pdfLink30Day = "empty"
-        self.pdfName30Day = "empty"
-        self.pdfHash30Day = "empty"
-        self.is30DayUpdated = False
-
-        self.pdfLinkRollcall = "empty"
-        self.pdfNameRollcall = "empty"
-        self.pdfHashRollcall = "empty"
-        self.isRollcallUpdated = False
-
-        self.group = "empty"
-        self.pagePosition = "empty"
-        self.location = "empty"
-        self.chatIDs = []
-        self.archiveDir = "empty"
-
-    def print(self):
-        print("Name: " + self.name)
-        print("Page Link: " + self.link)
-        print("PDF (3 day) Link: " + self.pdfLink72Hour)
-        print("\n\n")
-
-    @classmethod
-    def from_dict(cls, data: dict) -> 'Terminal':
-        instance = cls()
-        for key, value in data.items():
-            if hasattr(instance, key):
-                setattr(instance, key, value)
-        return instance
+        self.name = None
+        self.link = None
+        self.pdf72HourHash = None
+        self.pdf30DayHash = None
+        self.pdfRollcallHash = None
+        self.group = None
+        self.pagePosition = None
+        self.location = None
+        self.archiveDir = None
 
     def to_dict(self):
+        """
+        Convert this Terminal object to a dictionary, suitable for storing in Firestore or another database
+        """
         return {
             'name': self.name,
             'link': self.link,
-
-            'pdfLink72Hour': self.pdfLink72Hour,
-            'pdfName72Hour': self.pdfName72Hour,
-            'pdfHash72Hour': self.pdfHash72Hour,
-            'is72HourUpdated': self.is72HourUpdated,
-
-            'pdfLink30Day': self.pdfLink30Day,
-            'pdfName30Day': self.pdfName30Day,
-            'pdfHash30Day': self.pdfHash30Day,
-            'is30DayUpdated': self.is30DayUpdated,
-
-            'pdfLinkRollcall': self.pdfLinkRollcall,
-            'pdfNameRollcall': self.pdfNameRollcall,
-            'pdfHashRollcall': self.pdfHashRollcall,
-            'isRollcallUpdated': self.isRollcallUpdated,
-
+            'pdf72HourHash': self.pdf72HourHash,
+            'pdf30DayHash': self.pdf30DayHash,
+            'pdfRollcallHash': self.pdfRollcallHash,
             'group': self.group,
             'pagePosition': self.pagePosition,
             'location': self.location,
-            'chatIDs': self.chatIDs,
             'archiveDir': self.archiveDir
         }
+
+    @classmethod
+    def from_dict(cls, data):
+        """
+        Create a Terminal object from a dictionary (e.g., a Firestore document)
+        """
+        terminal = cls()
+        terminal.name = data.get('name', None)
+        terminal.link = data.get('link', "")
+        terminal.pdf72HourHash = data.get('pdf72HourHash', None)
+        terminal.pdf30DayHash = data.get('pdf30DayHash', None)
+        terminal.pdfRollcallHash = data.get('pdfRollcallHash', None)
+        terminal.group = data.get('group', None)
+        terminal.pagePosition = data.get('pagePosition', None)
+        terminal.location = data.get('location', None)
+        terminal.archiveDir = data.get('archiveDir', None)
+        
+        return terminal

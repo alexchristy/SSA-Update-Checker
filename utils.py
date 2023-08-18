@@ -1,16 +1,13 @@
-import datetime
 import glob
+import hashlib
 import logging
 import os
-import shutil
-from typing import List, Dict, Tuple
+import re
+import time
 from urllib.parse import quote, unquote, urlparse
-from dotenv import load_dotenv
-from mongodb import MongoDB
 import uuid
-from s3_bucket import s3Bucket
-
-from terminal import Terminal
+from dotenv import load_dotenv
+import requests
 
 def check_env_variables(variables):
     # Load environment variables from .env file
@@ -111,130 +108,7 @@ def check_local_pdf_dirs():
                 os.mkdir(typeDir)
     
     return None
-
-def check_s3_pdf_dirs(s3: s3Bucket):
-
-    currentDir = 'current/'
-    archiveDir = 'archive/'
-    typeOfPdfDirs = ['72_HR/', '30_DAY/', 'ROLLCALL/']
-
-    if not s3.directory_exists(currentDir):
-        s3.create_directory(currentDir)
-
-    for dirType in typeOfPdfDirs:
-        currPath = os.path.join(currentDir, dirType)
-
-        if not s3.directory_exists(currPath):
-            s3.create_directory(currPath)
     
-    if not s3.directory_exists(archiveDir):
-        s3.create_directory(archiveDir)
-    
-
-def rotate_pdfs_to_current_s3(db: MongoDB, s3: s3Bucket, updatedTerminals: List[Terminal]):
-
-    baseDir = os.getenv('PDF_DIR')
-
-    for terminal in updatedTerminals:
-
-        # If 72 hour is updated
-        if terminal.is72HourUpdated:
-
-            # Check if pdf still exists
-            tmpPdfPath = os.path.join(baseDir, terminal.pdfName72Hour)
-            if os.path.exists(tmpPdfPath):
-                tmpPdfName = os.path.basename(terminal.pdfName72Hour)
-
-                # Create s3 destination path
-                dest = os.path.join('current/72_HR/', tmpPdfName)
-
-                # Upload to s3 current directory
-                s3.upload_to_s3(tmpPdfPath, dest)
-
-                # Update the db to reflect new PDF
-                db.set_terminal_field(terminal.name, 'pdfName72Hour', dest)
-                db.set_terminal_field(terminal.name, 'pdfHash72Hour', terminal.pdfHash72Hour)
-                db.set_terminal_field(terminal.name, 'is72HourUpdated', True)
-            else:
-                logging.error(f'Unable to upload {tmpPdfPath} to s3.')
-
-        # If 30 day is updated
-        if terminal.is30DayUpdated:
-
-            # Check if pdf still exists
-            tmpPdfPath = os.path.join(baseDir, terminal.pdfName30Day)
-            if os.path.exists(tmpPdfPath):
-                tmpPdfName = os.path.basename(terminal.pdfName30Day)
-
-                # Create s3 destination path
-                dest = os.path.join('current/30_DAY/', tmpPdfName)
-
-                # Uploaded to s3 current directory
-                s3.upload_to_s3(tmpPdfPath, dest)
-
-                # Update the db to reflect the new PDF
-                db.set_terminal_field(terminal.name, 'pdfName30Day', dest)
-                db.set_terminal_field(terminal.name, 'pdfHash30Day', terminal.pdfHash30Day)
-                db.set_terminal_field(terminal.name, 'is30DayUpdated', True)
-            else:
-                logging.error(f'Unable to upload {tmpPdfPath} to s3.')
-        
-        # If rollcall is updated
-        if terminal.isRollcallUpdated:
-
-            # Check if pdf still exists
-            tmpPdfPath = os.path.join(baseDir, terminal.pdfNameRollcall)
-            if os.path.exists(tmpPdfPath):
-                tmpPdfName = os.path.basename(terminal.pdfNameRollcall)
-
-                # Create s3 destination path
-                dest = os.path.join('current/ROLLCALL/', tmpPdfName)
-
-                # Uploaded to s3 current directory
-                s3.upload_to_s3(tmpPdfPath, dest)
-
-                # Update the db to reflect the new PDF
-                db.set_terminal_field(terminal.name, 'pdfNameRollcall', dest)
-                db.set_terminal_field(terminal.name, 'pdfHashRollcall', terminal.pdfHashRollcall)
-                db.set_terminal_field(terminal.name, 'isRollcallUpdated', True)
-            else:
-                logging.error(f'Unable to upload {tmpPdfPath} to s3.')   
-
-def check_downloaded_pdfs(directory_path):
-    """Check if at least one PDF was downloaded and log the number of PDFs in the directory."""
-    num_pdf_files = len(glob.glob(os.path.join(directory_path, "*.pdf")))
-    if num_pdf_files == 0:
-        logging.warning("No PDFs were downloaded in the directory: %s", directory_path)
-    else:
-        logging.info('%d PDFs were downloaded in the directory: %s', num_pdf_files, directory_path)
-    return num_pdf_files > 0
-
-def get_pdf_name(url) -> str:
-    try:
-        result = urlparse(url)
-        path = unquote(result.path)
-        return path.split('/')[-1]
-    except Exception as e:
-        return str(e)
-    
-def gen_pdf_archive_name(terminalName, nameModifier):
-    # Replace spaces with underscore in terminalName
-    terminalName = terminalName.replace(' ', '_')
-    
-    # Get current date and time
-    now = datetime.datetime.now()
-    
-    # Format date and time as per your requirement
-    timestamp = now.strftime('%d-%b-%Y_%H%M')
-
-    # Generate new name
-    new_name = f"{terminalName}_{nameModifier}_{timestamp}.pdf"
-
-    # Add uuid
-    new_name = gen_pdf_name_uuid10(new_name)
-    
-    return new_name
-
 def ensure_url_encoded(url):
     # Unquote the URL. If it's already encoded, this will decode it.
     unquoted_url = unquote(url)
@@ -247,6 +121,102 @@ def ensure_url_encoded(url):
     else:
         # If the URLs are different, it was already encoded.
         return url
+    
+def get_relative_path(subpath, pdf_path):
+    # Check if subpath exists in pdf_path
+    if subpath in pdf_path:
+        # Find the index of the subpath in the pdf_path
+        index = pdf_path.index(subpath)
+        # Return the relative path
+        return pdf_path[index:]
+    else:
+        return None
+
+def get_with_retry(url: str):
+    logging.debug('Entering get_with_retry() requesting: %s', url)
+
+    delay = 2
+
+    url = ensure_url_encoded(url)
+
+    for attempt in range(3):
+
+        try:
+
+            # Send GET request to the website
+            reponse = requests.get(url)
+            return reponse # Exit function if request was successful
+        
+        except Exception as e: # Catch any execeptions
+            logging.error('Request to %s failed in get_with_retry().', url, exc_info=True)
+
+            # If it was not the last attempt
+            if attempt < 2:
+                logging.info('Retrying request to %s in %d seconds...', url, delay)
+                time.sleep(delay) # Wait before next attempt
+                delay *= 2
+            
+            # It was last attempt
+            else:
+                logging.error('All attempts failed.')
+
+    return None
+
+def calc_sha256_hash(input_string: str) -> str:
+    """
+    Calculate the SHA-256 hash of a given input string.
+    
+    :param input_string: The input string for which to calculate the SHA-256 hash
+    :return: The SHA-256 hash of the input string, represented as a hexadecimal string
+    """
+    # Create a new SHA-256 hash object
+    sha256_hash = hashlib.sha256()
+    
+    # Update the hash object with the bytes of the input string
+    sha256_hash.update(input_string.encode('utf-8'))
+    
+    # Get the hexadecimal representation of the hash
+    hex_digest = sha256_hash.hexdigest()
+    
+    return hex_digest
+
+def is_valid_sha256(s: str) -> bool:
+    """
+    Check if the given string is a valid SHA256 checksum.
+    
+    :param s: The string to check
+    :type s: str
+    :return: True if the input string is a valid SHA256 checksum, False otherwise
+    :rtype: bool
+    """
+    
+    if len(s) != 64:
+        return False
+    
+    # Regular expression pattern for a hexadecimal number
+    if re.match("^[a-fA-F0-9]{64}$", s):
+        return True
+    
+    return False
+
+def normalize_url(url: str) -> str:
+    logging.debug('Entering normarlize_url()')
+
+    parsedUrl = urlparse(url)
+    hostname = str(parsedUrl.netloc)
+    normalizedUrl = 'https://' + hostname + '/'
+    return normalizedUrl
+
+def is_valid_string(value) -> bool:
+    return isinstance(value, str)
+
+def get_pdf_name(url) -> str:
+    try:
+        result = urlparse(url)
+        path = unquote(result.path)
+        return path.split('/')[-1]
+    except Exception as e:
+        return str(e)
     
 def gen_pdf_name_uuid10(file_path):
     # Extract the directory, base name, and extension
@@ -265,134 +235,14 @@ def gen_pdf_name_uuid10(file_path):
     
     return new_name
 
-def get_relative_path(subpath, pdf_path):
-    # Check if subpath exists in pdf_path
-    if subpath in pdf_path:
-        # Find the index of the subpath in the pdf_path
-        index = pdf_path.index(subpath)
-        # Return the relative path
-        return pdf_path[index:]
+def format_pdf_metadata_date(date_str):
+    if date_str is None:
+        return None
+    
+    # Regular expression to extract the date components
+    match = re.match(r"D:(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})", date_str)
+    if match:
+        # Format the date to YYYYMMDDHHMMSS
+        return ''.join(match.groups())
     else:
         return None
-
-def gen_archive_dir_s3(s3: s3Bucket, terminalName: str) -> str:
-    logging.info('Creating archive directories in s3 bucket: %s', s3.bucket_name)
-
-    archiveDir = 'archive/'
-
-    # Sub directories for sorting the different types of
-    # PDFs a terminal can generate.
-    dirTypes = ['72_HR/', '30_DAY/', 'ROLLCALL/']
-
-    # Convert terminal name to snake case
-    snakeCaseName = terminalName.replace(' ', '_')
-    terminalArchiveDir = archiveDir + snakeCaseName + '/'
-
-    try:
-        # Create base terminal folder in archive if it doesn't exist.
-        if not s3.directory_exists(terminalArchiveDir):
-            s3.create_directory(terminalArchiveDir)
-            logging.info('Created directory %s in s3.', terminalArchiveDir)
-
-        for dirType in dirTypes:
-            subDir = terminalArchiveDir + dirType
-
-            if not s3.directory_exists(subDir):
-                s3.create_directory(subDir)
-                logging.info('Created sub directory %s in s3.', subDir)
-
-    except Exception as e:
-        logging.error(f"Error while generating archive directories for {terminalName} in bucket {s3.bucket_name}. Error: {str(e)}")
-        raise
-
-    return terminalArchiveDir
-
-def archive_pdfs_s3(db: MongoDB, s3: s3Bucket, updatedTerminals: List[Terminal]):
-
-    for terminal in updatedTerminals:
-
-        # Retrieve terminal doc from DB
-        storedTerminal = db.get_doc_by_field_value('name', terminal.name)
-
-        # Get archive directory
-        if storedTerminal['archiveDir'] == 'empty':
-            archiveDir = gen_archive_dir_s3(s3, terminal.name)
-            db.set_terminal_field(terminal.name, 'archiveDir', archiveDir)
-        else:
-            archiveDir = storedTerminal['archiveDir']
-
-        # Check archive directory exists
-        if not s3.directory_exists(archiveDir):
-            logging.error(f'{archiveDir} was not found in S3. Skipping archive function...')
-            continue
-
-        # 72 hour schedule was updated
-        if terminal.is72HourUpdated:
-
-            # Retrieve the old current pdf
-            oldPdfPath = storedTerminal['pdfName72Hour']
-
-            # If there is a 72 hour pdf in s3
-            if oldPdfPath != 'empty':
-
-                # Generate archive name for the PDF
-                archiveName = gen_pdf_archive_name(terminal.name, '72_HR')
-
-                # Generate archive path
-                dest = os.path.join(archiveDir, '72_HR/')
-                dest = os.path.join(dest, archiveName)
-
-                # Move it to archive directory in s3
-                s3.move_object(oldPdfPath, dest)
-                logging.info(f'Archived {terminal.name} 72 hour pdf {oldPdfPath} at {dest}.')
-            else:
-                logging.info(f'No 72 hour schedule to archive for {terminal.name}.')
-            
-        # 30 Day schedule was updated
-        if terminal.is30DayUpdated:
-
-            # Retrieve the old current pdf
-            oldPdfPath = storedTerminal['pdfName30Day']
-
-            # If there is a 30 day pdf in s3
-            if oldPdfPath != 'empty':
-
-                # Generate archive name for the PDF
-                archiveName = gen_pdf_archive_name(terminal.name, '30_DAY')
-
-                # Generate archive path
-                dest = os.path.join(archiveDir, '30_DAY/')
-                dest = os.path.join(dest, archiveName)
-
-                # Move it to archive directory in s3
-                s3.move_object(oldPdfPath, dest)
-                logging.info(f'Archived {terminal.name} 30 day pdf {oldPdfPath} at {dest}.')
-            else:
-                logging.info(f'No 30 day schedule to archive for {terminal.name}.')
-
-        # Rollcall was updated
-        if terminal.isRollcallUpdated:
-
-            # Retrieve the old current pdf
-            oldPdfPath = storedTerminal['pdfNameRollcall']
-
-            # If there is a rollcall pdf in s3
-            if oldPdfPath != 'empty':
-                # Generate archive name for the PDF
-                archiveName = gen_pdf_archive_name(terminal.name, 'ROLLCALL')
-
-                # Generate archive path
-                dest = os.path.join(archiveDir, 'ROLLCALL/')
-                dest = os.path.join(dest, archiveName)
-
-                # Move it to archive directory in s3
-                s3.move_object(oldPdfPath, dest)
-                logging.info(f'Archived {terminal.name} rollcall pdf {oldPdfPath} at {dest}.')
-            else:
-                logging.info(f'No rollcall pdf to archive for {terminal.name}.')
-
-
-
-
-
-
