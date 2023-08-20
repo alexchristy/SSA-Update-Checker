@@ -177,10 +177,6 @@ def main():
             if not pdf.seen_before:
                 fs.upsert_pdf(pdf)
 
-    ##################################################
-    # Place holder for Azure AI Services Upload func #
-    ##################################################
-    
     logging.info('Successfully finished program!')
 
 if __name__ == "__main__":
