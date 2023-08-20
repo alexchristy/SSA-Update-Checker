@@ -1,4 +1,4 @@
-# SmartSpaceA
+# SSA-Update-Checker
 
 ## Enviroment Variables
 
