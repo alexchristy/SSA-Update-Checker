@@ -3,6 +3,7 @@
 # Default working directory and virtual environment
 WORKING_DIR="."
 VENV_NAME=""
+LOCK_FILE="/tmp/ssa-update-checker.lock"
 
 show_help() {
     echo "Usage: $0 [OPTIONS]"
@@ -14,13 +15,22 @@ show_help() {
     echo
 }
 
+# Check for the presence of a lock file
+if [ -f "$LOCK_FILE" ]; then
+    echo "Lock file $LOCK_FILE exists. Previous run may have failed or another instance is running."
+    exit 1
+fi
+
+# Create a lock file
+touch "$LOCK_FILE"
+
 # Parse arguments
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         -d|--working-directory) WORKING_DIR="$2"; shift;;
         -e|--virtual-env) VENV_NAME="$2"; shift;;
-        -h|--help) show_help; exit 0;;
-        *) echo "Unknown parameter passed: $1"; show_help; exit 1;;
+        -h|--help) show_help; rm -f "$LOCK_FILE"; exit 0;;
+        *) echo "Unknown parameter passed: $1"; show_help; rm -f "$LOCK_FILE"; exit 1;;
     esac
     shift
 done
@@ -29,11 +39,12 @@ done
 if [ -z "$VENV_NAME" ]; then
     echo "Please specify a virtual environment using -e or --virtual-env"
     show_help
+    rm -f "$LOCK_FILE"
     exit 1
 fi
 
 # Change to the specified directory
-cd "$WORKING_DIR" || { echo "Failed to change to directory $WORKING_DIR"; exit 1; }
+cd "$WORKING_DIR" || { echo "Failed to change to directory $WORKING_DIR"; rm -f "$LOCK_FILE"; exit 1; }
 
 # Activate the virtual environment
 source "$VENV_NAME/bin/activate"
@@ -47,10 +58,17 @@ source "$VENV_NAME/bin/activate"
 if [ -s "error.tmp" ]; then
     echo "======== ERRORS ========" >> app.log
     cat error.tmp >> app.log
+    cat error.tmp
+    rm error.tmp
+    deactivate
+    exit 1
 fi
 
+# Remove the lock file upon successful completion
+rm -f "$LOCK_FILE"
+
 # Remove when execution is done
-rm error.tmp
+rm -f error.tmp
 
 # Check if log directory exists, if not create it
 [ -d "log" ] || mkdir log
