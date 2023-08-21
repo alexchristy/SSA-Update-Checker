@@ -156,6 +156,8 @@ class s3Bucket:
         Upload a PDF to the current directory of the S3 bucket.
         """
 
+        logging.info('Entering upload_pdf_to_current_s3()')
+
         local_path = pdf.get_local_path()
 
         dest_path = os.path.join('current/', pdf.type)
