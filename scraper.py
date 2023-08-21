@@ -114,7 +114,7 @@ def get_terminals(url: str) -> List[Terminal]:
     return nonEmptyTerminals
 
 def get_terminal_pdfs(terminal: Terminal) -> List[Pdf]:
-    logging.debug('Entering get_terminal_pdfs().')
+    logging.info('Entering get_terminal_pdfs().')
 
     base_dir = os.getenv('PDF_DIR')
 
