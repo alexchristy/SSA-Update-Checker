@@ -84,12 +84,6 @@ def main():
 
     # Populate the DB
     for terminal in list_of_terminals:
-
-        # Generate archive directories for the temrinal
-        # if they have not been made.
-        if terminal.archiveDir is None:
-            terminal.archiveDir = s3.gen_archive_dir_s3(terminal.name)
-
         fs.upsert_terminal_info(terminal)
 
     # Retrieve all updated terminal infomation
@@ -120,6 +114,13 @@ def main():
             if terminal.pdf72HourHash is not None:
                 old72HourPdf = fs.get_pdf_by_hash(terminal.pdf72HourHash)
 
+                # Check if old 72 hour schedule was found
+                # in the DB. Need to exit if it was not found as
+                # it means that it was never uploaded to S3.
+                if old72HourPdf is None:
+                    logging.error(f'Unable to find PDF with hash {terminal.pdf72HourHash} in the DB.')
+                    sys.exit(1)
+
                 # Archive the old 72 hour schedule and
                 # update it with its new archived path
                 # in S3.
@@ -139,6 +140,13 @@ def main():
             if terminal.pdf30DayHash is not None:
                 old30DayPdf = fs.get_pdf_by_hash(terminal.pdf30DayHash)
 
+                # Check if old 30 day schedule was found
+                # in the DB. Need to exit if it was not found as
+                # it means that it was never uploaded to S3.
+                if old72HourPdf is None:
+                    logging.error(f'Unable to find PDF with hash {terminal.pdf30DayHash} in the DB.')
+                    sys.exit(1)
+
                 # Archive the old 30 day schedule and
                 # update it with its new archived path 
                 # in S3.
@@ -157,6 +165,13 @@ def main():
             # Check if there is a PDF to archive
             if terminal.pdfRollcallHash is not None:
                 oldRollcallPdf = fs.get_pdf_by_hash(terminal.pdfRollcallHash)
+
+                # Check if old rollcall was found
+                # in the DB. Need to exit if it was not found as
+                # it means that it was never uploaded to S3.
+                if oldRollcallPdf is None:
+                    logging.error(f'Unable to find PDF with hash {terminal.pdfRollcallHash} in the DB.')
+                    sys.exit(1)
 
                 # Archive the old rollcall and update
                 # it with its new archived path in S3.
