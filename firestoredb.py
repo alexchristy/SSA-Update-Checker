@@ -88,10 +88,13 @@ class FirestoreClient:
 
         if pdf.type == '72_HR':
             doc_ref.update({'pdf72HourHash': pdf.hash})
+            logging.info(f'Updated {pdf.terminal} with new 72 hour hash.')
         elif pdf.type == '30_DAY':
             doc_ref.update({'pdf30DayHash': pdf.hash})
+            logging.info(f'Updated {pdf.terminal} with new 30 day hash.')
         elif pdf.type == 'ROLLCALL':
             doc_ref.update({'pdfRollcallHash': pdf.hash})
+            logging.info(f'Updated {pdf.terminal} with new rollcall hash.')
         else:
             logging.error(f'Unable to update terminal with {pdf.filename}. Invalid PDF type: {pdf.type}.')
 
@@ -134,11 +137,11 @@ class FirestoreClient:
         # Check if the document exists
         if doc.exists:
             # The document exists, indicating that the PDF has been seen before
-            logging.info(f'PDF with hash {pdf.hash} has been seen before.')
+            logging.info(f'{pdf.filename} with hash {pdf.hash} has been seen before.')
             return True
         else:
             # The document does not exist, indicating that the PDF is new
-            logging.info(f'PDF with hash {pdf.hash} has not been seen before.')
+            logging.info(f'{pdf.filename} with hash {pdf.hash} has NEVER been seen before.')
             return False
         
     def archive_pdf(self, pdf: Pdf) -> bool:
