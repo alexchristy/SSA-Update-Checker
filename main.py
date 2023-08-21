@@ -143,7 +143,7 @@ def main():
                 # Check if old 30 day schedule was found
                 # in the DB. Need to exit if it was not found as
                 # it means that it was never uploaded to S3.
-                if old72HourPdf is None:
+                if old30DayPdf is None:
                     logging.error(f'Unable to find PDF with hash {terminal.pdf30DayHash} in the DB.')
                     sys.exit(1)
 
