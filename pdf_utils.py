@@ -7,6 +7,8 @@ from typing import Dict, List, Tuple
 from pdfminer.pdfdocument import PDFDocument
 from pdfminer.pdfparser import PDFParser
 from pdfminer.pdfpage import PDFPage
+from pdfminer.pdfdocument import PDFNoValidXRef
+from pdfminer.psparser import PSEOF
 from pdfminer.high_level import extract_text
 from pdf import Pdf
 import utils
@@ -45,21 +47,30 @@ def type_pdfs_by_content(list_of_pdfs: List[Pdf], found: Dict[str, bool]):
             logging.error(f'Unabled to complete full text search for pdf at {pdf.get_local_path()}')
             continue
 
-        # Open the PDF file
-        with open(pdf.get_local_path(), 'rb') as file:
-            # Create a PDF parser object associated with the file object
-            parser = PDFParser(file)
+        try:
+            # Open the PDF file
+            with open(pdf.get_local_path(), 'rb') as file:
+                # Create a PDF parser object associated with the file object
+                parser = PDFParser(file)
 
-            # Create a PDF document object that stores the document structure
-            document = PDFDocument(parser)
+                # Create a PDF document object that stores the document structure
+                document = PDFDocument(parser)
 
-            # Check number of pages
-            if len(list(PDFPage.create_pages(document))) > 15:
-                # Skip this PDF if it's longer than 15 pages
-                logging.info(f'Skipping pdf: {pdf.filename} has more than 15 pages.')
-                pdf.seen_before = True
-                continue
-            
+                # Check number of pages
+                if len(list(PDFPage.create_pages(document))) > 15:
+                    # Skip this PDF if it's longer than 15 pages
+                    logging.info(f'Skipping pdf: {pdf.filename} has more than 15 pages.')
+                    pdf.seen_before = True
+                    continue
+        except PDFNoValidXRef:
+            logging.error(f'PDFNoValidXRef error for pdf: {pdf.get_local_path}')
+            pdf.set_type('DISCARD')
+            continue
+        except PSEOF:
+            logging.error(f'PSEOF error for pdf: {pdf.get_local_path}')
+            pdf.set_type('DISCARD')
+            continue
+                
         text = extract_text(pdf.get_local_path())
         text = text.lower().strip()
 
