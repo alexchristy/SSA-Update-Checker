@@ -1,4 +1,3 @@
-import datetime
 import glob
 import logging
 import os
@@ -11,7 +10,6 @@ from pdfminer.pdfdocument import PDFNoValidXRef
 from pdfminer.psparser import PSEOF
 from pdfminer.high_level import extract_text
 from pdf import Pdf
-import utils
 
 def check_downloaded_pdfs(directory_path):
     """Check if at least one PDF was downloaded and log the number of PDFs in the directory."""
