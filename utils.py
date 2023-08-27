@@ -1,3 +1,4 @@
+from functools import wraps
 import glob
 import hashlib
 import logging
@@ -8,6 +9,21 @@ from urllib.parse import quote, unquote, urlparse
 import uuid
 from dotenv import load_dotenv
 import requests
+
+def timing_decorator(func):
+    @wraps(func)  # Preserve function metadata
+    def wrapper(*args, **kwargs):
+        try:
+            start_time = time.time()  # Start time
+            result = func(*args, **kwargs)  # Execute function
+            end_time = time.time()  # End time
+            elapsed_time = end_time - start_time  # Calculate elapsed time
+            logging.info(f"{func.__name__} took {elapsed_time} seconds to run")  # Log elapsed time
+            return result  # Return the original function's return value
+        except Exception as e:
+            logging.error(f"An exception occurred while running {func.__name__}: {e}")
+            raise  # Re-raise the caught exception
+    return wrapper
 
 def check_env_variables(variables):
     # Load environment variables from .env file
@@ -132,6 +148,10 @@ def get_relative_path(subpath, pdf_path):
     else:
         return None
 
+# Time the function execution to debug performance and any
+# other issues that may arise when downloading PDFs and terminal
+# pages
+@timing_decorator
 def get_with_retry(url: str):
     logging.debug('Entering get_with_retry() requesting: %s', url)
 
@@ -142,23 +162,30 @@ def get_with_retry(url: str):
     for attempt in range(3):
 
         try:
-
-            # Send GET request to the website
-            reponse = requests.get(url)
-            return reponse # Exit function if request was successful
-        
-        except Exception as e: # Catch any execeptions
-            logging.error('Request to %s failed in get_with_retry().', url, exc_info=True)
-
-            # If it was not the last attempt
-            if attempt < 2:
-                logging.info('Retrying request to %s in %d seconds...', url, delay)
-                time.sleep(delay) # Wait before next attempt
-                delay *= 2
+            logging.debug("Sending GET request.")
             
-            # It was last attempt
-            else:
-                logging.error('All attempts failed.')
+            # Send GET request to the website with a timeout
+            response = requests.get(url, timeout=5)
+            
+            logging.debug("GET request successful.")
+            return response  # Exit function if request was successful
+        
+        except requests.Timeout:
+            logging.error("Request to %s timed out.", url)
+            
+        except Exception as e:  # Catch any exceptions
+            logging.error('Request to %s failed in get_with_retry().', url)
+            logging.debug('Error: %s', e)
+
+        # If it was not the last attempt
+        if attempt < 2:
+            logging.info('Retrying request to %s in %d seconds...', url, delay)
+            time.sleep(delay)  # Wait before next attempt
+            delay *= 2
+        
+        # It was the last attempt
+        else:
+            logging.error('All attempts failed.')
 
     return None
 
