@@ -69,7 +69,7 @@ class Pdf:
             with open(filepath, 'wb') as f:
                 f.write(response.content)
             
-            logging.debug(f'Successfully downloaded {self.link} at {filepath}')
+            logging.info(f'Successfully downloaded {self.link} at {filepath}')
 
             # Set filename
             self.filename = filename
