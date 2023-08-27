@@ -5,6 +5,7 @@ WORKING_DIR="."
 VENV_NAME=""
 LOCK_FILE="/tmp/ssa-update-checker.lock"
 
+# Function to display help message
 show_help() {
     echo "Usage: $0 [OPTIONS]"
     echo
@@ -15,9 +16,34 @@ show_help() {
     echo
 }
 
+# Function to log a message to app.log with timestamp
+log_message() {
+    current_timestamp=$(date +"%Y-%m-%d %H:%M:%S,%3N")
+    echo "$current_timestamp - $1" >> app.log
+}
+
 # Check for the presence of a lock file
 if [ -f "$LOCK_FILE" ]; then
+    # Check if app.log exists
+    if [ -f "app.log" ]; then
+        # Check if log directory exists, if not create it
+        [ -d "log" ] || mkdir log
+
+        # Get current time and date for renaming
+        CURRENT_TIME=$(date +"%H:%M:%S")
+        CURRENT_DATE=$(date +"%m-%d-%y")
+
+        # Rename and move the existing log file
+        mv app.log "log/app_${CURRENT_TIME}_${CURRENT_DATE}.log"
+    fi
+
+    # Create a new app.log and log the lock file message
+    touch app.log
+    log_message "Lock file $LOCK_FILE exists. Previous run may have failed or another instance is running."
+
+    # Print the message to console
     echo "Lock file $LOCK_FILE exists. Previous run may have failed or another instance is running."
+
     exit 1
 fi
 
