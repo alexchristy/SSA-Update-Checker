@@ -90,6 +90,7 @@ def main():
     list_of_terminals = fs.get_all_terminals()
 
     for terminal in list_of_terminals:
+        logging.info(f'==========( {terminal.name} )==========')
 
         # Get list of PDF objects from terminal
         pdfs = scraper.get_terminal_pdfs(terminal)
