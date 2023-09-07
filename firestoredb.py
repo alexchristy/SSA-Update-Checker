@@ -67,7 +67,6 @@ class FirestoreClient:
                 'pagePosition': terminal.pagePosition,
                 'location': terminal.location,
                 'group': terminal.group,
-                'archiveDir': terminal.archiveDir
             }
 
             doc_ref.update(updates)
