@@ -8,8 +8,7 @@ import utils
 
 class Pdf:
 
-    def __init__(self, link):
-
+    def __init__(self, link, populate=True):
         self.filename = ""
         self.link = link
         self.hash = ""
@@ -21,24 +20,23 @@ class Pdf:
         self.terminal = ""
         self.seen_before = False
 
-        # Set first_seen_time
-        self._gen_first_seen_time()
+        if populate:
+            self.populate()
 
-        # Download PDF and set filename and cloud_path
+    def populate(self):
+        self._gen_first_seen_time()
         self._download()
         if self.filename is None:
             self.seen_before = True
             return
 
-        # Calc PDF Hash and set hash
         self._calc_hash()
         if self.hash is None:
             self.seen_before = True
             return
 
-        # Extract the metadata of the PDF
         self._get_pdf_metadata()
-    
+
     def _download(self):
         logging.info(f'Starting download of PDF from {self.link}...')
 
@@ -107,7 +105,7 @@ class Pdf:
 
         if utils.is_valid_string(terminal_name):
             self.terminal = terminal_name
-            logging.info(f'Set {self.filename} terminal to {terminal_name}.')
+            logging.info(f'Set {self.filename} terminal attribute to {terminal_name}.')
         else:
             logging.error(f'Unable to set {self.filename} terminal. Invalid terminal string: {terminal_name}.')
     
@@ -184,11 +182,10 @@ class Pdf:
     def from_dict(cls, data):
         """
         Create a PDF object from a dictionary (e.g., a Firestore document).
-        The seen_before attribute is set to False by default.
+        The seen_before attribute is set to False by default. Populate is set to
+        false to prevent overwrite of attributes when reading from the database.
         """
-        pdf = cls(
-            link=data['link'],
-        )
+        pdf = cls(link=data['link'], populate=False)
         pdf.filename = data['filename']
         pdf.hash = data['hash']
         pdf.first_seen_time = data['firstSeenTime']
@@ -197,8 +194,5 @@ class Pdf:
         pdf.creation_time = data['creationTime']
         pdf.type = data['type']
         pdf.terminal = data['terminal']
-
-        # Setting seen_before to False when object is unmarshalled from the database
         pdf.seen_before = False
-
         return pdf
