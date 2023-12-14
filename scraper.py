@@ -1,11 +1,10 @@
 import logging
-import os
 from typing import List
 from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup
 
-import utils
+import scraper_utils
 from pdf import Pdf
 from terminal import Terminal
 
@@ -26,16 +25,16 @@ def get_active_terminals(url: str) -> List[Terminal]:
 
     Args:
     ----
-    url: The URL of the AMC travel page.
+        url: The URL of the AMC travel page.
 
     Returns:
     -------
-    listOfTerminals: A list of Terminal objects.
+        listOfTerminals: A list of Terminal objects.
     """
     logging.debug("Running get_terminal_info().")
 
     # Download the AMC travel page
-    response = utils.get_with_retry(url)
+    response = scraper_utils.get_with_retry(url)
 
     # Exit program if AMC travel page fails to download
     if response is None:
@@ -90,7 +89,7 @@ def get_active_terminals(url: str) -> List[Terminal]:
             new_terminal = Terminal()
             new_terminal.group = group
             new_terminal.location = str(title)
-            new_terminal.pagePosition = page_positon
+            new_terminal.page_pos = page_positon
             list_of_terminals.append(new_terminal)
 
             # Increment page position only for terminal entries
@@ -153,30 +152,38 @@ def get_active_terminals(url: str) -> List[Terminal]:
 
 
 def get_terminal_pdfs(terminal: Terminal) -> List[Pdf]:
-    logging.info("Entering get_terminal_pdfs().")
+    """Download the terminal page and extract all PDF links to create PDF objects.
 
-    base_dir = os.getenv("PDF_DIR")
+    Args:
+    ----
+        terminal: A Terminal object.
+
+    Returns:
+    -------
+        terminal_pdfs: A list of PDF objects.
+    """
+    logging.info("Entering get_terminal_pdfs().")
 
     # URL of terminal page
     url = terminal.link
 
     # Skip terminal with no page and remove from DB
     if url == "empty":
-        logging.warning(f"{terminal.name} has no page link. Skipping...")
-        return
+        logging.warning("{%s has no page link. Skipping...", terminal.name)
+        return []
 
-    logging.info(f"Downloading {terminal.name} page.")
+    logging.info("Downloading %s page.", terminal.name)
 
     # Get terminal page with retry mechanism
-    response = utils.get_with_retry(url)
+    response = scraper_utils.get_with_retry(url)
 
     # If terminal page is not downloaded correctly exit
     if response is None:
-        logging.warning(f"{terminal.name} page failed to download.")
-        return
+        logging.warning("%s page failed to download.", terminal.name)
+        return []
 
     # Get hostname of terminal page
-    hostname = utils.normalize_url(url)
+    hostname = scraper_utils.normalize_url(url)
 
     # Create a BeautifulSoup object from the response content
     soup = BeautifulSoup(response.content, "html.parser")
@@ -191,7 +198,10 @@ def get_terminal_pdfs(terminal: Terminal) -> List[Pdf]:
         extracted_link = a_tag["href"]
 
         # Correct encoding from BS4
-        pdf_link = extracted_link.replace("×tamp", "&timestamp")
+        pdf_link = extracted_link.replace(
+            "×tamp",  # noqa: RUF001 , RUF003 (The "×" is common in PDF links)
+            "&timestamp",
+        )
 
         # Correct relative pdf links
         if not pdf_link.lower().startswith("https://"):
