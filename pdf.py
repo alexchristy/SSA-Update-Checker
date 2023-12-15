@@ -2,11 +2,12 @@ import datetime
 import hashlib
 import logging
 import os
-from typing import Any, Dict, Type
+from typing import Any, Dict, List, Type
 
 from PyPDF2 import PdfReader
 
 import scraper_utils
+from pdf_page import PdfPage
 
 
 class Pdf:
@@ -42,6 +43,7 @@ class Pdf:
             None
         """
         self.filename = ""
+        self.original_filename = ""
         self.link = link
         self.hash = ""
         self.first_seen_time = ""
@@ -51,6 +53,10 @@ class Pdf:
         self.type = ""
         self.terminal = ""
         self.seen_before = False
+        self.num_pages = -1
+        self.num_words = -1
+        self.num_chars = -1
+        self.page_dimensions: List[PdfPage] = []
 
         if populate:
             self.populate()
@@ -85,6 +91,7 @@ class Pdf:
 
         # Get the filename from the URL
         filename = scraper_utils.get_pdf_name(self.link)
+        self.original_filename = filename
         filename = scraper_utils.gen_pdf_name_uuid(filename)
 
         # Get PDF from link
