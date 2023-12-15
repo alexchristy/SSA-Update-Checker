@@ -30,6 +30,9 @@ class Terminal:
         self.page_pos = None
         self.location = None
         self.archive_dir = None
+        self.updating_72hr = False
+        self.updating_30day = False
+        self.updating_rollcall = False
 
     def to_dict(self: "Terminal") -> Dict[str, Any]:
         """Convert this Terminal object to a dictionary, suitable for storing in Firestore or another database.
@@ -48,6 +51,9 @@ class Terminal:
             "pagePosition": self.page_pos,
             "location": self.location,
             "archiveDir": self.archive_dir,
+            "updating72Hour": self.updating_72hr,
+            "updating30Day": self.updating_30day,
+            "updatingRollcall": self.updating_rollcall,
         }
 
     @classmethod
@@ -63,5 +69,8 @@ class Terminal:
         terminal.page_pos = data.get("pagePosition", None)
         terminal.location = data.get("location", None)
         terminal.archive_dir = data.get("archiveDir", None)
+        terminal.updating_72hr = data.get("updating72Hour", False)
+        terminal.updating_30day = data.get("updating30Day", False)
+        terminal.updating_rollcall = data.get("updatingRollcall", False)
 
         return terminal
