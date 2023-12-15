@@ -1,4 +1,4 @@
-from typing import Any, Dict, Type
+from typing import Any, Dict, Optional, Type
 
 
 class Terminal:
@@ -21,15 +21,15 @@ class Terminal:
 
         Sets all attributes to None.
         """
-        self.name = None
-        self.link = None
-        self.pdf_72hr_hash = None
-        self.pdf_30day_hash = None
-        self.pdf_rollcall_hash = None
-        self.group = None
-        self.page_pos = None
-        self.location = None
-        self.archive_dir = None
+        self.name = ""
+        self.link = ""
+        self.pdf_72hr_hash = ""
+        self.pdf_30day_hash = ""
+        self.pdf_rollcall_hash = ""
+        self.group = ""
+        self.page_pos: Optional[int] = None
+        self.location = ""
+        self.archive_dir = ""
         self.updating_72hr = False
         self.updating_30day = False
         self.updating_rollcall = False
