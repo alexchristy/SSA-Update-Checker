@@ -6,7 +6,7 @@ import sys
 import scraper
 from firestoredb import FirestoreClient
 from pdf_utils import sort_terminal_pdfs
-from s3_bucket import s3Bucket
+from s3_bucket import S3Bucket
 from scraper_utils import check_env_variables, check_local_pdf_dirs, clean_up_tmp_pdfs
 
 # List of ENV variables to check
@@ -71,7 +71,7 @@ def main() -> None:
         sys.exit(1)
 
     # Create S3 bucket object
-    s3 = s3Bucket()
+    s3 = S3Bucket()
 
     # Prep s3 bucket
     s3.check_s3_pdf_dirs()
