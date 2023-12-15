@@ -19,6 +19,13 @@
             "console": "integratedTerminal",
             "justMyCode": true,
             "args": ["--log", "INFO"]
-        }
+        },
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal"
+        }        
     ]
 }
