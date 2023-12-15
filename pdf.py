@@ -407,5 +407,10 @@ class Pdf:
         pdf.type = data["type"]
         pdf.terminal = data["terminal"]
         pdf.seen_before = False
+        pdf.original_filename = data["originalFilename"]
+        pdf.num_pages = data["numPages"]
+        pdf.num_words = data["numWords"]
+        pdf.num_chars = data["numChars"]
+        pdf.pages = [PdfPage.from_dict(page) for page in data["pages"]]
 
         return pdf
