@@ -8,6 +8,7 @@ from PyPDF2 import PdfReader
 
 import scraper_utils
 from pdf_page import PdfPage
+from pdf_utils import count_characters_in_pdf, count_pages_in_pdf, count_words_in_pdf
 
 
 class Pdf:
@@ -47,16 +48,16 @@ class Pdf:
         -------
             None
         """
-        self.filename = ""
-        self.original_filename = ""
-        self.link = link
-        self.hash = ""
-        self.first_seen_time = ""
-        self.cloud_path = ""
-        self.modify_time = ""
-        self.creation_time = ""
-        self.type = ""
-        self.terminal = ""
+        self.filename: str = ""
+        self.original_filename: str = ""
+        self.link: str = link
+        self.hash: str = ""
+        self.first_seen_time: str = ""
+        self.cloud_path: str = ""
+        self.modify_time: str = ""
+        self.creation_time: str = ""
+        self.type: str = ""
+        self.terminal: str = ""
         self.seen_before = False
         self.num_pages = -1
         self.num_words = -1
@@ -80,6 +81,10 @@ class Pdf:
             return
 
         self._get_pdf_metadata()
+        self._get_num_pages()
+        self._get_num_words()
+        self._get_num_chars()
+        self._populate_page_details()
 
     def _download(self: "Pdf") -> None:
         """Download the PDF from the link."""
@@ -269,7 +274,92 @@ class Pdf:
                 e,
             )
 
-    def to_dict(self: "Pdf") -> Dict[str, str]:
+    def _get_num_pages(self: "Pdf") -> None:
+        """Get the number of pages in the PDF."""
+        path = self.get_local_path()
+
+        if not path:
+            logging.error(
+                "Unable to get number of pages for %s. PDF not at path: %s.",
+                self.filename,
+                path,
+            )
+            return
+
+        num_pages = count_pages_in_pdf(path)
+
+        if num_pages is None:
+            logging.error("Unable to get number of pages for %s.", self.filename)
+            return
+
+        self.num_pages = num_pages
+
+    def _get_num_words(self: "Pdf") -> None:
+        """Get the number of words in the PDF."""
+        path = self.get_local_path()
+
+        if not path:
+            logging.error(
+                "Unable to get number of words for %s. PDF not at path: %s.",
+                self.filename,
+                path,
+            )
+            return
+
+        num_words = count_words_in_pdf(path)
+
+        if num_words is None:
+            logging.error("Unable to get number of words for %s.", self.filename)
+            return
+
+        self.num_words = num_words
+
+    def _get_num_chars(self: "Pdf") -> None:
+        """Get the number of characters in the PDF."""
+        path = self.get_local_path()
+
+        if not path:
+            logging.error(
+                "Unable to get number of characters for %s. PDF not at path: %s.",
+                self.filename,
+                path,
+            )
+            return
+
+        num_chars = count_characters_in_pdf(path)
+
+        if num_chars is None:
+            logging.error("Unable to get number of characters for %s.", self.filename)
+            return
+
+        self.num_chars = num_chars
+
+    def _populate_page_details(self: "Pdf") -> None:
+        """Populate details for each page in the PDF."""
+        try:
+            path = self.get_local_path()
+            if not path:
+                logging.error("PDF file path is invalid for %s.", self.filename)
+                return
+
+            with open(path, "rb") as file:
+                pdf_reader = PdfReader(file)
+                self.pages = self._extract_page_details(pdf_reader)
+        except Exception as e:
+            logging.error("Error populating page details for %s: %s", self.filename, e)
+
+    def _extract_page_details(self: "Pdf", pdf_reader: PdfReader) -> List[PdfPage]:
+        """Extract page details from the PDF reader and return a list of PdfPage objects."""
+        pages = []
+        for i, page in enumerate(pdf_reader.pages):
+            pdf_page = PdfPage(page_number=i + 1)
+            pdf_page.degrees_of_rotation = page.get("/Rotate", 0)
+            pdf_page.width = page.mediabox.width
+            pdf_page.height = page.mediabox.height
+            pages.append(pdf_page)
+        return pages
+
+    def to_dict(self: "Pdf") -> Dict[str, Any]:
         """Convert PDF object to a dictionary, suitable for storing in Firestore.
 
         The seen_before attribute is excluded from the returned dictionary.
@@ -283,8 +373,13 @@ class Pdf:
             "modifyTime": self.modify_time,
             "creationTime": self.creation_time,
             "type": self.type,
-            "terminal": self.terminal
+            "terminal": self.terminal,
             # 'seenBefore': self.seen_before  # This line is intentionally omitted; Only used in internal logic
+            "originalFilename": self.original_filename,
+            "numPages": self.num_pages,
+            "numWords": self.num_words,
+            "numChars": self.num_chars,
+            "pages": [page.to_dict() for page in self.pages],
         }
 
     @classmethod
