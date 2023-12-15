@@ -37,6 +37,11 @@ class Pdf:
             type (str): Type of the PDF. Valid types are "72_HR", "30_DAY", "ROLLCALL", and "DISCARD".
             terminal (str): Terminal the PDF belongs to.
             seen_before (bool): Whether the PDF has been seen before.
+            num_pages (int): Number of pages in the PDF.
+            num_words (int): Number of words in the PDF.
+            num_chars (int): Number of characters in the PDF.
+            pages (List[PdfPage]): List of PdfPage objects representing the pages in the PDF.
+
 
         Returns:
         -------
@@ -56,7 +61,7 @@ class Pdf:
         self.num_pages = -1
         self.num_words = -1
         self.num_chars = -1
-        self.page_dimensions: List[PdfPage] = []
+        self.pages: List[PdfPage] = []
 
         if populate:
             self.populate()
