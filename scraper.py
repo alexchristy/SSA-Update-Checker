@@ -37,9 +37,9 @@ def get_active_terminals(url: str) -> List[Terminal]:
     response = scraper_utils.get_with_retry(url)
 
     # Exit program if AMC travel page fails to download
-    if response is None:
+    if not response.content:
         logging.critical("Failed to download AMC Travel page. Exiting program...")
-        raise
+        raise SystemExit
 
     # Create empty array of terminals to store data
     list_of_terminals = []
