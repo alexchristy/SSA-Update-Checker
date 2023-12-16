@@ -145,7 +145,7 @@ def get_active_terminals(url: str) -> List[Terminal]:
     # Remove terminals with empty names
     non_empty_terminals = []
     for terminal in list_of_terminals:
-        if terminal.name is not None:
+        if terminal.name.strip():
             non_empty_terminals.append(terminal)
 
     return non_empty_terminals
