@@ -4,9 +4,7 @@ import os
 import re
 from typing import Dict, List, Optional, Tuple
 
-import PyPDF2
-from pdfminer.high_level import extract_pages, extract_text
-from pdfminer.layout import LTChar, LTTextContainer
+from pdfminer.high_level import extract_text
 from pdfminer.pdfdocument import PDFDocument, PDFNoValidXRef
 from pdfminer.pdfpage import PDFPage
 from pdfminer.pdfparser import PDFParser
@@ -344,82 +342,3 @@ def type_pdfs_by_filename(list_of_pdfs: List[Pdf], found: Dict[str, bool]) -> Li
         no_match_pdfs.append(pdf)
 
     return no_match_pdfs
-
-
-def count_words_in_pdf(pdf_path: str) -> Optional[int]:
-    """Count the number of words in a PDF.
-
-    Args:
-    ----
-        pdf_path (str): Path to PDF file
-
-    Returns:
-    -------
-        Optional[int]: Number of words in the PDF, None if an error occurred
-    """
-    try:
-        word_count = 0
-
-        # Process each page in the PDF
-        for page_layout in extract_pages(pdf_path):
-            for element in page_layout:
-                if isinstance(element, LTTextContainer):
-                    # Extract text and count words in each text container
-                    text = element.get_text()
-                    words = text.split()
-                    word_count += len(words)
-
-        return word_count
-    except Exception as e:
-        logging.error("An error occurred while counting words: %s", e)
-        return None
-
-
-def count_characters_in_pdf(pdf_path: str) -> Optional[int]:
-    """Count the number of characters in a PDF.
-
-    Args:
-    ----
-        pdf_path (str): Path to PDF file
-
-    Returns:
-    -------
-        Optional[int]: Number of characters in the PDF, None if an error occurred
-    """
-    try:
-        character_count = 0
-
-        # Process each page in the PDF
-        for page_layout in extract_pages(pdf_path):
-            for element in page_layout:
-                if isinstance(element, LTTextContainer):
-                    # Count characters in each text container
-                    for text_element in element:
-                        if isinstance(text_element, LTChar):
-                            character_count += len(text_element.get_text())
-
-        return character_count
-    except Exception as e:
-        logging.error("An error occurred while counting characters: %s", e)
-        return None
-
-
-def count_pages_in_pdf(pdf_path: str) -> Optional[int]:
-    """Count the number of pages in a PDF.
-
-    Args:
-    ----
-        pdf_path (str): Path to PDF file
-
-    Returns:
-    -------
-        Optional[int]: Number of pages in the PDF, None if an error occurred
-    """
-    try:
-        # Open the PDF file
-        with open(pdf_path, "rb") as file:
-            reader = PyPDF2.PdfReader(file)
-            return len(reader.pages)
-    except Exception as e:
-        logging.error("An error occurred while counting pages: %s", e)
-        return None
