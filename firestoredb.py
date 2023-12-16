@@ -104,7 +104,7 @@ class FirestoreClient:
             updates = {
                 "name": terminal.name,
                 "link": terminal.link,
-                "pagePosition": terminal.pagePosition,
+                "pagePosition": terminal.page_pos,
                 "location": terminal.location,
                 "group": terminal.group,
             }
@@ -310,6 +310,10 @@ class FirestoreClient:
             list[Terminal]: A list of all terminal objects
         """
         terminal_coll = os.getenv("TERMINAL_COLL")
+
+        if not terminal_coll:
+            logging.error("Terminal collection name not found in enviroment variables.")
+            return []
 
         terminals_ref = self.db.collection(terminal_coll)
 
