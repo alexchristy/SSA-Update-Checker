@@ -60,6 +60,32 @@ class TestGetActiveTerminals(unittest.TestCase):
 
         self.assertListEqual(parsed_terminal_names, terminal_names)
 
+    @patch("scraper.scraper_utils.get_with_retry")
+    def test_active_terminals_none_response(
+        self: "TestGetActiveTerminals", mock_get_with_retry: MagicMock
+    ) -> None:
+        """Test that the function returns an empty list when the response is None."""
+        mock_response = unittest.mock.Mock()
+        mock_response.configure_mock(**{"content": None})
+
+        mock_get_with_retry.return_value = mock_response
+
+        with self.assertRaises(SystemExit):
+            get_active_terminals("https://www.amc.af.mil/AMC-Travel-Site/")
+
+    @patch("scraper.scraper_utils.get_with_retry")
+    def test_active_terminals_empty_response(
+        self: "TestGetActiveTerminals", mock_get_with_retry: MagicMock
+    ) -> None:
+        """Test that the function returns an empty list when the response is None."""
+        mock_response = unittest.mock.Mock()
+        mock_response.configure_mock(**{"content": ""})
+
+        mock_get_with_retry.return_value = mock_response
+
+        with self.assertRaises(SystemExit):
+            get_active_terminals("https://www.amc.af.mil/AMC-Travel-Site/")
+
 
 if __name__ == "__main__":
     unittest.main()
