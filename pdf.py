@@ -150,8 +150,8 @@ class Pdf:
     def populate(self: "Pdf") -> None:
         """Populate the PDF attributes."""
         self._gen_first_seen_time()
-        self._download()
-        if self.filename is None:
+        was_downloaded = self._download()
+        if not was_downloaded:
             self.seen_before = True
             return
 
@@ -166,7 +166,7 @@ class Pdf:
         self._get_num_chars()
         self._populate_page_details()
 
-    def _download(self: "Pdf") -> None:
+    def _download(self: "Pdf") -> bool:
         """Download the PDF from the link."""
         logging.info("Starting download of PDF from %s...", self.link)
 
@@ -216,12 +216,12 @@ class Pdf:
                 raise ValueError(msg)
 
             self.cloud_path = relative_path
-            return
+            return True
 
         logging.warning("Download failed for link: %s", self.link)
         self.filename = ""
         self.cloud_path = ""
-        return
+        return False
 
     def get_local_path(self: "Pdf") -> str:
         """Get the local path of the PDF."""
@@ -270,7 +270,7 @@ class Pdf:
             )
 
     def _calc_hash(self: "Pdf") -> None:
-        logging.info("Calculating hash for {self.filename}.")
+        logging.info("Calculating hash for %s.", self.get_local_path())
 
         sha256_hash = hashlib.sha256()
 
@@ -300,7 +300,7 @@ class Pdf:
         )
 
     def _get_pdf_metadata(self: "Pdf") -> None:
-        logging.info("Reading metadata from %s}.", self.get_local_path())
+        logging.info("Reading metadata from %s.", self.get_local_path())
 
         try:
             with open(self.get_local_path(), "rb") as file:
