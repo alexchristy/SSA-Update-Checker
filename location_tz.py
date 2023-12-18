@@ -147,12 +147,3 @@ class TerminalTzFinder:
             raise ValueError(msg)
 
         return timezone_str
-
-
-import dotenv
-
-dotenv.load_dotenv()
-
-f = TerminalTzFinder()
-
-print(f.get_timezone("Rota Passenger Terminal"))
