@@ -112,94 +112,72 @@ def main() -> None:
         pdf_72hr, pdf_30day, pdf_rollcall = sort_terminal_pdfs(pdfs)
 
         # If new 72 hour schedule was found
-        if pdf_72hr is not None and not pdf_72hr.seen_before:
-            # Check if there is a PDF to archive
-            if terminal.pdf_72hr_hash is not None:
-                old_pdf_72hr = fs.get_pdf_by_hash(terminal.pdf_72hr_hash)
+        if pdf_72hr and not pdf_72hr.seen_before and terminal.pdf_72hr_hash:
+            old_pdf_72hr = fs.get_pdf_by_hash(terminal.pdf_72hr_hash)
 
-                # Check if old 72 hour schedule was found
-                # in the DB. Need to exit if it was not found as
-                # it means that it was never uploaded to S3.
-                if old_pdf_72hr is None:
-                    logging.error(
-                        "Unable to find PDF with hash %s in the DB.",
-                        terminal.pdf_72hr_hash,
-                    )
-                    sys.exit(1)
+            # Check if old 72 hour schedule was found
+            # in the DB. Need to exit if it was not found as
+            # it means that it was never uploaded to S3.
+            if old_pdf_72hr is None:
+                logging.error(
+                    "Unable to find PDF with hash %s in the DB.",
+                    terminal.pdf_72hr_hash,
+                )
+                sys.exit(1)
 
-                # Archive the old 72 hour schedule and
-                # update it with its new archived path
-                # in S3.
-                s3.archive_pdf(old_pdf_72hr)
-                fs.upsert_pdf_to_archive(old_pdf_72hr)
-
-            # Upload new PDF to current directory of S3
-            s3.upload_pdf_to_current_s3(pdf_72hr)
-
-            # Update terminal with new hash
-            fs.update_terminal_pdf_hash(pdf_72hr)
+            # Archive the old 72 hour schedule and
+            # update it with its new archived path
+            # in S3.
+            s3.archive_pdf(old_pdf_72hr)
+            fs.upsert_pdf_to_archive(old_pdf_72hr)
 
         # If a new 30 day schedule was found
-        if pdf_30day is not None and not pdf_30day.seen_before:
-            # Check if there is a PDF to archive
-            if terminal.pdf_30day_hash is not None:
-                old_30day_pdf = fs.get_pdf_by_hash(terminal.pdf_30day_hash)
+        if pdf_30day and not pdf_30day.seen_before and terminal.pdf_30day_hash:
+            old_30day_pdf = fs.get_pdf_by_hash(terminal.pdf_30day_hash)
 
-                # Check if old 30 day schedule was found
-                # in the DB. Need to exit if it was not found as
-                # it means that it was never uploaded to S3.
-                if old_30day_pdf is None:
-                    logging.error(
-                        "Unable to find PDF with hash %s in the DB.",
-                        terminal.pdf_30day_hash,
-                    )
-                    sys.exit(1)
+            # Check if old 30 day schedule was found
+            # in the DB. Need to exit if it was not found as
+            # it means that it was never uploaded to S3.
+            if old_30day_pdf is None:
+                logging.error(
+                    "Unable to find PDF with hash %s in the DB.",
+                    terminal.pdf_30day_hash,
+                )
+                sys.exit(1)
 
-                # Archive the old 30 day schedule and
-                # update it with its new archived path
-                # in S3.
-                s3.archive_pdf(old_30day_pdf)
-                fs.upsert_pdf_to_archive(old_30day_pdf)
-
-            # Upload new PDF to current directory of S3
-            s3.upload_pdf_to_current_s3(pdf_30day)
-
-            # Update terminal with new hash
-            fs.update_terminal_pdf_hash(pdf_30day)
+            # Archive the old 30 day schedule and
+            # update it with its new archived path
+            # in S3.
+            s3.archive_pdf(old_30day_pdf)
+            fs.upsert_pdf_to_archive(old_30day_pdf)
 
         # If new rollcall was found
-        if pdf_rollcall is not None and not pdf_rollcall.seen_before:
-            # Check if there is a PDF to archive
-            if terminal.pdf_rollcall_hash is not None:
-                old_rollcall_pdf = fs.get_pdf_by_hash(terminal.pdf_rollcall_hash)
+        if pdf_rollcall and not pdf_rollcall.seen_before and terminal.pdf_rollcall_hash:
+            old_rollcall_pdf = fs.get_pdf_by_hash(terminal.pdf_rollcall_hash)
 
-                # Check if old rollcall was found
-                # in the DB. Need to exit if it was not found as
-                # it means that it was never uploaded to S3.
-                if old_rollcall_pdf is None:
-                    logging.error(
-                        "Unable to find PDF with hash %s in the DB.",
-                        terminal.pdf_rollcall_hash,
-                    )
-                    sys.exit(1)
+            # Check if old rollcall was found
+            # in the DB. Need to exit if it was not found as
+            # it means that it was never uploaded to S3.
+            if old_rollcall_pdf is None:
+                logging.error(
+                    "Unable to find PDF with hash %s in the DB.",
+                    terminal.pdf_rollcall_hash,
+                )
+                sys.exit(1)
 
-                # Archive the old rollcall and update
-                # it with its new archived path in S3.
-                s3.archive_pdf(old_rollcall_pdf)
-                fs.upsert_pdf_to_archive(old_rollcall_pdf)
-
-            # Upload new PDF to current directory of S3
-            s3.upload_pdf_to_current_s3(pdf_rollcall)
-
-            # Update terminal with new hash
-            fs.update_terminal_pdf_hash(pdf_rollcall)
+            # Archive the old rollcall and update
+            # it with its new archived path in S3.
+            s3.archive_pdf(old_rollcall_pdf)
+            fs.upsert_pdf_to_archive(old_rollcall_pdf)
 
         # Insert new PDFs to PDF Archive/seen before collection
         # in the DB to prevent reprocessing them in subsequent
         # runs.
         for pdf in pdfs:
             if not pdf.seen_before:
+                fs.update_terminal_pdf_hash(pdf)
                 fs.upsert_pdf_to_archive(pdf)
+                s3.upload_pdf_to_current_s3(pdf)
 
     logging.info("Successfully finished program!")
 
