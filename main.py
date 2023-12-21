@@ -18,6 +18,8 @@ vars_to_check = [
     "AWS_ACCESS_KEY_ID",
     "AWS_SECRET_ACCESS_KEY",
     "PDF_DIR",
+    "OPENAI_API_KEY",
+    "GOOGLE_MAPS_API_KEY",
 ]
 
 # Check if all .env variables are set
