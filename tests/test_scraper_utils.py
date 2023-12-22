@@ -527,6 +527,18 @@ class TestGenPdfNameUuid(unittest.TestCase):
         result = gen_pdf_name_uuid(file_path)
         self.assertEqual(result, "")
 
+    @patch("scraper_utils.uuid.uuid4")
+    def test_file_name_with_spaces(
+        self: "TestGenPdfNameUuid", mock_uuid4: MagicMock
+    ) -> None:
+        """Test that the function returns an empty string for a file name with spaces."""
+        test_uuid = uuid.UUID("1234567890abcdef1234567890abcdef")
+        mock_uuid4.return_value = test_uuid
+        file_path = "/path/to/document with spaces.pdf"
+        expected_file_name = f"document_with_spaces_{test_uuid!s}.pdf"
+        result = gen_pdf_name_uuid(file_path)
+        self.assertEqual(result, expected_file_name)
+
 
 class TestFormatPdfMetadataDate(unittest.TestCase):
     """Test the format_pdf_metadata_date function."""

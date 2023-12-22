@@ -434,8 +434,8 @@ class Pdf:
         for i, page in enumerate(pdf_reader.pages):
             pdf_page = PdfPage(page_number=i + 1)
             pdf_page.degrees_of_rotation = page.get("/Rotate", 0)
-            pdf_page.width = page.mediabox.width
-            pdf_page.height = page.mediabox.height
+            pdf_page.width = int(page.mediabox.width)
+            pdf_page.height = int(page.mediabox.height)
             pages.append(pdf_page)
         return pages
 

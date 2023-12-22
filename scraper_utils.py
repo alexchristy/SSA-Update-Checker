@@ -371,6 +371,7 @@ def gen_pdf_name_uuid(file_path: str) -> str:
     """
     dir_path, file_name = os.path.split(file_path)
     base_name, ext = os.path.splitext(file_name)
+    base_name = base_name.replace(" ", "_")
 
     # Ensure the file is a PDF
     if ext.lower() != ".pdf":
