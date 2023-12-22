@@ -342,3 +342,36 @@ def type_pdfs_by_filename(list_of_pdfs: List[Pdf], found: Dict[str, bool]) -> Li
         no_match_pdfs.append(pdf)
 
     return no_match_pdfs
+
+
+def local_sort_pdf(pdf: Pdf) -> bool:
+    """Move a PDF to the correct local directory based on its type.
+
+    Args:
+    ----
+        pdf (Pdf): Pdf object
+
+    Returns:
+    -------
+        bool: True if the PDF was moved, False otherwise
+    """
+    old_path = pdf.get_local_path()
+    local_pdf_dir = os.getenv("PDF_DIR")
+
+    if not local_pdf_dir:
+        logging.error("PDF_DIR environment variable is not set.")
+        return False
+
+    if not os.path.exists(local_pdf_dir):
+        return False
+
+    dest_path = os.path.join("current/", pdf.type)
+    dest_path = os.path.join(dest_path, pdf.filename)
+    dest_local_path = os.path.join(local_pdf_dir, dest_path)
+
+    # Update pdf object
+    pdf.cloud_path = dest_path
+
+    os.rename(old_path, dest_local_path)
+
+    return True

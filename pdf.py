@@ -5,7 +5,7 @@ import os
 from typing import Any, Dict, List, Optional, Type
 
 from pdfminer.high_level import extract_pages
-from pdfminer.layout import LTChar, LTTextContainer
+from pdfminer.layout import LTTextContainer
 from PyPDF2 import PdfReader
 
 import scraper_utils
@@ -60,9 +60,8 @@ def count_characters_in_pdf(pdf_path: str) -> Optional[int]:
             for element in page_layout:
                 if isinstance(element, LTTextContainer):
                     # Count characters in each text container
-                    for text_element in element:
-                        if isinstance(text_element, LTChar):
-                            character_count += len(text_element.get_text())
+                    text = element.get_text()
+                    character_count += len(text)
 
         return character_count
     except Exception as e:

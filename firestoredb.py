@@ -413,6 +413,13 @@ class FirestoreClient:
         for db_terminal, scraped_terminal in zip(
             terminals_from_db, seen_terminals, strict=True
         ):
+            # This needs to be here because scraped terminal objects
+            # do not have the timezone attribute set. So, by setting
+            # the same timezone as the database terminal, we can compare
+            # the two terminals and prevent treating the empty terminal
+            # attribute as an update.
+            scraped_terminal.timezone = db_terminal.timezone
+
             # If the terminals are not the same, then we need to update the database
             if db_terminal != scraped_terminal:
                 # If the location has changed, then we need to update the timezone

@@ -146,6 +146,49 @@ class TestFirestoreClient(unittest.TestCase):
         # Make sure group, location, and timezone were updated
         self.assertDictEqual(db_test_terminal.to_dict(), terminal.to_dict())
 
+    def test_no_empty_terminal_update(self: "TestFirestoreClient") -> None:
+        """Test updating an empty terminal."""
+        # Scenario: Terminal already exists in DB with all up to date info.
+        # This test checks that we don't update the terminal in the DB with
+        # an terminal object that has an empty timezone attribute. This can
+        # happen because the scraped terminal object has an empty timezone
+        # since it is not calculated until it is aboslutely needed. As a result,
+        # if the code is broken, everytime the scraper runs, if a terminal
+        # in the DB has a timezone, it will be overwritten with an empty
+        # timezone.
+
+        # Prepopulate the database with a terminal that has a timezone
+        terminal = Terminal()
+        terminal.name = "test_no_empty_terminal_update"
+        terminal.location = "Naval Station Rota"
+        terminal.timezone = "Europe/Madrid"
+
+        self.firestore_client.set_document(
+            self.test_terminal_coll, terminal.name, terminal.to_dict()
+        )
+
+        # Create a new terminal object with an empty timezone
+        terminal = Terminal()
+        terminal.name = "test_no_empty_terminal_update"
+        terminal.location = "Naval Station Rota"
+        terminal.timezone = ""
+
+        updated = self.firestore_client.update_terminals([terminal])
+        self.assertFalse(updated, "Should not update terminal when timezone is empty")
+
+        # Make sure the timezone is still in the DB
+        terminals = self.firestore_client.get_all_terminals()
+
+        self.assertEqual(
+            len(terminals),
+            1,
+            "Should be one terminal in the DB since we only added one.",
+        )
+
+        db_test_terminal = terminals[0]
+
+        self.assertEqual(db_test_terminal.timezone, "Europe/Madrid")
+
     @classmethod
     def tearDownClass(cls: Type["TestFirestoreClient"]) -> None:
         """Tear down the test class."""
