@@ -3,11 +3,25 @@ import logging
 import os
 import sys
 
+import sentry_sdk
+
 import scraper
 from firestoredb import FirestoreClient
 from pdf_utils import local_sort_pdf, sort_terminal_pdfs
 from s3_bucket import S3Bucket
 from scraper_utils import check_env_variables, check_local_pdf_dirs, clean_up_tmp_pdfs
+
+# Set up Sentry
+sentry_sdk.init(
+    dsn="https://0206deb398bdf73816001d5aca1f0bce@o4506224652713984.ingest.sentry.io/4506440581775360",
+    # Set traces_sample_rate to 1.0 to capture 100%
+    # of transactions for performance monitoring.
+    traces_sample_rate=1.0,
+    # Set profiles_sample_rate to 1.0 to profile 100%
+    # of sampled transactions.
+    # We recommend adjusting this value in production.
+    profiles_sample_rate=1.0,
+)
 
 # List of ENV variables to check
 vars_to_check = [
@@ -94,7 +108,7 @@ def main() -> None:
     logging.info("Retrieved %s terminals.", len(list_of_terminals))
 
     if not fs.update_terminals(list_of_terminals):
-        logging.error("Error updating terminals in DB.")
+        logging.info("No terminals were updated.")
 
     # Retrieve all updated terminal infomation
     list_of_terminals = fs.get_all_terminals()
@@ -181,11 +195,13 @@ def main() -> None:
         # in the DB to prevent reprocessing them in subsequent
         # runs.
         for pdf in pdfs:
-            if not pdf.seen_before:
+            if not pdf.seen_before and pdf.type != "DISCARD":
                 fs.update_terminal_pdf_hash(pdf)
                 local_sort_pdf(pdf)
                 fs.upsert_pdf_to_archive(pdf)
                 s3.upload_pdf_to_current_s3(pdf)
+            else:
+                fs.upsert_pdf_to_archive(pdf)
 
     logging.info("Successfully finished program!")
 

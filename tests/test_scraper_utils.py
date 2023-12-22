@@ -539,6 +539,25 @@ class TestGenPdfNameUuid(unittest.TestCase):
         result = gen_pdf_name_uuid(file_path)
         self.assertEqual(result, expected_file_name)
 
+    @patch("scraper_utils.uuid.uuid4")
+    def test_file_name_with_special_chars(
+        self: "TestGenPdfNameUuid", mock_uuid4: MagicMock
+    ) -> None:
+        """Test that the function correctly encodes file names with special characters."""
+        # Setup mock UUID
+        test_uuid = uuid.UUID("1234567890abcdef1234567890abcdef")
+        mock_uuid4.return_value = test_uuid
+
+        # Test input and expected output
+        file_path = "/path/to/document (special).pdf"
+        expected_file_name = f"document_%28special%29_{test_uuid!s}.pdf"
+
+        # Call the function with the test input
+        result = gen_pdf_name_uuid(file_path)
+
+        # Assert that the output matches the expected output
+        self.assertEqual(result, expected_file_name)
+
 
 class TestFormatPdfMetadataDate(unittest.TestCase):
     """Test the format_pdf_metadata_date function."""

@@ -381,7 +381,10 @@ def gen_pdf_name_uuid(file_path: str) -> str:
     random_uuid = str(uuid.uuid4())
 
     # Construct the new file name
-    return f"{base_name}_{random_uuid}.pdf"
+    uuid_name = f"{base_name}_{random_uuid}.pdf"
+
+    # Encode it to prevent issues with special characters
+    return quote(uuid_name)
 
 
 def format_pdf_metadata_date(date_str: str) -> Optional[str]:
