@@ -1,9 +1,10 @@
 import logging
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from firebase_admin import credentials, firestore, initialize_app  # type: ignore
 
+from location_tz import TerminalTzFinder
 from pdf import Pdf
 from scraper_utils import is_valid_sha256
 from terminal import Terminal
@@ -107,6 +108,7 @@ class FirestoreClient:
                 "pagePosition": terminal.page_pos,
                 "location": terminal.location,
                 "group": terminal.group,
+                "timezone": terminal.timezone,
             }
 
             doc_ref.update(updates)
@@ -326,3 +328,156 @@ class FirestoreClient:
             terminal_objects.append(curr_terminal)
 
         return terminal_objects
+
+    def update_terminals(
+        self: "FirestoreClient", scraped_terminals: List[Terminal]
+    ) -> bool:
+        """Update the Terminals collection with new terminal objects.
+
+        This function will upsert the terminal objects in the Terminals collection.
+        Additionally, it will add timezone attributes to the terminals only when the
+        terminal documents do not have it already or the terminal's attribute has
+        changed.
+
+        Args:
+        ----
+            scraped_terminals (List[Terminal]): A list of newly scraped terminal objects to upsert
+
+        Returns:
+        -------
+            bool: True if the terminals were updated, False otherwise
+        """
+        if not scraped_terminals:
+            logging.error("No terminals provided to update.")
+            return False
+
+        # Get the name of the collection from an environment variable
+        terminal_coll = os.getenv("TERMINAL_COLL")
+
+        if not terminal_coll:
+            logging.error("Terminal collection name not found in enviroment variables.")
+            return False
+
+        # Get all the terminals from the Terminals collection
+        terminals_from_db = self.get_all_terminals()
+
+        if not terminals_from_db:
+            logging.warning("No terminals found in the database.")
+
+        never_seen_terminals = []
+        seen_terminals = []
+
+        # Check for discrepancies between the number of terminals in the database
+        # and the number of terminals found by the scraper
+        if len(terminals_from_db) != len(scraped_terminals):
+            scraper_terminal_set = set(scraped_terminals)
+            old_terminal_set = set(terminals_from_db)
+
+            # Get the difference between the two sets
+            terminal_diff = scraper_terminal_set - old_terminal_set
+            diff_names = [terminal.name for terminal in terminal_diff]
+
+            if len(scraped_terminals) > len(terminals_from_db):
+                logging.info("New terminals found: %s", diff_names)
+
+                # Get the terminals that have never been seen before
+                never_seen_terminals = list(terminal_diff)
+                seen_terminals = list(scraper_terminal_set - terminal_diff)
+
+            if len(terminals_from_db) > len(scraped_terminals):
+                logging.error("Scraper missed terminals: %s", diff_names)
+                return False
+        else:
+            logging.info("No discrepancies found between the database and scraper.")
+            seen_terminals = scraped_terminals
+
+        tz_finder = TerminalTzFinder()
+
+        # Must add timezone to terminals that have never been seen before
+        for terminal in never_seen_terminals:
+            if not terminal.location:
+                logging.error("Terminal %s has no location.", terminal.name)
+                continue
+
+            terminal.timezone = tz_finder.get_timezone(terminal.location)
+            self.upsert_terminal_info(terminal)
+
+        terminals_to_update = []
+
+        # Sort the terminals by name to ensure that the order is the same
+        # and that the terminals are being compared correctly
+        terminals_from_db.sort(key=lambda x: x.name)
+        seen_terminals.sort(key=lambda x: x.name)
+
+        # Check to see if the terminals have had any changes
+        for db_terminal, scraped_terminal in zip(
+            terminals_from_db, seen_terminals, strict=True
+        ):
+            # If the terminals are not the same, then we need to update the database
+            if db_terminal != scraped_terminal:
+                # If the location has changed, then we need to update the timezone
+                if db_terminal.location != scraped_terminal.location:
+                    logging.info(
+                        "Terminal %s has changed location from %s to %s.",
+                        db_terminal.name,
+                        db_terminal.location,
+                        scraped_terminal.location,
+                    )
+
+                    if not scraped_terminal.location:
+                        logging.error(
+                            "Terminal %s has no location.", scraped_terminal.name
+                        )
+                        continue
+
+                    scraped_terminal.timezone = tz_finder.get_timezone(
+                        scraped_terminal.location
+                    )
+
+                terminals_to_update.append(scraped_terminal)
+
+        if not terminals_to_update:
+            logging.info("No terminals need to be updated.")
+
+        # Upsert the updated terminals
+        for terminal in terminals_to_update:
+            self.upsert_terminal_info(terminal)
+
+        # Return true if there are terminals that need to be updated
+        # or added to the database
+        return bool(never_seen_terminals or terminals_to_update)
+
+    def delete_collection(
+        self: "FirestoreClient", collection_name: str, batch_size: int = 10
+    ) -> Optional[bool]:
+        """Delete all documents in a Firestore collection.
+
+        Args:
+        ----
+            collection_name (str): Name of the Firestore collection to delete.
+            batch_size (int): The size of the batch to use for deleting documents.
+
+        Returns:
+        -------
+            Optional[bool]: Returns True if the operation is successful, None otherwise.
+        """
+        coll_ref = self.db.collection(collection_name)
+        return self._delete_collection_batch(coll_ref, batch_size)
+
+    def _delete_collection_batch(
+        self: "FirestoreClient",
+        coll_ref: firestore.CollectionReference,
+        batch_size: int,
+    ) -> Optional[bool]:
+        docs = coll_ref.limit(batch_size).stream()
+        deleted = 0
+
+        for doc in docs:
+            print(f"Deleting doc {doc.id} => {doc.to_dict()}")
+            doc.reference.delete()
+            deleted += 1
+
+        if deleted >= batch_size:
+            return self._delete_collection_batch(coll_ref, batch_size)
+
+        return True

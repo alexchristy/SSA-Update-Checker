@@ -87,9 +87,14 @@ def main() -> None:
     url = "https://www.amc.af.mil/AMC-Travel-Site"
     list_of_terminals = scraper.get_active_terminals(url)
 
-    # Populate the DB
-    for terminal in list_of_terminals:
-        fs.upsert_terminal_info(terminal)
+    if not list_of_terminals:
+        logging.error("No terminals found.")
+        sys.exit(1)
+
+    logging.info("Retrieved %s terminals.", len(list_of_terminals))
+
+    if not fs.update_terminals(list_of_terminals):
+        logging.error("Error updating terminals in DB.")
 
     # Retrieve all updated terminal infomation
     list_of_terminals = fs.get_all_terminals()
