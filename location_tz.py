@@ -1,3 +1,4 @@
+import logging
 import os
 from typing import Optional, Tuple
 
@@ -55,10 +56,14 @@ class TerminalTzFinder:
         if g.ok and g.latlng:
             return g.latlng
 
+        logging.info("Google Maps failed to geocode: %s", location)
+
         # Fallback to OpenStreetMap Nominatim
         g = geocoder.osm(location)
         if g.ok and g.latlng:
             return g.latlng
+
+        logging.info("OSM Nominatim failed to geocode: %s", location)
 
         # If both fail
         return None
@@ -130,6 +135,7 @@ class TerminalTzFinder:
 
         # If geocoding fails, use ChatGPT to estimate the location
         if latlng is None:
+            logging.info("Geocoding failed for location: %s", location)
             estimated_location = self._estimate_location_gpt(location)
             if estimated_location:
                 latlng = self._get_geocode(estimated_location)
