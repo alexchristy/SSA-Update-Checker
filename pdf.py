@@ -93,7 +93,9 @@ def count_pages_in_pdf(pdf_path: str) -> Optional[int]:
 class Pdf:
     """Class to represent a PDF file."""
 
-    def __init__(self: "Pdf", link: str, populate: bool = True) -> None:
+    def __init__(
+        self: "Pdf", link: str, populate: bool = False, hash_only: bool = False
+    ) -> None:
         """Initialize a PDF object.
 
         The PDF is initialized with the link to the PDF. If populate is True, the PDF
@@ -103,7 +105,8 @@ class Pdf:
         Args:
         ----
             link (str): Link to the PDF.
-            populate (bool, optional): Whether to populate the PDF attributes. Defaults to True.
+            populate (bool, optional): Whether to populate the PDF attributes. Defaults to False.
+            hash_only (bool, optional): Whether to only calculate the hash. Defaults to False.
 
         Attributes:
         ----------
@@ -146,18 +149,35 @@ class Pdf:
         if populate:
             self.populate()
 
-    def populate(self: "Pdf") -> None:
-        """Populate the PDF attributes."""
-        self._gen_first_seen_time()
+        if hash_only:
+            self.populate_hash_only()
+
+    def populate_hash_only(self: "Pdf") -> None:
+        """Download the PDF and calculate the hash only."""
         was_downloaded = self._download()
+
         if not was_downloaded:
             self.seen_before = True
             return
 
         self._calc_hash()
-        if self.hash is None:
-            self.seen_before = True
-            return
+
+    def populate(self: "Pdf") -> None:
+        """Populate the PDF attributes."""
+        if not self.seen_before:
+            self._gen_first_seen_time()
+
+        if not self.filename and not self.cloud_path:
+            was_downloaded = self._download()
+            if not was_downloaded:
+                self.seen_before = True
+                return
+
+        if not self.hash:
+            self._calc_hash()
+            if self.hash is None:
+                self.seen_before = True
+                return
 
         self._get_pdf_metadata()
         self._get_num_pages()

@@ -116,8 +116,8 @@ def main() -> None:
     for terminal in list_of_terminals:
         logging.info("==========( %s )==========", terminal.name)
 
-        # Get list of PDF objects from terminal
-        pdfs = scraper.get_terminal_pdfs(terminal)
+        # Get list of PDF objects and only their hashes from terminal
+        pdfs = scraper.get_terminal_pdfs(terminal, hash_only=True)
 
         # Check if any PDFs are new
         for pdf in pdfs:
@@ -125,6 +125,22 @@ def main() -> None:
                 # Should discard PDFs we have seen before
                 pdf.seen_before = True
 
+                # Discard irrelevant PDFs to reduce processing time
+                db_pdf = fs.get_pdf_by_hash(pdf.hash)
+
+                if db_pdf is None:
+                    logging.error(
+                        "Unable to find PDF with hash %s in the DB.", pdf.hash
+                    )
+                    sys.exit(1)
+
+                # We need all other seen PDFs as they
+                # provide context when sorting PDFs
+                if db_pdf.type == "DISCARD":
+                    continue
+
+            # Populate PDF object with all information
+            pdf.populate()
             pdf.set_terminal(terminal.name)
 
         # Try to determine the type of each new PDF

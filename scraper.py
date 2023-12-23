@@ -2,7 +2,7 @@ import logging
 from typing import List
 from urllib.parse import urljoin
 
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup  # type: ignore
 
 import scraper_utils
 from pdf import Pdf
@@ -37,7 +37,7 @@ def get_active_terminals(url: str) -> List[Terminal]:
     response = scraper_utils.get_with_retry(url)
 
     # Exit program if AMC travel page fails to download
-    if not response.content:
+    if not response or not response.content:
         logging.critical("Failed to download AMC Travel page. Exiting program...")
         raise SystemExit
 
@@ -151,12 +151,13 @@ def get_active_terminals(url: str) -> List[Terminal]:
     return non_empty_terminals
 
 
-def get_terminal_pdfs(terminal: Terminal) -> List[Pdf]:
+def get_terminal_pdfs(terminal: Terminal, hash_only: bool = False) -> List[Pdf]:
     """Download the terminal page and extract all PDF links to create PDF objects.
 
     Args:
     ----
         terminal: A Terminal object.
+        hash_only: A boolean to indicate if only the hash should be populated for each PDF object.
 
     Returns:
     -------
@@ -207,7 +208,10 @@ def get_terminal_pdfs(terminal: Terminal) -> List[Pdf]:
         if not pdf_link.lower().startswith("https://"):
             pdf_link = hostname + pdf_link
 
-        curr_pdf = Pdf(pdf_link)
+        if hash_only:
+            curr_pdf = Pdf(pdf_link, hash_only=True)
+        else:
+            curr_pdf = Pdf(pdf_link, populate=True)
 
         if not curr_pdf.seen_before:
             terminal_pdfs.append(curr_pdf)
