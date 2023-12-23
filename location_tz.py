@@ -8,6 +8,17 @@ from openai import OpenAI
 from timezonefinder import TimezoneFinder
 
 
+class BadLocationError(Exception):
+    """Custom exception for a specific purpose."""
+
+    def __init__(
+        self: "BadLocationError",
+        message: str = "The location was not able to be geocoded.",
+    ) -> None:
+        """Exception class to be thrown when locations can't be geocoded."""
+        super().__init__(message)
+
+
 class TerminalTzFinder:
     """Class to find the timezone of a location string.
 
@@ -26,11 +37,11 @@ class TerminalTzFinder:
 
         if not gpt_key:
             msg = "OPENAI_API_KEY environment variable not set."
-            raise ValueError(msg)
+            raise EnvironmentError(msg)
 
         if not google_key:
             msg = "GOOGLE_MAPS_API_KEY environment variable not set."
-            raise ValueError(msg)
+            raise EnvironmentError(msg)
 
         self.google_key = google_key
         self.gpt_client = OpenAI(api_key=gpt_key)
@@ -113,7 +124,7 @@ class TerminalTzFinder:
 
             if not gpt_response:
                 msg = f"GPT-3 failed to estimate location of string: {location}"
-                raise ValueError(msg)
+                raise BadLocationError(msg)
 
             return gpt_response
 
@@ -140,9 +151,9 @@ class TerminalTzFinder:
             if estimated_location:
                 latlng = self._get_geocode(estimated_location)
 
-            if latlng is None:
-                msg = f"Could not geocode the location: {location}"
-                raise ValueError(msg)
+        if latlng is None:
+            msg = f"Could not geocode the location: {location}"
+            raise BadLocationError(msg)
 
         # Convert geocode to Pytz timezone
         tz_finder = TimezoneFinder()
