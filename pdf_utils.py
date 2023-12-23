@@ -1,4 +1,3 @@
-import glob
 import logging
 import os
 import re
@@ -11,29 +10,6 @@ from pdfminer.pdfparser import PDFParser
 from pdfminer.psparser import PSEOF
 
 from pdf import Pdf
-
-
-def check_downloaded_pdfs(directory_path: str) -> bool:
-    """Check if at least one PDF was downloaded and log the number of PDFs in the directory.
-
-    Args:
-    ----
-        directory_path (str): Path to directory containing downloaded PDFs.
-
-    Returns:
-    -------
-        bool: True if at least one PDF was downloaded, False otherwise.
-    """
-    num_pdf_files = len(glob.glob(os.path.join(directory_path, "*.pdf")))
-    if num_pdf_files == 0:
-        logging.warning("No PDFs were downloaded in the directory: %s", directory_path)
-    else:
-        logging.info(
-            "%d PDFs were downloaded in the directory: %s",
-            num_pdf_files,
-            directory_path,
-        )
-    return num_pdf_files > 0
 
 
 def type_pdfs_by_content(list_of_pdfs: List[Pdf], found: Dict[str, bool]) -> None:
