@@ -1,5 +1,6 @@
 import os
 import pickle
+import shutil
 import sys
 import unittest
 from typing import Optional, Type
@@ -9,11 +10,13 @@ sys.path.append(current_dir + "/../")
 
 from pdf import Pdf  # noqa: E402 (Relative import)
 from pdf_utils import (  # noqa: E402 (Relative import)
+    local_sort_pdf_to_current,
     sort_pdfs_by_creation_time,
     sort_pdfs_by_modify_time,
     sort_terminal_pdfs,
     type_pdfs_by_content,
 )
+from scraper_utils import check_local_pdf_dirs  # noqa: E402 (Relative import)
 
 
 class TestTypePdfsByContent(unittest.TestCase):
@@ -603,3 +606,117 @@ class TestTypePdfsByFilename(unittest.TestCase):
         self.assertEqual(pdf_rollcall.type, "ROLLCALL")
         self.assertEqual(pdf_aef_72hr.type, "DISCARD")
         self.assertEqual(pdf_gram.type, "DISCARD")
+
+
+class TestLocalSortPdfToCurrent(unittest.TestCase):
+    """Test the local_sort_pdf_to_current function in pdf_utils."""
+
+    old_pdf_dir: Optional[str]
+
+    @classmethod
+    def setUpClass(cls: Type["TestLocalSortPdfToCurrent"]) -> None:
+        """Set the PDF_DIR environment variable to an empty string."""
+        cls.old_pdf_dir = os.getenv("PDF_DIR")
+        os.environ["PDF_DIR"] = "./test_local_sort_pdf_to_current"
+
+        check_local_pdf_dirs()
+
+    def test_local_sort_pdf_to_current(self: "TestLocalSortPdfToCurrent") -> None:
+        """Test with a list of PDFs."""
+        local_pdf_dir = os.getenv("PDF_DIR")
+
+        if not local_pdf_dir:
+            self.fail("Failed to load local_pdf_dir")
+
+        with open(
+            "tests/assets/TestLocalSortPdfToCurrent/test_local_sort_pdf_to_current/pdf1.pkl",
+            "rb",
+        ) as f:
+            pdf1: Pdf = pickle.load(f)  # noqa: S301 (Only for testing)
+
+        if not pdf1:
+            self.fail(
+                "Failed to load pdf1 object: tests/assets/TestLocalSortPdfToCurrent/test_local_sort_pdf_to_current/pdf1.pkl"
+            )
+
+        with open(
+            "tests/assets/TestLocalSortPdfToCurrent/test_local_sort_pdf_to_current/pdf2.pkl",
+            "rb",
+        ) as f:
+            pdf2: Pdf = pickle.load(f)  # noqa: S301 (Only for testing)
+
+        if not pdf2:
+            self.fail(
+                "Failed to load pdf2 object: tests/assets/TestLocalSortPdfToCurrent/test_local_sort_pdf_to_current/pdf2.pkl"
+            )
+
+        with open(
+            "tests/assets/TestLocalSortPdfToCurrent/test_local_sort_pdf_to_current/pdf3.pkl",
+            "rb",
+        ) as f:
+            pdf3: Pdf = pickle.load(f)  # noqa: S301 (Only for testing)
+
+        if not pdf3:
+            self.fail(
+                "Failed to load pdf3 object: tests/assets/TestLocalSortPdfToCurrent/test_local_sort_pdf_to_current/pdf3.pkl"
+            )
+
+        pdf1.set_type("72_HR")
+        pdf2.set_type("30_DAY")
+        pdf3.set_type("ROLLCALL")
+
+        shutil.copy(
+            pdf1.cloud_path,
+            f"{local_pdf_dir}/tmp/pdf1.pdf",  # noqa: S108 (Only for testing)
+        )
+        shutil.copy(
+            pdf2.cloud_path,
+            f"{local_pdf_dir}/tmp/pdf2.pdf",  # noqa: S108 (Only for testing)
+        )
+        shutil.copy(
+            pdf3.cloud_path,
+            f"{local_pdf_dir}/tmp/pdf3.pdf",  # noqa: S108 (Only for testing)
+        )
+
+        pdf1.cloud_path = "tmp/pdf1.pdf"
+        pdf2.cloud_path = "tmp/pdf2.pdf"
+        pdf3.cloud_path = "tmp/pdf3.pdf"
+
+        local_sort_pdf_to_current(pdf1)
+        local_sort_pdf_to_current(pdf2)
+        local_sort_pdf_to_current(pdf3)
+
+        # Ensure that the PDFs paths were updated correctly
+        self.assertTrue(os.path.isfile(pdf1.get_local_path()))
+        self.assertTrue(os.path.isfile(pdf2.get_local_path()))
+        self.assertTrue(os.path.isfile(pdf3.get_local_path()))
+
+        # Ensure that the PDFs were moved to the correct directories
+        self.assertEqual(
+            pdf1.get_local_path(),
+            "./test_local_sort_pdf_to_current/current/72_HR/pdf1.pdf",
+        )
+        self.assertEqual(
+            pdf2.get_local_path(),
+            "./test_local_sort_pdf_to_current/current/30_DAY/pdf2.pdf",
+        )
+        self.assertEqual(
+            pdf3.get_local_path(),
+            "./test_local_sort_pdf_to_current/current/ROLLCALL/pdf3.pdf",
+        )
+
+    @classmethod
+    def tearDownClass(cls: Type["TestLocalSortPdfToCurrent"]) -> None:
+        """Reset the PDF_DIR environment variable to its original value."""
+        local_pdf_dir = os.getenv("PDF_DIR")
+
+        if not local_pdf_dir:
+            print("Failed to load local_pdf_dir in tearDownClass")
+            sys.exit(1)
+
+        shutil.rmtree(local_pdf_dir)
+
+        if cls.old_pdf_dir is not None:
+            os.environ["PDF_DIR"] = cls.old_pdf_dir
+        else:
+            os.environ.pop("PDF_DIR", None)
