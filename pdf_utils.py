@@ -78,22 +78,26 @@ def type_pdfs_by_content(list_of_pdfs: List[Pdf], found: Dict[str, bool]) -> Non
         if not found["ROLLCALL"]:
             if any(key in text for key in rollcall_keys):
                 pdf.set_type("ROLLCALL")
+                found["ROLLCALL"] = True
                 continue
 
             # Additional regex seach to match roll call pdfs
             if re.search(r"seats\s*released", text, re.DOTALL):
                 pdf.set_type("ROLLCALL")
+                found["ROLLCALL"] = True
                 continue
 
         # 30 Day schedules
         if not found["30_DAY"] and any(key in text for key in sch_30day_keys):
             pdf.set_type("30_DAY")
+            found["30_DAY"] = True
             continue
 
         # 72 Hour schedules
         # Check that all three strings are in the text.
         if not found["72_HR"] and any(key in text for key in sch_72hr_keys):
             pdf.set_type("72_HR")
+            found["72_HR"] = True
             continue
 
         # No match found
