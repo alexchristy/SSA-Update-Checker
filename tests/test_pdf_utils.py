@@ -4,8 +4,6 @@ import sys
 import unittest
 from typing import Optional, Type
 
-from dotenv import load_dotenv
-
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(current_dir + "/../")
 
@@ -262,9 +260,63 @@ class TestSortTerminalPdfs(unittest.TestCase):
         self.assertEqual(ret_pdf_30day, pdf_30day)
         self.assertEqual(ret_pdf_rollcall, pdf_rollcall)
 
-    def tearDown(self: "TestSortTerminalPdfs") -> None:
-        """Reset the PDF_DIR environment variable."""
-        if self.old_pdf_dir:
-            os.environ["PDF_DIR"] = self.old_pdf_dir
+    def test_dover(self: "TestSortTerminalPdfs") -> None:
+        """Test with Dover terminal PDF scrape."""
+        with open(
+            "tests/assets/TestSortTerminalPdfs/test_dover/DOV_72HR_24DEC23_7919fe85-48a7-48db-8f22-c2db2c1268d5.pdf.pkl",
+            "rb",
+        ) as f:
+            pdf_72hr: Pdf = pickle.load(f)  # noqa: S301 (Only for testing)
+
+        if not pdf_72hr:
+            self.fail(
+                "Failed to load 72hr pdf object: tests/assets/TestSortTerminalPdfs/test_dover/DOV_72HR_24DEC23_7919fe85-48a7-48db-8f22-c2db2c1268d5.pdf.pkl"
+            )
+
+        with open(
+            "tests/assets/TestSortTerminalPdfs/test_dover/DOVER_ROLLCALL_23DEC23_1bdbc13b-454d-42f6-a9f5-05532c983890.pdf.pkl",
+            "rb",
+        ) as f:
+            pdf_rollcall: Pdf = pickle.load(f)  # noqa: S301 (Only for testing)
+
+        if not pdf_rollcall:
+            self.fail(
+                "Failed to load 30day pdf object: tests/assets/TestSortTerminalPdfs/test_dover/DOVER_ROLLCALL_23DEC23_1bdbc13b-454d-42f6-a9f5-05532c983890.pdf.pkl"
+            )
+
+        with open(
+            "tests/assets/TestSortTerminalPdfs/test_dover/AMC_Gram-_KDOV_%28FEB_2023%29_6b25f449-91e5-4e23-8e48-c2bba15d1008.pdf.pkl",
+            "rb",
+        ) as f:
+            pdf_amc_gram: Pdf = pickle.load(f)  # noqa: S301 (Only for testing)
+
+        if not pdf_amc_gram:
+            self.fail(
+                "Failed to load AMC Gram pdf object: tests/assets/TestSortTerminalPdfs/test_dover/AMC_Gram-_KDOV_%28FEB_2023%29_6b25f449-91e5-4e23-8e48-c2bba15d1008.pdf.pkl"
+            )
+
+        pdfs = [pdf_amc_gram, pdf_72hr, pdf_rollcall]
+
+        ret_pdf_72hr, ret_pdf_30day, ret_pdf_rollcall = sort_terminal_pdfs(pdfs)
+
+        # Ensure only 72hr and rollcall were found
+        self.assertIsNotNone(ret_pdf_72hr)
+        self.assertIsNone(ret_pdf_30day)
+        self.assertIsNotNone(ret_pdf_rollcall)
+
+        # Set types of the loaded PDFs to make a comparison
+        pdf_72hr.type = "72_HR"
+        pdf_rollcall.type = "ROLLCALL"
+        pdf_amc_gram.type = "DISCARD"
+
+        self.assertEqual(ret_pdf_72hr, pdf_72hr)
+        self.assertEqual(ret_pdf_rollcall, pdf_rollcall)
+        self.assertEqual(pdf_amc_gram.type, "DISCARD")
+
+    @classmethod
+    def tearDownClass(cls: Type["TestSortTerminalPdfs"]) -> None:
+        """Reset the PDF_DIR environment variable to its original value."""
+        if cls.old_pdf_dir is not None:
+            os.environ["PDF_DIR"] = cls.old_pdf_dir
         else:
             os.environ.pop("PDF_DIR", None)
