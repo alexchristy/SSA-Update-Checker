@@ -9,6 +9,7 @@ sys.path.append(current_dir + "/../")
 
 from pdf import Pdf  # noqa: E402 (Relative import)
 from pdf_utils import (  # noqa: E402 (Relative import)
+    sort_pdfs_by_creation_time,
     sort_pdfs_by_modify_time,
     sort_terminal_pdfs,
     type_pdfs_by_content,
@@ -452,5 +453,72 @@ class TestSortPdfsByModifyTime(unittest.TestCase):
         pdf_list = [pdf1, pdf2, pdf3, pdf4, pdf5]
 
         sorted_pdfs = sort_pdfs_by_modify_time(pdf_list)
+
+        self.assertListEqual(pdf_list, sorted_pdfs)
+
+
+class TestSortPdfsByCreationTime(unittest.TestCase):
+    """Test the sort_pdfs_by_creation_time function in pdf_utils."""
+
+    def test_sort_pdfs_by_creation_time(self: "TestSortPdfsByCreationTime") -> None:
+        """Test with a list of PDFs."""
+        with open(
+            "tests/assets/TestSortPdfsByCreationTime/test_sort_pdfs_by_creation_time/pdf1.pkl",
+            "rb",
+        ) as f:
+            pdf1: Pdf = pickle.load(f)  # noqa: S301 (Only for testing)
+
+        if not pdf1:
+            self.fail(
+                "Failed to load pdf1 object: tests/assets/TestSortPdfsByCreationTime/test_sort_pdfs_by_creation_time/pdf1.pkl"
+            )
+
+        with open(
+            "tests/assets/TestSortPdfsByCreationTime/test_sort_pdfs_by_creation_time/pdf2.pkl",
+            "rb",
+        ) as f:
+            pdf2: Pdf = pickle.load(f)  # noqa: S301 (Only for testing)
+
+        if not pdf2:
+            self.fail(
+                "Failed to load pdf2 object: tests/assets/TestSortPdfsByCreationTime/test_sort_pdfs_by_creation_time/pdf2.pkl"
+            )
+
+        with open(
+            "tests/assets/TestSortPdfsByCreationTime/test_sort_pdfs_by_creation_time/pdf3.pkl",
+            "rb",
+        ) as f:
+            pdf3: Pdf = pickle.load(f)  # noqa: S301 (Only for testing)
+
+        if not pdf3:
+            self.fail(
+                "Failed to load pdf3 object: tests/assets/TestSortPdfsByCreationTime/test_sort_pdfs_by_creation_time/pdf3.pkl"
+            )
+
+        with open(
+            "tests/assets/TestSortPdfsByCreationTime/test_sort_pdfs_by_creation_time/pdf4.pkl",
+            "rb",
+        ) as f:
+            pdf4: Pdf = pickle.load(f)  # noqa: S301 (Only for testing)
+
+        if not pdf4:
+            self.fail(
+                "Failed to load pdf4 object: tests/assets/TestSortPdfsByCreationTime/test_sort_pdfs_by_creation_time/pdf4.pkl"
+            )
+
+        with open(
+            "tests/assets/TestSortPdfsByCreationTime/test_sort_pdfs_by_creation_time/pdf5.pkl",
+            "rb",
+        ) as f:
+            pdf5: Pdf = pickle.load(f)  # noqa: S301 (Only for testing)
+
+        if not pdf5:
+            self.fail(
+                "Failed to load pdf5 object: tests/assets/TestSortPdfsByCreationTime/test_sort_pdfs_by_creation_time/pdf5.pkl"
+            )
+
+        pdf_list = [pdf1, pdf2, pdf3, pdf4, pdf5]
+
+        sorted_pdfs = sort_pdfs_by_creation_time(pdf_list)
 
         self.assertListEqual(pdf_list, sorted_pdfs)
