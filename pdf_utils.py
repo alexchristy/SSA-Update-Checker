@@ -301,20 +301,26 @@ def type_pdfs_by_filename(list_of_pdfs: List[Pdf], found: Dict[str, bool]) -> Li
             continue
 
         # Check if the PDF is a 72 hour schedule
-        if re.search(regex_72_hr_name_filter, pdf.filename) and not found["72_HR"]:
+        if (
+            re.search(regex_72_hr_name_filter, pdf.original_filename)
+            and not found["72_HR"]
+        ):
             found["72_HR"] = True
             pdf.set_type("72_HR")
             continue
 
         # Check if the PDF is a 30 day schedule
-        if re.search(regex_30_day_name_filter, pdf.filename) and not found["30_DAY"]:
+        if (
+            re.search(regex_30_day_name_filter, pdf.original_filename)
+            and not found["30_DAY"]
+        ):
             found["30_DAY"] = True
             pdf.set_type("30_DAY")
             continue
 
         # Check if the PDF is a rollcall
         if (
-            re.search(regex_rollcall_name_filter, pdf.filename)
+            re.search(regex_rollcall_name_filter, pdf.original_filename)
             and not found["ROLLCALL"]
         ):
             found["ROLLCALL"] = True
