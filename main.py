@@ -7,7 +7,7 @@ import sentry_sdk
 
 import scraper
 from firestoredb import FirestoreClient
-from pdf_utils import local_sort_pdf, sort_terminal_pdfs
+from pdf_utils import local_sort_pdf_to_current, sort_terminal_pdfs
 from s3_bucket import S3Bucket
 from scraper_utils import check_env_variables, check_local_pdf_dirs, clean_up_tmp_pdfs
 
@@ -213,7 +213,7 @@ def main() -> None:
         for pdf in pdfs:
             if not pdf.seen_before and pdf.type != "DISCARD":
                 fs.update_terminal_pdf_hash(pdf)
-                local_sort_pdf(pdf)
+                local_sort_pdf_to_current(pdf)
                 fs.upsert_pdf_to_archive(pdf)
                 s3.upload_pdf_to_current_s3(pdf)
             else:

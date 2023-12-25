@@ -334,7 +334,7 @@ def type_pdfs_by_filename(list_of_pdfs: List[Pdf], found: Dict[str, bool]) -> Li
     return no_match_pdfs
 
 
-def local_sort_pdf(pdf: Pdf) -> bool:
+def local_sort_pdf_to_current(pdf: Pdf) -> bool:
     """Move a PDF to the correct local directory based on its type.
 
     Args:
