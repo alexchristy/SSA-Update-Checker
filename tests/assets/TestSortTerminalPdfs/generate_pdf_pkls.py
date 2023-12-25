@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(current_dir + "/../../../")
 
-from pdf import Pdf  # noqa: E402 (Relative import)
+from pdf import Pdf  # noqa: E402 , F401 (Relative import, used in comment)
 from scraper import get_terminal_pdfs  # noqa: E402 (Relative import)
 from terminal import Terminal  # noqa: E402 (Relative import)
 
@@ -37,6 +37,11 @@ def create_pdf_pkls(terminal_link: str, path: str) -> bool:
 
     return True
 
+
+create_pdf_pkls(
+    "https://www.amc.af.mil/AMC-Travel-Site/Terminals/CONUS-Terminals/NS-Norfolk-Passenger-Terminal/",
+    "tests/assets/TestTypePdfsByFilename/type_pdfs_by_filename",
+)
 
 # Code below if for generating PDFs for sorting metadata tests
 # os.environ["PDF_DIR"] = "./pdfs"

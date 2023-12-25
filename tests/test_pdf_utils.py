@@ -522,3 +522,84 @@ class TestSortPdfsByCreationTime(unittest.TestCase):
         sorted_pdfs = sort_pdfs_by_creation_time(pdf_list)
 
         self.assertListEqual(pdf_list, sorted_pdfs)
+
+
+class TestTypePdfsByFilename(unittest.TestCase):
+    """Test the type_pdfs_by_filename function in pdf_utils."""
+
+    def test_type_pdfs_by_filename(self: "TestTypePdfsByFilename") -> None:
+        """Test with a list of PDFs."""
+        with open(
+            "tests/assets/TestTypePdfsByFilename/type_pdfs_by_filename/72_Hour_Flight_Schedule_dde0f3d2-a2d5-4485-9d90-adf36fa39213.pdf.pkl",
+            "rb",
+        ) as f:
+            pdf_72hr: Pdf = pickle.load(f)  # noqa: S301 (Only for testing)
+
+        if not pdf_72hr:
+            self.fail(
+                "Failed to load pdf1 object: tests/assets/TestTypePdfsByFilename/type_pdfs_by_filename/72_Hour_Flight_Schedule_dde0f3d2-a2d5-4485-9d90-adf36fa39213.pdf.pkl"
+            )
+
+        with open(
+            "tests/assets/TestTypePdfsByFilename/type_pdfs_by_filename/24-Hour_Space-A_Roll_Call_Report__fa1207be-1bfc-4cba-a247-576beb4f8676.pdf.pkl",
+            "rb",
+        ) as f:
+            pdf_rollcall: Pdf = pickle.load(f)  # noqa: S301 (Only for testing)
+
+        if not pdf_rollcall:
+            self.fail(
+                "Failed to load pdf2 object: tests/assets/TestTypePdfsByFilename/type_pdfs_by_filename/24-Hour_Space-A_Roll_Call_Report__fa1207be-1bfc-4cba-a247-576beb4f8676.pdf.pkl"
+            )
+
+        with open(
+            "tests/assets/TestTypePdfsByFilename/type_pdfs_by_filename/DECEMBER_PE_SCHEDULE_53d9e289-048d-49a7-bb53-5ea6e197a92d.pdf.pkl",
+            "rb",
+        ) as f:
+            pdf_30day: Pdf = pickle.load(f)  # noqa: S301 (Only for testing)
+
+        if not pdf_30day:
+            self.fail(
+                "Failed to load pdf3 object: tests/assets/TestTypePdfsByFilename/type_pdfs_by_filename/DECEMBER_PE_SCHEDULE_53d9e289-048d-49a7-bb53-5ea6e197a92d.pdf.pkl"
+            )
+
+        with open(
+            "tests/assets/TestTypePdfsByFilename/type_pdfs_by_filename/AEF_72_HRS_9a5709cd-9505-40ed-abb7-6a5967f1e1f9.pdf.pkl",
+            "rb",
+        ) as f:
+            pdf_aef_72hr: Pdf = pickle.load(f)  # noqa: S301 (Only for testing)
+
+        if not pdf_aef_72hr:
+            self.fail(
+                "Failed to load pdf4 object: tests/assets/TestTypePdfsByFilename/type_pdfs_by_filename/AEF_72_HRS_9a5709cd-9505-40ed-abb7-6a5967f1e1f9.pdf.pkl"
+            )
+
+        with open(
+            "tests/assets/TestTypePdfsByFilename/type_pdfs_by_filename/AMC_GRAM_NORFOLK_VA_NOV_23_f21a2e19-cf45-43fa-a4f9-c7802d2a49d6.pdf.pkl",
+            "rb",
+        ) as f:
+            pdf_gram: Pdf = pickle.load(f)  # noqa: S301 (Only for testing)
+
+        if not pdf_gram:
+            self.fail(
+                "Failed to load pdf5 object: tests/assets/TestTypePdfsByFilename/type_pdfs_by_filename/AMC_GRAM_NORFOLK_VA_NOV_23_f21a2e19-cf45-43fa-a4f9-c7802d2a49d6.pdf.pkl"
+            )
+
+        pdfs = [pdf_72hr, pdf_rollcall, pdf_30day, pdf_aef_72hr, pdf_gram]
+
+        found = {
+            "72_HR": False,
+            "30_DAY": False,
+            "ROLLCALL": False,
+        }
+
+        type_pdfs_by_content(pdfs, found)
+
+        self.assertTrue(found["72_HR"])
+        self.assertTrue(found["30_DAY"])
+        self.assertTrue(found["ROLLCALL"])
+
+        self.assertEqual(pdf_72hr.type, "72_HR")
+        self.assertEqual(pdf_30day.type, "30_DAY")
+        self.assertEqual(pdf_rollcall.type, "ROLLCALL")
+        self.assertEqual(pdf_aef_72hr.type, "DISCARD")
+        self.assertEqual(pdf_gram.type, "DISCARD")
