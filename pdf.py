@@ -513,3 +513,26 @@ class Pdf:
         pdf.pages = [PdfPage.from_dict(page) for page in data["pages"]]
 
         return pdf
+
+    def __eq__(self: "Pdf", other: object) -> bool:
+        """Compare two PDF objects."""
+        if not isinstance(other, Pdf):
+            return NotImplemented
+
+        return (
+            self.filename == other.filename
+            and self.link == other.link
+            and self.hash == other.hash
+            and self.first_seen_time == other.first_seen_time
+            and self.cloud_path == other.cloud_path
+            and self.modify_time == other.modify_time
+            and self.creation_time == other.creation_time
+            and self.type == other.type
+            and self.terminal == other.terminal
+            and self.seen_before == other.seen_before
+            and self.original_filename == other.original_filename
+            and self.num_pages == other.num_pages
+            and self.num_words == other.num_words
+            and self.num_chars == other.num_chars
+            and self.pages == other.pages
+        )
