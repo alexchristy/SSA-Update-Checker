@@ -313,6 +313,72 @@ class TestSortTerminalPdfs(unittest.TestCase):
         self.assertEqual(ret_pdf_rollcall, pdf_rollcall)
         self.assertEqual(pdf_amc_gram.type, "DISCARD")
 
+    def test_naples(self: "TestSortTerminalPdfs") -> None:
+        """Test with Naples terminal PDF scrape."""
+        with open(
+            "tests/assets/TestSortTerminalPdfs/test_naples/Naples_72HR_24DEC2023P_3d30efde-51e0-4de6-9e4c-521d901be711.pdf.pkl",
+            "rb",
+        ) as f:
+            pdf_72hr: Pdf = pickle.load(f)  # noqa: S301 (Only for testing)
+
+        if not pdf_72hr:
+            self.fail(
+                "Failed to load 72hr pdf object: tests/assets/TestSortTerminalPdfs/test_naples/Naples_72HR_24DEC2023P_3d30efde-51e0-4de6-9e4c-521d901be711.pdf.pkl"
+            )
+
+        with open(
+            "tests/assets/TestSortTerminalPdfs/test_naples/Naples_30DAY_28NOV23_b7301cac-152e-4a10-9dbd-9f8f1ffa7c76.pdf.pkl",
+            "rb",
+        ) as f:
+            pdf_30day: Pdf = pickle.load(f)  # noqa: S301 (Only for testing)
+
+        if not pdf_30day:
+            self.fail(
+                "Failed to load 30day pdf object: tests/assets/TestSortTerminalPdfs/test_naples/Naples_30DAY_28NOV23_b7301cac-152e-4a10-9dbd-9f8f1ffa7c76.pdf.pkl"
+            )
+
+        with open(
+            "tests/assets/TestSortTerminalPdfs/test_naples/ROLL_CALL_TEMPLATE12dec_4efe52fd-9647-46bc-b7fb-23050820dcd7.pdf.pkl",
+            "rb",
+        ) as f:
+            pdf_rollcall: Pdf = pickle.load(f)  # noqa: S301 (Only for testing)
+
+        if not pdf_rollcall:
+            self.fail(
+                "Failed to load rollcall pdf object: tests/assets/TestSortTerminalPdfs/test_naples/ROLL_CALL_TEMPLATE12dec_4efe52fd-9647-46bc-b7fb-23050820dcd7.pdf.pkl"
+            )
+
+        with open(
+            "tests/assets/TestSortTerminalPdfs/test_naples/AMC_GRAM_01JUN23_9d87b34d-71e2-401d-97fe-cd531b2b830d.pdf.pkl",
+            "rb",
+        ) as f:
+            pdf_gram: Pdf = pickle.load(f)  # noqa: S301 (Only for testing)
+
+        if not pdf_gram:
+            self.fail(
+                "Failed to load AMC Gram pdf object: tests/assets/TestSortTerminalPdfs/test_naples/AMC_GRAM_01JUN23_9d87b34d-71e2-401d-97fe-cd531b2b830d.pdf.pkl"
+            )
+
+        pdfs = [pdf_gram, pdf_rollcall, pdf_72hr, pdf_30day]
+
+        ret_pdf_72hr, ret_pdf_30day, ret_pdf_rollcall = sort_terminal_pdfs(pdfs)
+
+        # Ensure all three types were found
+        self.assertIsNotNone(ret_pdf_72hr)
+        self.assertIsNotNone(ret_pdf_30day)
+        self.assertIsNotNone(ret_pdf_rollcall)
+
+        # Set types of the loaded PDFs to make a comparison
+        pdf_72hr.type = "72_HR"
+        pdf_30day.type = "30_DAY"
+        pdf_rollcall.type = "ROLLCALL"
+        pdf_gram.type = "DISCARD"
+
+        self.assertEqual(ret_pdf_72hr, pdf_72hr)
+        self.assertEqual(ret_pdf_30day, pdf_30day)
+        self.assertEqual(ret_pdf_rollcall, pdf_rollcall)
+        self.assertEqual(pdf_gram.type, "DISCARD")
+
     @classmethod
     def tearDownClass(cls: Type["TestSortTerminalPdfs"]) -> None:
         """Reset the PDF_DIR environment variable to its original value."""
