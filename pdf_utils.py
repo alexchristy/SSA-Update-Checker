@@ -281,6 +281,7 @@ def type_pdfs_by_filename(list_of_pdfs: List[Pdf], found: Dict[str, bool]) -> Li
         r"(?i)(^|\W)question(\W|$)|question\w+",  # Question
         r"(?i)(^|\W)map(\W|$)|map\w+",  # Map
         r"(?i)(^|\W)flyer(\W|$)|flyer\w+",  # Flyer
+        r"(?i)(^|\W)AEF(\W|$)|AEF\w+",  # AEF
     ]
 
     # Buckets for sorting PDFs into
@@ -300,19 +301,22 @@ def type_pdfs_by_filename(list_of_pdfs: List[Pdf], found: Dict[str, bool]) -> Li
             continue
 
         # Check if the PDF is a 72 hour schedule
-        if re.search(regex_72_hr_name_filter, pdf.filename):
+        if re.search(regex_72_hr_name_filter, pdf.filename) and not found["72_HR"]:
             found["72_HR"] = True
             pdf.set_type("72_HR")
             continue
 
         # Check if the PDF is a 30 day schedule
-        if re.search(regex_30_day_name_filter, pdf.filename):
+        if re.search(regex_30_day_name_filter, pdf.filename) and not found["30_DAY"]:
             found["30_DAY"] = True
             pdf.set_type("30_DAY")
             continue
 
         # Check if the PDF is a rollcall
-        if re.search(regex_rollcall_name_filter, pdf.filename):
+        if (
+            re.search(regex_rollcall_name_filter, pdf.filename)
+            and not found["ROLLCALL"]
+        ):
             found["ROLLCALL"] = True
             pdf.set_type("ROLLCALL")
             continue
