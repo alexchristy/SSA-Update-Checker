@@ -131,6 +131,18 @@ def sort_terminal_pdfs(
     pdf_30day = None
     pdf_rollcall = None
 
+    # Pre-populate the PDF type if it is known
+    for pdf in list_of_pdfs:
+        if pdf.type == "72_HR":
+            found["72_HR"] = True
+            pdf_72hr = pdf
+        elif pdf.type == "30_DAY":
+            found["30_DAY"] = True
+            pdf_30day = pdf
+        elif pdf.type == "ROLLCALL":
+            found["ROLLCALL"] = True
+            pdf_rollcall = pdf
+
     # Sort PDFs based on filename
     no_match_pdfs = type_pdfs_by_filename(list_of_pdfs, found)
 

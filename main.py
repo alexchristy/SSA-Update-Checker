@@ -2,6 +2,7 @@ import argparse
 import logging
 import os
 import sys
+from typing import List
 
 import sentry_sdk
 
@@ -113,6 +114,10 @@ def main() -> None:
     # Retrieve all updated terminal infomation
     list_of_terminals = fs.get_all_terminals()
 
+    # Summary variables
+    terminals_updated: List[str] = []
+    num_pdfs_updated = 0
+
     for terminal in list_of_terminals:
         logging.info("==========( %s )==========", terminal.name)
 
@@ -140,15 +145,20 @@ def main() -> None:
             # We need all other seen PDFs as they
             # provide context when sorting PDFs
             if db_pdf.type == "DISCARD":
+                pdf.type = "DISCARD"
                 continue
 
             # If the PDF is useful type, then we keep the db
             # version for context when sorting but we prevent reprocesing it.
-            if db_pdf.type in ("72HR", "30DAY", "ROLLCALL"):
+            if db_pdf.type in ("72_HR", "30_DAY", "ROLLCALL"):
                 pdf.type = db_pdf.type
             else:
                 logging.error("Unknown PDF type: %s", db_pdf.type)
                 sys.exit(1)
+
+        # Remove DISCARD PDFs from list
+        pdfs_cleaned = [pdf for pdf in pdfs if pdf.type != "DISCARD"]
+        pdfs = pdfs_cleaned
 
         # Try to determine the type of each new PDF
         # and return the most plausible new PDF of
@@ -223,8 +233,30 @@ def main() -> None:
                 local_sort_pdf_to_current(pdf)
                 fs.upsert_pdf_to_archive(pdf)
                 s3.upload_pdf_to_current_s3(pdf)
+                num_pdfs_updated += 1
+                terminals_updated.append(terminal.name)
+                logging.info(
+                    "A new %s pdf for %s was found called: %s.",
+                    pdf.type,
+                    terminal.name,
+                    pdf.filename,
+                )
             else:
                 fs.upsert_pdf_to_archive(pdf)
+
+    # Generate summary logs before exiting
+    logging.info("======== Summary of Updates ========")
+
+    if terminals_updated:
+        logging.info(
+            "%d terminals updated: %s",
+            len(set(terminals_updated)),
+            ", ".join(set(terminals_updated)),
+        )
+    else:
+        logging.info("No terminals were updated in this run.")
+
+    logging.info("%d PDFs were updated.", num_pdfs_updated)
 
     logging.info("Successfully finished program!")
 
