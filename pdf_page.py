@@ -10,6 +10,8 @@ class PdfPage:
         self._degrees_of_rotation = -1
         self._width = -1
         self._height = -1
+        self._num_words = 0
+        self._num_chars = 0
 
     @property
     def degrees_of_rotation(self: "PdfPage") -> int:
@@ -41,6 +43,26 @@ class PdfPage:
         if value >= 0:
             self._height = value
 
+    @property
+    def num_words(self: "PdfPage") -> int:
+        """Get the number of words on the page."""
+        return self._num_words
+
+    @num_words.setter
+    def num_words(self: "PdfPage", value: int) -> None:
+        if value >= 0:
+            self._num_words = value
+
+    @property
+    def num_chars(self: "PdfPage") -> int:
+        """Get the number of characters on the page."""
+        return self._num_chars
+
+    @num_chars.setter
+    def num_chars(self: "PdfPage", value: int) -> None:
+        if value >= 0:
+            self._num_chars = value
+
     def to_dict(self: "PdfPage") -> dict:
         """Convert PdfPage attributes to a dictionary with camelCase keys."""
         return {
@@ -48,6 +70,8 @@ class PdfPage:
             "degreesOfRotation": self.degrees_of_rotation,
             "width": self.width,
             "height": self.height,
+            "numWords": self.num_words,
+            "numChars": self.num_chars,
         }
 
     @classmethod
@@ -57,4 +81,6 @@ class PdfPage:
         page.degrees_of_rotation = data.get("degreesOfRotation", -1)
         page.width = data.get("width", -1)
         page.height = data.get("height", -1)
+        page.num_words = data.get("numWords", 0)
+        page.num_chars = data.get("numChars", 0)
         return page

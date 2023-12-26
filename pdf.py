@@ -433,8 +433,49 @@ class Pdf:
 
         self.num_chars = num_chars
 
+    def _count_words_on_page(self: "Pdf", pdf_path: str, page_number: int) -> int:
+        """Count the number of words on a specific page of a PDF.
+
+        Args:
+        ----
+            pdf_path (str): Path to PDF file.
+            page_number (int): Page number to count words on.
+
+        Returns:
+        -------
+            int: Number of words on the specified page.
+        """
+        word_count = 0
+        for page_layout in extract_pages(pdf_path, page_numbers=[page_number]):
+            for element in page_layout:
+                if isinstance(element, LTTextContainer):
+                    text = element.get_text()
+                    words = text.split()
+                    word_count += len(words)
+        return word_count
+
+    def _count_characters_on_page(self: "Pdf", pdf_path: str, page_number: int) -> int:
+        """Count the number of characters on a specific page of a PDF.
+
+        Args:
+        ----
+            pdf_path (str): Path to PDF file.
+            page_number (int): Page number to count characters on.
+
+        Returns:
+        -------
+            int: Number of characters on the specified page.
+        """
+        character_count = 0
+        for page_layout in extract_pages(pdf_path, page_numbers=[page_number]):
+            for element in page_layout:
+                if isinstance(element, LTTextContainer):
+                    text = element.get_text()
+                    character_count += len(text)
+        return character_count
+
     def _populate_page_details(self: "Pdf") -> None:
-        """Populate details for each page in the PDF."""
+        """Populate details for each page in the PDF, including word and character counts."""
         try:
             path = self.get_local_path()
             if not path:
@@ -443,7 +484,17 @@ class Pdf:
 
             with open(path, "rb") as file:
                 pdf_reader = PdfReader(file)
-                self.pages = self._extract_page_details(pdf_reader)
+                for i, page in enumerate(pdf_reader.pages):
+                    pdf_page = PdfPage(page_number=i + 1)
+                    pdf_page.degrees_of_rotation = page.get("/Rotate", 0)
+                    pdf_page.width = int(page.mediabox.width)
+                    pdf_page.height = int(page.mediabox.height)
+
+                    # Count words and characters on the page
+                    pdf_page.num_words = self._count_words_on_page(path, i)
+                    pdf_page.num_chars = self._count_characters_on_page(path, i)
+
+                    self.pages.append(pdf_page)
         except Exception as e:
             logging.error("Error populating page details for %s: %s", self.filename, e)
 
