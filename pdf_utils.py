@@ -282,6 +282,9 @@ def type_pdfs_by_filename(list_of_pdfs: List[Pdf], found: Dict[str, bool]) -> Li
         r"(?i)(^|\W)map(\W|$)|map\w+",  # Map
         r"(?i)(^|\W)flyer(\W|$)|flyer\w+",  # Flyer
         r"(?i)(^|\W)AEF(\W|$)|AEF\w+",  # AEF
+        r"(?i)(^|\W)phone(\W|$)|phone\w+",  # Phone Directories
+        r"(?i)(^|\W)directory(\W|$)|directory\w+",  # Phone Directories
+        r"(?i)(^|\W)customs(\W|$)|customs\w+",  # Customs directives
     ]
 
     # Buckets for sorting PDFs into

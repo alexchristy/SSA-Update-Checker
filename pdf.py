@@ -93,6 +93,8 @@ def count_pages_in_pdf(pdf_path: str) -> Optional[int]:
 class Pdf:
     """Class to represent a PDF file."""
 
+    MAX_PAGES = 15
+
     def __init__(
         self: "Pdf", link: str, populate: bool = False, hash_only: bool = False
     ) -> None:
@@ -180,7 +182,20 @@ class Pdf:
                 return
 
         self._get_pdf_metadata()
+
         self._get_num_pages()
+
+        if self.num_pages > self.MAX_PAGES:
+            logging.warning(
+                "PDF %s has %d pages. Skipping word, character, and page details.",
+                self.filename,
+                self.num_pages,
+            )
+            self.num_words = -1
+            self.num_chars = -1
+            self.pages = []
+            return
+
         self._get_num_words()
         self._get_num_chars()
         self._populate_page_details()
@@ -475,7 +490,20 @@ class Pdf:
         return character_count
 
     def _populate_page_details(self: "Pdf") -> None:
-        """Populate details for each page in the PDF, including word and character counts."""
+        """Populate details for each page in the PDF, including word and character counts.
+
+        Returns
+        -------
+            None
+        """
+        if self.num_pages > self.MAX_PAGES:
+            logging.warning(
+                "PDF %s has %d pages. Skipping page details.",
+                self.filename,
+                self.num_pages,
+            )
+            return
+
         try:
             path = self.get_local_path()
             if not path:

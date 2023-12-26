@@ -1,4 +1,5 @@
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from typing import List
 from urllib.parse import urljoin
 
@@ -151,6 +152,24 @@ def get_active_terminals(url: str) -> List[Terminal]:
     return non_empty_terminals
 
 
+def create_pdf_object(pdf_link: str, hash_only: bool) -> Pdf:
+    """Helper function to create a PDF object from a link.
+
+    Args:
+    ----
+        pdf_link: Link to the PDF file.
+        hash_only: Whether only the hash of the PDF should be populated.
+
+    Returns:
+    -------
+        Pdf: A PDF object.
+    """  # noqa: D401
+    if hash_only:
+        return Pdf(pdf_link, hash_only=True)
+
+    return Pdf(pdf_link, populate=True)
+
+
 def get_terminal_pdfs(terminal: Terminal, hash_only: bool = False) -> List[Pdf]:
     """Download the terminal page and extract all PDF links to create PDF objects.
 
@@ -192,8 +211,8 @@ def get_terminal_pdfs(terminal: Terminal, hash_only: bool = False) -> List[Pdf]:
     # Find all <a> tags with href and PDF file extension
     a_tags = soup.find_all("a", href=lambda href: href and ".pdf" in href)
 
-    # Create array for PDFs that do not match
-    terminal_pdfs = []
+    # Prepare a list for PDF links
+    pdf_links = []
 
     for a_tag in a_tags:
         extracted_link = a_tag["href"]
@@ -208,12 +227,13 @@ def get_terminal_pdfs(terminal: Terminal, hash_only: bool = False) -> List[Pdf]:
         if not pdf_link.lower().startswith("https://"):
             pdf_link = hostname + pdf_link
 
-        if hash_only:
-            curr_pdf = Pdf(pdf_link, hash_only=True)
-        else:
-            curr_pdf = Pdf(pdf_link, populate=True)
+        pdf_links.append(pdf_link)
 
-        if not curr_pdf.seen_before:
-            terminal_pdfs.append(curr_pdf)
-
-    return terminal_pdfs
+    # Use ThreadPoolExecutor to parallelize PDF object creation
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        futures = [
+            executor.submit(create_pdf_object, link, hash_only) for link in pdf_links
+        ]
+        return [
+            future.result() for future in futures if not future.result().seen_before
+        ]
