@@ -121,27 +121,34 @@ def main() -> None:
 
         # Check if any PDFs are new
         for pdf in pdfs:
-            if fs.pdf_seen_before(pdf):
-                # Should discard PDFs we have seen before
-                pdf.seen_before = True
+            if not fs.pdf_seen_before(pdf):
+                # Populate PDF object with all information
+                pdf.populate()
+                pdf.set_terminal(terminal.name)
+                continue
 
-                # Discard irrelevant PDFs to reduce processing time
-                db_pdf = fs.get_pdf_by_hash(pdf.hash)
+            # Should discard PDFs we have seen before
+            pdf.seen_before = True
 
-                if db_pdf is None:
-                    logging.error(
-                        "Unable to find PDF with hash %s in the DB.", pdf.hash
-                    )
-                    sys.exit(1)
+            # Discard irrelevant PDFs to reduce processing time
+            db_pdf = fs.get_pdf_by_hash(pdf.hash)
 
-                # We need all other seen PDFs as they
-                # provide context when sorting PDFs
-                if db_pdf.type == "DISCARD":
-                    continue
+            if db_pdf is None:
+                logging.error("Unable to find PDF with hash %s in the DB.", pdf.hash)
+                sys.exit(1)
 
-            # Populate PDF object with all information
-            pdf.populate()
-            pdf.set_terminal(terminal.name)
+            # We need all other seen PDFs as they
+            # provide context when sorting PDFs
+            if db_pdf.type == "DISCARD":
+                continue
+
+            # If the PDF is useful type, then we keep the db
+            # version for context when sorting but we prevent reprocesing it.
+            if db_pdf.type in ("72HR", "30DAY", "ROLLCALL"):
+                pdf.type = db_pdf.type
+            else:
+                logging.error("Unknown PDF type: %s", db_pdf.type)
+                sys.exit(1)
 
         # Try to determine the type of each new PDF
         # and return the most plausible new PDF of
