@@ -3,6 +3,7 @@ import os
 from typing import List
 
 import boto3  # type: ignore
+from botocore.exceptions import NoCredentialsError
 
 from pdf import Pdf
 
@@ -13,36 +14,44 @@ class S3Bucket:
     def __init__(self: "S3Bucket") -> None:
         """Initialize the S3 bucket class.
 
-        Initialize the S3 bucket class by getting the AWS credentials from the
-        environment variables and creating a boto3 client.
-
-        Checks for the following environment variables:
-        - AWS_ACCESS_KEY_ID
-        - AWS_SECRET_ACCESS_KEY
-        - AWS_BUCKET_NAME
-
-        Raises
-        ------
-            EnvironmentError: If any of the environment variables are missing.
+        Tries to create a boto3 client using IAM role credentials.
+        If it fails, it looks for AWS credentials in the environment variables.
         """
-        # Get keys from enviroment variables
-        env_access_key_id = os.environ.get("AWS_ACCESS_KEY_ID")
-        env_secret_access_key = os.environ.get("AWS_SECRET_ACCESS_KEY")
-        env_bucket_name = os.environ.get("AWS_BUCKET_NAME")
+        # Try to initialize boto3 client with IAM role credentials
+        try:
+            self.client = boto3.client("s3")
+            self.client.list_buckets()  # Test if client initialization was successful
+            logging.info("Initialized boto3 client with IAM role credentials.")
+        except NoCredentialsError:
+            logging.warning(
+                "No IAM role credentials found, looking for environment variables."
+            )
 
-        # Check enviroment variables
-        if not env_access_key_id or not env_secret_access_key or not env_bucket_name:
-            logging.error("AWS configuration missing in environment variables!")
-            msg = "Missing AWS configuration in environment variables."
-            raise EnvironmentError(msg)
+            # Get keys from environment variables
+            env_access_key_id = os.environ.get("AWS_ACCESS_KEY_ID")
+            env_secret_access_key = os.environ.get("AWS_SECRET_ACCESS_KEY")
+            env_bucket_name = os.environ.get("AWS_BUCKET_NAME")
 
-        # Initialize bucket and client
-        self.bucket_name = env_bucket_name
-        self.client = boto3.client(
-            "s3",
-            aws_access_key_id=env_access_key_id,
-            aws_secret_access_key=env_secret_access_key,
-        )
+            # Check environment variables
+            if not all([env_access_key_id, env_secret_access_key, env_bucket_name]):
+                logging.error("AWS configuration missing in environment variables!")
+                msg = "Missing AWS configuration in environment variables."
+                raise EnvironmentError(
+                    msg
+                ) from None  # Raise EnvironmentError without context to prevent logging credentials
+
+            # Initialize client with environment variable credentials
+            self.client = boto3.client(
+                "s3",
+                aws_access_key_id=env_access_key_id,
+                aws_secret_access_key=env_secret_access_key,
+            )
+            logging.info(
+                "Initialized boto3 client with environment variable credentials."
+            )
+
+        # Set bucket name
+        self.bucket_name = env_bucket_name if env_bucket_name else "default-bucket-name"
 
     def upload_to_s3(self: "S3Bucket", local_path: str, s3_path: str) -> None:
         """Upload a file to S3.
