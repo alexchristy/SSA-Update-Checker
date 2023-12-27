@@ -3,7 +3,7 @@ import os
 from typing import List
 
 import boto3  # type: ignore
-from botocore.exceptions import NoCredentialsError
+from botocore.exceptions import ClientError, NoCredentialsError  # type: ignore
 
 from pdf import Pdf
 
@@ -17,28 +17,30 @@ class S3Bucket:
         Tries to create a boto3 client using IAM role credentials.
         If it fails, it looks for AWS credentials in the environment variables.
         """
-        # Try to initialize boto3 client with IAM role credentials
+        # Get bucket name from environment variables or set a default
+        env_bucket_name = os.environ.get("AWS_BUCKET_NAME", "default-bucket-name")
+
+        # Initialize boto3 client with IAM role credentials or environment variables
         try:
             self.client = boto3.client("s3")
-            self.client.list_buckets()  # Test if client initialization was successful
-            logging.info("Initialized boto3 client with IAM role credentials.")
+
+            # Test access to the specified bucket
+            self.client.list_objects_v2(Bucket=env_bucket_name, MaxKeys=1)
+            logging.info("Initialized boto3 client and verified access to the bucket.")
         except NoCredentialsError:
             logging.warning(
                 "No IAM role credentials found, looking for environment variables."
             )
 
-            # Get keys from environment variables
+            # Get additional keys from environment variables
             env_access_key_id = os.environ.get("AWS_ACCESS_KEY_ID")
             env_secret_access_key = os.environ.get("AWS_SECRET_ACCESS_KEY")
-            env_bucket_name = os.environ.get("AWS_BUCKET_NAME")
 
             # Check environment variables
-            if not all([env_access_key_id, env_secret_access_key, env_bucket_name]):
+            if not all([env_access_key_id, env_secret_access_key]):
                 logging.error("AWS configuration missing in environment variables!")
                 msg = "Missing AWS configuration in environment variables."
-                raise EnvironmentError(
-                    msg
-                ) from None  # Raise EnvironmentError without context to prevent logging credentials
+                raise EnvironmentError(msg) from None
 
             # Initialize client with environment variable credentials
             self.client = boto3.client(
@@ -46,12 +48,20 @@ class S3Bucket:
                 aws_access_key_id=env_access_key_id,
                 aws_secret_access_key=env_secret_access_key,
             )
+
+            # Test access to the specified bucket again
+            self.client.list_objects_v2(Bucket=env_bucket_name, MaxKeys=1)
             logging.info(
-                "Initialized boto3 client with environment variable credentials."
+                "Initialized boto3 client with environment variable credentials and verified access to the bucket."
             )
+        except ClientError as e:
+            # Handle specific errors, such as the bucket not existing or being inaccessible
+            logging.error("Error accessing bucket %s: %s", env_bucket_name, e)
+            msg = f"Unable to access specified S3 bucket: {env_bucket_name}"
+            raise EnvironmentError(msg) from None
 
         # Set bucket name
-        self.bucket_name = env_bucket_name if env_bucket_name else "default-bucket-name"
+        self.bucket_name = env_bucket_name
 
     def upload_to_s3(self: "S3Bucket", local_path: str, s3_path: str) -> None:
         """Upload a file to S3.
