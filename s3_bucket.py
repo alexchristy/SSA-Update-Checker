@@ -18,7 +18,7 @@ class S3Bucket:
         If it fails, it looks for AWS credentials in the environment variables.
         """
         # Get bucket name from environment variables or set a default
-        env_bucket_name = os.environ.get("AWS_BUCKET_NAME", "default-bucket-name")
+        env_bucket_name = os.environ.get("AWS_BUCKET_NAME", "ssa-pdf-store")
 
         # Initialize boto3 client with IAM role credentials or environment variables
         try:
