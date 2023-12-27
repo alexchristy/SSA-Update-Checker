@@ -241,8 +241,9 @@ def main() -> None:
                     terminal.name,
                     pdf.filename,
                 )
-            else:
+            elif not pdf.seen_before and pdf.type == "DISCARD":
                 fs.upsert_pdf_to_archive(pdf)
+                logging.info("A new DISCARD pdf was found called: %s.", pdf.filename)
 
     # Generate summary logs before exiting
     logging.info("======== Summary of Updates ========")

@@ -143,8 +143,11 @@ def sort_terminal_pdfs(
             found["ROLLCALL"] = True
             pdf_rollcall = pdf
 
-    # Sort PDFs based on filename
-    no_match_pdfs = type_pdfs_by_filename(list_of_pdfs, found)
+    # Remove PDFs that have already been typed
+    no_type_pdfs = [pdf for pdf in list_of_pdfs if pdf.type == ""]
+
+    # Sort non-typed PDFs based on filename
+    no_match_pdfs = type_pdfs_by_filename(no_type_pdfs, found)
 
     # If there is PDF that was not typed by filename
     if len(no_match_pdfs) > 0:

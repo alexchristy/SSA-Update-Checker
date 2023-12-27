@@ -181,8 +181,6 @@ class Pdf:
                 self.seen_before = True
                 return
 
-        self._get_pdf_metadata()
-
         self._get_num_pages()
 
         if self.num_pages > self.MAX_PAGES:
@@ -194,8 +192,10 @@ class Pdf:
             self.num_words = -1
             self.num_chars = -1
             self.pages = []
+            self.type = "DISCARD"
             return
 
+        self._get_pdf_metadata()
         self._get_num_words()
         self._get_num_chars()
         self._populate_page_details()
