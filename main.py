@@ -5,7 +5,6 @@ import sys
 from typing import List
 
 import sentry_sdk
-from sentry_sdk import monitor
 
 import scraper
 from firestoredb import FirestoreClient
@@ -77,7 +76,6 @@ logging.basicConfig(
 )
 
 
-@monitor(monitor_slug="scrape-cron")
 def main() -> None:
     """Run core logic of program."""
     logging.info("Program started.")
