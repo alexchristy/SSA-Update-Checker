@@ -15,6 +15,7 @@ from pdf_utils import (  # noqa: E402 (Relative import)
     sort_pdfs_by_modify_time,
     sort_terminal_pdfs,
     type_pdfs_by_content,
+    type_pdfs_by_filename,
 )
 from scraper_utils import check_local_pdf_dirs  # noqa: E402 (Relative import)
 
@@ -610,7 +611,7 @@ class TestTypePdfsByFilename(unittest.TestCase):
             "ROLLCALL": False,
         }
 
-        type_pdfs_by_content(pdfs, found)
+        no_match_pdfs = type_pdfs_by_filename(pdfs, found)
 
         self.assertTrue(found["72_HR"])
         self.assertTrue(found["30_DAY"])
@@ -621,6 +622,8 @@ class TestTypePdfsByFilename(unittest.TestCase):
         self.assertEqual(pdf_rollcall.type, "ROLLCALL")
         self.assertEqual(pdf_aef_72hr.type, "DISCARD")
         self.assertEqual(pdf_gram.type, "DISCARD")
+
+        self.assertCountEqual(no_match_pdfs, [])
 
     def tearDown(self: "TestTypePdfsByFilename") -> None:
         """Reset the PDF_DIR environment variable."""

@@ -267,9 +267,8 @@ def sort_pdfs_by_creation_time(pdfs: List[Pdf]) -> List[Pdf]:
 def type_pdfs_by_filename(list_of_pdfs: List[Pdf], found: Dict[str, bool]) -> List[Pdf]:
     """Sort a list of PDFs from ONE TERMINAL by filename using regex filters.
 
-    Returns four different buckets of PDFs: 72 hour schedules, 30 day schedules,
-    rollcalls, and no match PDFs that did not get picked up by any of
-    the regexes.
+    Sets the types of PDFs based on a list of exclusion and inclusion regex filters. Returns
+    a list of PDFs who's type could not be determined by the regex filters.
 
     Args:
     ----
@@ -283,9 +282,9 @@ def type_pdfs_by_filename(list_of_pdfs: List[Pdf], found: Dict[str, bool]) -> Li
     logging.info("Entering type_pdfs_by_filename()")
 
     # Inclusion regex filters
-    regex_72_hr_name_filter = r"(?i)72[- _%20]{0,1}hr|72[- _%20]{0,1}hour"
-    regex_30_day_name_filter = r"(?i)30[-_ ]?day"
-    regex_rollcall_name_filter = r"(?i)(roll[-_ ]?call)|roll"
+    regex_72_hr_name_filters = [r"(?i)72[- _%20]{0,1}hr|72[- _%20]{0,1}hour"]
+    regex_30_day_name_filters = [r"(?i)30[-_ ]?day", r"(?i)pe[-_ ]schedule"]
+    regex_rollcall_name_filters = [r"(?i)(roll[-_ ]?call)|roll"]
 
     # Exclusion regex filters
     exclusion_regex_filters = [
@@ -321,30 +320,39 @@ def type_pdfs_by_filename(list_of_pdfs: List[Pdf], found: Dict[str, bool]) -> Li
             continue
 
         # Check if the PDF is a 72 hour schedule
-        if (
-            re.search(regex_72_hr_name_filter, pdf.original_filename)
-            and not found["72_HR"]
-        ):
-            found["72_HR"] = True
-            pdf.set_type("72_HR")
+        for regex in regex_72_hr_name_filters:
+            if re.search(regex, pdf.original_filename) and not found["72_HR"]:
+                found["72_HR"] = True
+                pdf.set_type("72_HR")
+                break
+
+        # If type is already set to 72 hour schedule
+        # then skip the rest of the checks.
+        if pdf.type == "72_HR":
             continue
 
         # Check if the PDF is a 30 day schedule
-        if (
-            re.search(regex_30_day_name_filter, pdf.original_filename)
-            and not found["30_DAY"]
-        ):
-            found["30_DAY"] = True
-            pdf.set_type("30_DAY")
+        for regex in regex_30_day_name_filters:
+            if re.search(regex, pdf.original_filename) and not found["30_DAY"]:
+                found["30_DAY"] = True
+                pdf.set_type("30_DAY")
+                break
+
+        # If type is already set to 30 day schedule
+        # then skip the rest of the checks.
+        if pdf.type == "30_DAY":
             continue
 
         # Check if the PDF is a rollcall
-        if (
-            re.search(regex_rollcall_name_filter, pdf.original_filename)
-            and not found["ROLLCALL"]
-        ):
-            found["ROLLCALL"] = True
-            pdf.set_type("ROLLCALL")
+        for regex in regex_rollcall_name_filters:
+            if re.search(regex, pdf.original_filename) and not found["ROLLCALL"]:
+                found["ROLLCALL"] = True
+                pdf.set_type("ROLLCALL")
+                break
+
+        # If type is already set to rollcall
+        # then it is not a no match PDF.
+        if pdf.type == "ROLLCALL":
             continue
 
         # If the PDF filename did not get matched by the
