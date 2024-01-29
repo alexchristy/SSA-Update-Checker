@@ -151,6 +151,7 @@ def sort_terminal_pdfs(
 
     # If there is PDF that was not typed by filename
     if len(no_match_pdfs) > 0:
+        logging.info("%d PDFs did not match any filename filters.", len(no_match_pdfs))
         # Sort PDFs that did not match any filename filters
         type_pdfs_by_content(no_match_pdfs, found)
 
@@ -311,6 +312,7 @@ def type_pdfs_by_filename(list_of_pdfs: List[Pdf], found: Dict[str, bool]) -> Li
         # Exclude PDFs that aren't of interest
         for regex in exclusion_regex_filters:
             if re.search(regex, pdf.filename):
+                logging.info("%s matched exclusion regex: %s", pdf.filename, regex)
                 pdf.set_type("DISCARD")
                 discard = True
                 break
