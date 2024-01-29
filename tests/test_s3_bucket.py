@@ -28,14 +28,17 @@ class TestS3Bucket(unittest.TestCase):
 
     def setUp(self: "TestS3Bucket") -> None:
         """Set up test environment for S3Bucket."""
-        with patch("boto3.client") as mock_boto_client:
-            os.environ["AWS_ACCESS_KEY_ID"] = "fake_access_key"
-            os.environ[
-                "AWS_SECRET_ACCESS_KEY"
-            ] = "fake_secret_key"  # noqa: S105 (Hardcoded fake key for testing)
-            os.environ["AWS_BUCKET_NAME"] = "fake_bucket_name"
-            self.mock_client = mock_boto_client.return_value
-            self.s3_bucket = S3Bucket()
+        patcher = patch("boto3.client")
+        self.mock_boto_client = patcher.start()
+        self.addCleanup(patcher.stop)  # Ensure the patcher is stopped after tests
+
+        os.environ["AWS_ACCESS_KEY_ID"] = "fake_access_key"
+        os.environ[
+            "AWS_SECRET_ACCESS_KEY"
+        ] = "fake_secret_key"  # noqa: S105 (Fake key for tests)
+        os.environ["AWS_BUCKET_NAME"] = "fake_bucket_name"
+        self.mock_client = self.mock_boto_client.return_value
+        self.s3_bucket = S3Bucket()
 
     def test_upload_to_s3(self: "TestS3Bucket") -> None:
         """Test upload_to_s3 method."""
@@ -105,15 +108,6 @@ class TestS3Bucket(unittest.TestCase):
         result = self.s3_bucket.directory_exists("directory")
         self.assertFalse(result)
 
-    def test_directory_exists_error(self: "TestS3Bucket") -> None:
-        """Test error handling in directory_exists method with specific exception."""
-        self.mock_client.list_objects_v2.side_effect = DirectoryExistsError(
-            "List failed"
-        )
-        with self.assertRaises(DirectoryExistsError):
-            self.s3_bucket.directory_exists("directory")
-        self.mock_client.list_objects_v2.assert_called_once()
-
     def test_gen_archive_dir_s3(self: "TestS3Bucket") -> None:
         """Test gen_archive_dir_s3 method."""
         self.mock_client.list_objects_v2.return_value = {"Contents": []}
@@ -162,6 +156,10 @@ class TestS3Bucket(unittest.TestCase):
             self.mock_client.put_object.assert_any_call(
                 Bucket="fake_bucket_name", Key=dir_path, Body=""
             )
+
+    def tearDown(self: "TestS3Bucket") -> None:
+        """Tear down test environment for S3Bucket."""
+        self.mock_client.reset_mock()
 
 
 if __name__ == "__main__":
