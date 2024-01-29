@@ -530,6 +530,11 @@ class TestSortPdfsByCreationTime(unittest.TestCase):
 class TestTypePdfsByFilename(unittest.TestCase):
     """Test the type_pdfs_by_filename function in pdf_utils."""
 
+    def setUp(self: "TestTypePdfsByFilename") -> None:
+        """Set up test environment for type_pdfs_by_filename."""
+        self.old_pdf_dir = os.getenv("PDF_DIR")
+        os.environ["PDF_DIR"] = ""
+
     def test_type_pdfs_by_filename(self: "TestTypePdfsByFilename") -> None:
         """Test with a list of PDFs."""
         with open(
@@ -543,6 +548,8 @@ class TestTypePdfsByFilename(unittest.TestCase):
                 "Failed to load pdf1 object: tests/assets/TestTypePdfsByFilename/type_pdfs_by_filename/72_Hour_Flight_Schedule_dde0f3d2-a2d5-4485-9d90-adf36fa39213.pdf.pkl"
             )
 
+        pdf_72hr.cloud_path = "tests/assets/TestTypePdfsByFilename/type_pdfs_by_filename/72_Hour_Flight_Schedule_f7aee836-f3b3-4c46-85fd-d07fb2904289.pdf"
+
         with open(
             "tests/assets/TestTypePdfsByFilename/type_pdfs_by_filename/24-Hour_Space-A_Roll_Call_Report__fa1207be-1bfc-4cba-a247-576beb4f8676.pdf.pkl",
             "rb",
@@ -553,6 +560,8 @@ class TestTypePdfsByFilename(unittest.TestCase):
             self.fail(
                 "Failed to load pdf2 object: tests/assets/TestTypePdfsByFilename/type_pdfs_by_filename/24-Hour_Space-A_Roll_Call_Report__fa1207be-1bfc-4cba-a247-576beb4f8676.pdf.pkl"
             )
+
+        pdf_rollcall.cloud_path = "tests/assets/TestTypePdfsByFilename/type_pdfs_by_filename/24-Hour_Space-A_Roll_Call_Report__ede640c9-f463-4497-a809-d41512ae926c.pdf"
 
         with open(
             "tests/assets/TestTypePdfsByFilename/type_pdfs_by_filename/DECEMBER_PE_SCHEDULE_53d9e289-048d-49a7-bb53-5ea6e197a92d.pdf.pkl",
@@ -565,6 +574,8 @@ class TestTypePdfsByFilename(unittest.TestCase):
                 "Failed to load pdf3 object: tests/assets/TestTypePdfsByFilename/type_pdfs_by_filename/DECEMBER_PE_SCHEDULE_53d9e289-048d-49a7-bb53-5ea6e197a92d.pdf.pkl"
             )
 
+        pdf_30day.cloud_path = "tests/assets/TestTypePdfsByFilename/type_pdfs_by_filename/DECEMBER_PE_SCHEDULE_1d65a5ad-6b0f-42ac-a2b6-b5467df6c27d.pdf"
+
         with open(
             "tests/assets/TestTypePdfsByFilename/type_pdfs_by_filename/AEF_72_HRS_9a5709cd-9505-40ed-abb7-6a5967f1e1f9.pdf.pkl",
             "rb",
@@ -576,6 +587,8 @@ class TestTypePdfsByFilename(unittest.TestCase):
                 "Failed to load pdf4 object: tests/assets/TestTypePdfsByFilename/type_pdfs_by_filename/AEF_72_HRS_9a5709cd-9505-40ed-abb7-6a5967f1e1f9.pdf.pkl"
             )
 
+        pdf_aef_72hr.cloud_path = "tests/assets/TestTypePdfsByFilename/type_pdfs_by_filename/AEF_72_HRS_2e2549ca-6161-4735-8700-31abecc87eca.pdf"
+
         with open(
             "tests/assets/TestTypePdfsByFilename/type_pdfs_by_filename/AMC_GRAM_NORFOLK_VA_NOV_23_f21a2e19-cf45-43fa-a4f9-c7802d2a49d6.pdf.pkl",
             "rb",
@@ -586,6 +599,8 @@ class TestTypePdfsByFilename(unittest.TestCase):
             self.fail(
                 "Failed to load pdf5 object: tests/assets/TestTypePdfsByFilename/type_pdfs_by_filename/AMC_GRAM_NORFOLK_VA_NOV_23_f21a2e19-cf45-43fa-a4f9-c7802d2a49d6.pdf.pkl"
             )
+
+        pdf_gram.cloud_path = "tests/assets/TestTypePdfsByFilename/type_pdfs_by_filename/AMC_GRAM_NORFOLK_VA_NOV_23_3a6651c3-ee98-4b03-b112-e89709825c25.pdf"
 
         pdfs = [pdf_72hr, pdf_rollcall, pdf_30day, pdf_aef_72hr, pdf_gram]
 
@@ -606,6 +621,13 @@ class TestTypePdfsByFilename(unittest.TestCase):
         self.assertEqual(pdf_rollcall.type, "ROLLCALL")
         self.assertEqual(pdf_aef_72hr.type, "DISCARD")
         self.assertEqual(pdf_gram.type, "DISCARD")
+
+    def tearDown(self: "TestTypePdfsByFilename") -> None:
+        """Reset the PDF_DIR environment variable."""
+        if self.old_pdf_dir:
+            os.environ["PDF_DIR"] = self.old_pdf_dir
+        else:
+            os.environ.pop("PDF_DIR", None)
 
 
 class TestLocalSortPdfToCurrent(unittest.TestCase):
