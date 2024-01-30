@@ -3,6 +3,7 @@ import pickle
 import shutil
 import sys
 import unittest
+from random import shuffle
 from typing import Optional, Type
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -384,6 +385,69 @@ class TestSortTerminalPdfs(unittest.TestCase):
         self.assertEqual(ret_pdf_30day, pdf_30day)
         self.assertEqual(ret_pdf_rollcall, pdf_rollcall)
         self.assertEqual(pdf_gram.type, "DISCARD")
+
+    def test_andersen_20240129(self: "TestSortTerminalPdfs") -> None:
+        """Test with Andersen terminal PDF scrape.
+
+        This test is for the 20240129 scrape.
+        """
+        pdf_72hr = Pdf(
+            link="tests/assets/TestSortTerminalPdfs/test_andersen_20240129/72 hr AFPIMS SLIDES.pdf",
+            populate=False,
+        )
+        pdf_72hr.cloud_path = pdf_72hr.link
+        pdf_72hr.original_filename = "72 hr AFPIMS SLIDES.pdf"
+
+        pdf_30day = Pdf(
+            "tests/assets/TestSortTerminalPdfs/test_andersen_20240129/NEXT 3 MONTHS PE SCHEDULE.pdf",
+            populate=False,
+        )
+
+        pdf_30day.cloud_path = pdf_30day.link
+        pdf_30day.original_filename = "NEXT 3 MONTHS PE SCHEDULE.pdf"
+
+        pdf_rollcall = Pdf(
+            "tests/assets/TestSortTerminalPdfs/test_andersen_20240129/24 Hour Roll Call.pdf",
+            populate=False,
+        )
+
+        pdf_rollcall.cloud_path = pdf_rollcall.link
+        pdf_rollcall.original_filename = "24 Hour Roll Call.pdf"
+
+        pdf_terminal_info = Pdf(
+            "tests/assets/TestSortTerminalPdfs/test_andersen_20240129/Andersen Passenger Terminal INFO.pdf",
+            populate=False,
+        )
+
+        pdf_terminal_info.cloud_path = pdf_terminal_info.link
+        pdf_terminal_info.original_filename = "Andersen Passenger Terminal INFO.pdf"
+
+        pdfs = [pdf_72hr, pdf_30day, pdf_rollcall, pdf_terminal_info]
+
+        # Shuffle order to test the regex
+        shuffle(pdfs)
+
+        ret_pdf_72hr, ret_pdf_30day, ret_pdf_rollcall = sort_terminal_pdfs(pdfs)
+
+        if not ret_pdf_72hr:
+            self.fail("Failed to find 72hr PDF")
+
+        if not ret_pdf_30day:
+            self.fail("Failed to find 30day PDF")
+
+        if not ret_pdf_rollcall:
+            self.fail("Failed to find rollcall PDF")
+
+        # Set types of the loaded PDFs to make a comparison
+        pdf_72hr.type = "72_HR"
+        pdf_30day.type = "30_DAY"
+        pdf_rollcall.type = "ROLLCALL"
+        pdf_terminal_info.type = "DISCARD"
+
+        self.assertEqual(ret_pdf_72hr, pdf_72hr)
+        self.assertEqual(ret_pdf_30day, pdf_30day)
+        self.assertEqual(ret_pdf_rollcall, pdf_rollcall)
+        self.assertEqual(pdf_terminal_info.type, "DISCARD")
 
     @classmethod
     def tearDownClass(cls: Type["TestSortTerminalPdfs"]) -> None:
