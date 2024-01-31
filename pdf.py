@@ -2,6 +2,9 @@ import datetime
 import hashlib
 import logging
 import os
+import shutil
+import subprocess
+import sys
 from typing import Any, Dict, List, Optional, Type
 
 from pdfminer.high_level import extract_pages
@@ -10,6 +13,52 @@ from PyPDF2 import PdfReader
 
 import scraper_utils
 from pdf_page import PdfPage
+
+
+def convert_pptx_to_pdf(source_file: str, output_file: str) -> bool:
+    """Convert a PowerPoint (PPTX) file to PDF using unoconv on Linux.
+
+    Args:
+    ----
+    source_file (str): Path to the source PPTX file.
+    output_file (str): Path for the output PDF file.
+
+    Returns:
+    -------
+    bool: True if conversion is successful, False otherwise.
+    """
+    try:
+        # Find the unoconv command
+        unoconv_path = shutil.which("unoconv")
+        if unoconv_path is None:
+            logging.error("unoconv command not found")
+            return False
+
+        # Set the Python path to the system's Python
+        python_path = sys.executable
+
+        # Constructing the unoconv command
+        command = [unoconv_path, "-f", "pdf", "-o", output_file, source_file]
+
+        # Setting the environment for the subprocess
+        env = {"PYTHON": python_path}
+
+        # Running the unoconv command
+        subprocess.run(command, check=True, env=env)  # noqa: S603
+        logging.info("Conversion successful: %s to %s", source_file, output_file)
+        return True
+
+    except subprocess.CalledProcessError as e:
+        logging.error(
+            "Error during conversion: Return code %d, output: %s",
+            e.returncode,
+            e.output,
+        )
+        return False
+
+    except Exception as e:
+        logging.error("Error occurred: %s", e)
+        return False
 
 
 def count_words_in_pdf(pdf_path: str) -> Optional[int]:
@@ -203,6 +252,7 @@ class Pdf:
     def _download(self: "Pdf") -> bool:
         """Download the PDF from the link."""
         logging.info("Starting download of PDF from %s...", self.link)
+        is_pptx = False
 
         download_dir = os.getenv("PDF_DIR")
 
@@ -214,9 +264,19 @@ class Pdf:
         download_dir = os.path.join(download_dir, "tmp/")
 
         # Get the filename from the URL
-        filename = scraper_utils.get_pdf_name(self.link)
+        if scraper_utils.get_pdf_name(self.link):
+            filename = scraper_utils.get_pdf_name(self.link)
+        else:
+            is_pptx = True
+            filename = scraper_utils.get_pptx_name(self.link)
+
         self.original_filename = filename
-        filename = scraper_utils.gen_pdf_name_uuid(filename)
+
+        # Add UUID to filename
+        if is_pptx:
+            filename = scraper_utils.gen_pptx_name_uuid(filename)
+        else:
+            filename = scraper_utils.gen_pdf_name_uuid(filename)
 
         # Get PDF from link
         response = scraper_utils.get_with_retry(self.link)
@@ -237,7 +297,20 @@ class Pdf:
             logging.info("Successfully downloaded %s at %s", self.link, filepath)
 
             # Set filename
-            self.filename = filename
+            if is_pptx:
+                # Change filename to indicate that it was converted from PPTX
+                base_uuid_name = filename.split(".")[0]
+                new_pdf_filename = f"{base_uuid_name}-converted.pdf"
+                conv_pdf_filepath = os.path.join(download_dir, new_pdf_filename)
+                success = convert_pptx_to_pdf(filepath, conv_pdf_filepath)
+                if not success:
+                    logging.error(
+                        "Failed to convert %s to PDF. Skipping file.", filepath
+                    )
+                    return False
+                self.filename = new_pdf_filename
+            else:
+                self.filename = filename
 
             # Store relative path for compatability
             relative_path = scraper_utils.extract_relative_path_from_full_path(
