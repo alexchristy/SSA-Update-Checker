@@ -356,6 +356,27 @@ def get_pdf_name(url: str) -> str:
     return ""
 
 
+def get_pptx_name(url: str) -> str:
+    """Get the name of the PPTX file from the URL.
+
+    Args:
+    ----
+        url: The URL to get the PPTX name from.
+
+    Returns:
+    -------
+        The name of the PPTX file, or an empty string if no PPTX file is present.
+    """
+    result = urlparse(url)
+    path = unquote(result.path)
+    filename = path.split("/")[-1]
+
+    # Return filename only if it's a PPTX
+    if filename.lower().endswith(".pptx"):
+        return filename
+    return ""
+
+
 def gen_pdf_name_uuid(file_path: str) -> str:
     """Generate a new PDF file name with a random UUID.
 
@@ -382,6 +403,37 @@ def gen_pdf_name_uuid(file_path: str) -> str:
 
     # Construct the new file name
     uuid_name = f"{base_name}_{random_uuid}.pdf"
+
+    # Encode it to prevent issues with special characters
+    return quote(uuid_name)
+
+
+def gen_pptx_name_uuid(file_path: str) -> str:
+    """Generate a new pptx file name with a random UUID.
+
+    The new file name will be in the format: {base_name}_{random_uuid}.pptx
+
+    Args:
+    ----
+        file_path: The path to the PPTX file.
+
+    Returns:
+    -------
+        The new file name.
+    """
+    dir_path, file_name = os.path.split(file_path)
+    base_name, ext = os.path.splitext(file_name)
+    base_name = base_name.replace(" ", "_")
+
+    # Ensure the file is a PPTX
+    if ext.lower() != ".pptx":
+        logging.error("%s is not a pptx!", file_path)
+        return ""
+
+    random_uuid = str(uuid.uuid4())
+
+    # Construct the new file name
+    uuid_name = f"{base_name}_{random_uuid}.pptx"
 
     # Encode it to prevent issues with special characters
     return quote(uuid_name)
