@@ -21,7 +21,9 @@ from scraper_utils import (  # noqa: E402 (Need sys append for proper imports)
     extract_relative_path_from_full_path,
     format_pdf_metadata_date,
     gen_pdf_name_uuid,
+    gen_pptx_name_uuid,
     get_pdf_name,
+    get_pptx_name,
     get_with_retry,
     normalize_url,
     timing_decorator,
@@ -490,6 +492,49 @@ class TestGetPdfName(unittest.TestCase):
         self.assertEqual(result, "")
 
 
+class TestGetPptxName(unittest.TestCase):
+    """Test the get_pptx_name function."""
+
+    def test_pptx_in_url(self: "TestGetPptxName") -> None:
+        """Test that the function returns the PPTX name when a PPTX is in the URL."""
+        url = "http://www.example.com/documents/report.pptx"
+        expected_pptx_name = "report.pptx"
+        result = get_pptx_name(url)
+        self.assertEqual(result, expected_pptx_name)
+
+    def test_no_pptx_in_url(self: "TestGetPptxName") -> None:
+        """Test that the function returns an empty string when no PPTX is in the URL."""
+        url = "http://www.example.com/documents/report"
+        result = get_pptx_name(url)
+        self.assertEqual(result, "")
+
+    def test_pptx_in_url_with_query_string(self: "TestGetPptxName") -> None:
+        """Test that the function returns the PPTX name when the URL has a query string."""
+        url = "http://www.example.com/documents/report.pptx?query=123"
+        expected_pptx_name = "report.pptx"
+        result = get_pptx_name(url)
+        self.assertEqual(result, expected_pptx_name)
+
+    def test_url_with_path_but_no_pptx(self: "TestGetPptxName") -> None:
+        """Test that the function returns an empty string when the path does not end with .pptx."""
+        url = "http://www.example.com/documents/report.txt"
+        result = get_pptx_name(url)
+        self.assertEqual(result, "")
+
+    def test_empty_url(self: "TestGetPptxName") -> None:
+        """Test that the function returns an empty string for an empty URL."""
+        url = ""
+        result = get_pptx_name(url)
+        self.assertEqual(result, "")
+
+    def test_altus_pptx_listing(self: "TestGetPptxName") -> None:
+        """Test that the function returns the correct PPTX name for a real life  Altus Terminal schedule listing from 1/31/24."""
+        url = "https://www.amc.af.mil/Portals/12/AMC%20Tvl%20Pg/Passenger%20Terminals/AMC%20CONUS%20Terminals/Altus%20AFB%20Passenger%20Terminal/CURRENT%2072-Hour_Flight_Schedule.pptx?ver=OhwSj23rC49W7cwA6a4_EQ%3d%3d"
+        expected_pptx_name = "CURRENT 72-Hour_Flight_Schedule.pptx"
+        result = get_pptx_name(url)
+        self.assertEqual(result, expected_pptx_name)
+
+
 class TestGenPdfNameUuid(unittest.TestCase):
     """Test the gen_pdf_name_uuid function."""
 
@@ -554,6 +599,75 @@ class TestGenPdfNameUuid(unittest.TestCase):
 
         # Call the function with the test input
         result = gen_pdf_name_uuid(file_path)
+
+        # Assert that the output matches the expected output
+        self.assertEqual(result, expected_file_name)
+
+
+class TestGenPptxNameUuid(unittest.TestCase):
+    """Test the gen_pptx_name_uuid function."""
+
+    @patch("scraper_utils.uuid.uuid4")
+    def test_pptx_name_generation(
+        self: "TestGenPptxNameUuid", mock_uuid4: MagicMock
+    ) -> None:
+        """Test that the function generates a new name for a pptx file."""
+        test_uuid = uuid.UUID("1234567890abcdef1234567890abcdef")
+        mock_uuid4.return_value = test_uuid
+        file_path = "/path/to/document.pptx"
+        expected_file_name = f"document_{test_uuid!s}.pptx"
+        result = gen_pptx_name_uuid(file_path)
+        self.assertEqual(result, expected_file_name)
+
+    @patch("scraper_utils.logging.error")
+    def test_non_pptx_file(
+        self: "TestGenPptxNameUuid", mock_logging_error: MagicMock
+    ) -> None:
+        """Test that the function returns an empty string for non-pptx files."""
+        file_path = "/path/to/document.txt"
+        result = gen_pptx_name_uuid(file_path)
+        self.assertEqual(result, "")
+        mock_logging_error.assert_called_with("%s is not a pptx!", file_path)
+
+    def test_empty_file_path(self: "TestGenPptxNameUuid") -> None:
+        """Test that the function returns an empty string for an empty file path."""
+        file_path = ""
+        result = gen_pptx_name_uuid(file_path)
+        self.assertEqual(result, "")
+
+    def test_file_path_without_extension(self: "TestGenPptxNameUuid") -> None:
+        """Test that the function returns an empty string for a file path without an extension."""
+        file_path = "/path/to/document"
+        result = gen_pptx_name_uuid(file_path)
+        self.assertEqual(result, "")
+
+    @patch("scraper_utils.uuid.uuid4")
+    def test_file_name_with_spaces(
+        self: "TestGenPptxNameUuid", mock_uuid4: MagicMock
+    ) -> None:
+        """Test that the function returns an empty string for a file name with spaces."""
+        test_uuid = uuid.UUID("1234567890abcdef1234567890abcdef")
+        mock_uuid4.return_value = test_uuid
+        file_path = "/path/to/document with spaces.pptx"
+        expected_file_name = f"document_with_spaces_{test_uuid!s}.pptx"
+        result = gen_pptx_name_uuid(file_path)
+        self.assertEqual(result, expected_file_name)
+
+    @patch("scraper_utils.uuid.uuid4")
+    def test_file_name_with_special_chars(
+        self: "TestGenPptxNameUuid", mock_uuid4: MagicMock
+    ) -> None:
+        """Test that the function correctly encodes file names with special characters."""
+        # Setup mock UUID
+        test_uuid = uuid.UUID("1234567890abcdef1234567890abcdef")
+        mock_uuid4.return_value = test_uuid
+
+        # Test input and expected output
+        file_path = "/path/to/document (special).pptx"
+        expected_file_name = f"document_%28special%29_{test_uuid!s}.pptx"
+
+        # Call the function with the test input
+        result = gen_pptx_name_uuid(file_path)
 
         # Assert that the output matches the expected output
         self.assertEqual(result, expected_file_name)
