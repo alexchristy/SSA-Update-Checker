@@ -209,7 +209,10 @@ def get_terminal_pdfs(terminal: Terminal, hash_only: bool = False) -> List[Pdf]:
     soup = BeautifulSoup(response.content, "html.parser")
 
     # Find all <a> tags with href and PDF file extension
-    a_tags = soup.find_all("a", href=lambda href: href and ".pdf" in href)
+    pdf_a_tags = soup.find_all("a", href=lambda href: href and ".pdf" in href)
+    pptx_a_tags = soup.find_all("a", href=lambda href: href and ".pptx" in href)
+
+    a_tags = pdf_a_tags + pptx_a_tags
 
     # Prepare a list for PDF links
     pdf_links = []
