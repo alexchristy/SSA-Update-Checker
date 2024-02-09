@@ -1,13 +1,18 @@
 import argparse
 import logging
 import os
+import random
 import sys
+from datetime import datetime, timedelta
 from typing import List
 
 import sentry_sdk
 
 import scraper
-from firestoredb import FirestoreClient
+from firestoredb import (
+    FirestoreClient,
+    wait_for_terminal_lock_change,
+)
 from pdf_utils import local_sort_pdf_to_current, sort_terminal_pdfs
 from s3_bucket import S3Bucket
 from scraper_utils import check_env_variables, check_local_pdf_dirs, clean_up_tmp_pdfs
@@ -35,6 +40,7 @@ vars_to_check = [
     "PDF_DIR",
     "OPENAI_API_KEY",
     "GOOGLE_MAPS_API_KEY",
+    "LOCK_COLL",
 ]
 
 # Check if all .env variables are set
@@ -96,29 +102,101 @@ def main() -> None:
     # Connect to Firestore
     fs = FirestoreClient()
 
-    logging.debug("Starting PDF retrieval process.")
+    logging.info("Starting PDF retrieval process.")
 
-    # Set URL to AMC Travel site and scrape Terminal information from it
-    url = "https://www.amc.af.mil/AMC-Travel-Site"
-    list_of_terminals = scraper.get_active_terminals(url)
+    # Got the lock
+    if fs.acquire_terminal_coll_update_lock():
+        logging.info("No other instance of the program is updating the terminals.")
 
-    if not list_of_terminals:
-        logging.error("No terminals found.")
+        last_update_timestamp = fs.get_terminal_update_lock_timestamp()
+
+        if not last_update_timestamp:
+            logging.error("No terminal update lock timestamp found.")
+            sys.exit(1)
+
+        current_time = datetime.now(last_update_timestamp.tzinfo)
+
+        time_diff = current_time - last_update_timestamp
+
+        # If the last update was less than 2 minutes ago, then it has
+        # already been updated by another instance of the program.
+        if time_diff > timedelta(minutes=2):
+            logging.info("Terminals last updated at: %s", last_update_timestamp)
+
+            logging.info("Retrieving terminal information.")
+
+            # Set URL to AMC Travel site and scrape Terminal information from it
+            url = "https://www.amc.af.mil/AMC-Travel-Site"
+            list_of_terminals = scraper.get_active_terminals(url)
+
+            if not list_of_terminals:
+                logging.error("No terminals found.")
+                sys.exit(1)
+
+            logging.info("Retrieved %s terminals.", len(list_of_terminals))
+
+            if not fs.update_terminals(list_of_terminals):
+                logging.info("No terminals were updated.")
+
+            fs.add_termimal_update_fingerprint()
+            fs.set_terminal_update_lock_timestamp()
+        else:
+            logging.info(
+                "Terminals were updated less than 2 minutes ago. Last updated at: %s",
+                last_update_timestamp,
+            )
+
+        fs.release_terminal_lock()
+    else:
+        logging.info("Another instance of the program is updating the terminals.")
+        fs.watch_terminal_update_lock()
+        wait_for_terminal_lock_change()
+
+    # Retrieve fingerprint for signing off on terminal updates
+    update_fingerprint = fs.get_terminal_update_fingerprint()
+
+    if not update_fingerprint:
+        logging.error(
+            "No terminal pdf update run fingerprint found in terminal_update_lock document."
+        )
         sys.exit(1)
-
-    logging.info("Retrieved %s terminals.", len(list_of_terminals))
-
-    if not fs.update_terminals(list_of_terminals):
-        logging.info("No terminals were updated.")
 
     # Retrieve all updated terminal infomation
     list_of_terminals = fs.get_all_terminals()
+    random.shuffle(
+        list_of_terminals
+    )  # Shuffle so some terminals are not always updated first
 
     # Summary variables
     terminals_updated: List[str] = []
     num_pdfs_updated = 0
 
     for terminal in list_of_terminals:
+
+        if not fs.acquire_terminal_doc_update_lock(terminal.name):
+            continue
+
+        # Pull down the latest terminal document
+        terminal_update_fingerprint = fs.get_terminal_update_signature(terminal.name)
+
+        if (
+            terminal_update_fingerprint is None
+        ):  # None indicates the terminal document does not exist
+            logging.error(
+                "No terminal pdf update run fingerprint found in terminal document."
+            )
+            sys.exit(1)
+
+        # The terminal has already been updated in this run
+        if update_fingerprint == terminal_update_fingerprint:
+            logging.info(
+                "Terminal %s has already been updated in this run.", terminal.name
+            )
+            fs.release_terminal_doc_lock(terminal.name)
+            continue
+
+        fs.set_terminal_update_signature(terminal.name, update_fingerprint)
+
         logging.info("==========( %s )==========", terminal.name)
 
         # Get list of PDF objects and only their hashes from terminal
@@ -244,6 +322,9 @@ def main() -> None:
             elif not pdf.seen_before and pdf.type == "DISCARD":
                 fs.upsert_pdf_to_archive(pdf)
                 logging.info("A new DISCARD pdf was found called: %s.", pdf.filename)
+
+        # Release the lock
+        fs.release_terminal_doc_lock(terminal.name)
 
     # Generate summary logs before exiting
     logging.info("======== Summary of Updates ========")

@@ -18,6 +18,9 @@ class Terminal:
             page_pos: The position of the terminal on the page.
             location: The location of the terminal.
             archive_dir: The directory where the terminal's PDFs are archived.
+            timezone: The timezone of the terminal.
+            pdf_update_signature: The signature of the last PDF update.
+            pdf_update_lock: A flag to indicate if the terminal's PDFs are being updated.
 
         Sets all attributes to None.
         """
@@ -31,6 +34,8 @@ class Terminal:
         self.location = ""
         self.archive_dir = ""
         self.timezone = ""
+        self.pdf_update_signature = ""
+        self.pdf_update_lock = False
 
     def to_dict(self: "Terminal") -> Dict[str, Any]:
         """Convert this Terminal object to a dictionary, suitable for storing in Firestore or another database.
@@ -50,6 +55,8 @@ class Terminal:
             "location": self.location,
             "archiveDir": self.archive_dir,
             "timezone": self.timezone,
+            "pdfUpdateSignature": self.pdf_update_signature,
+            "pdfUpdateLock": self.pdf_update_lock,
         }
 
     def __eq__(self: "Terminal", other: object) -> bool:
@@ -156,5 +163,7 @@ class Terminal:
         terminal.location = data.get("location", None)
         terminal.archive_dir = data.get("archiveDir", None)
         terminal.timezone = data.get("timezone", None)
+        terminal.pdf_update_signature = data.get("pdfUpdateSignature", None)
+        terminal.pdf_update_lock = data.get("pdfUpdateLock", False)
 
         return terminal
