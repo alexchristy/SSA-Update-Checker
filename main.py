@@ -146,7 +146,7 @@ def main() -> None:
                 last_update_timestamp,
             )
 
-        fs.release_terminal_lock()
+        fs.safely_release_terminal_lock()
     else:
         logging.info("Another instance of the program is updating the terminals.")
         fs.watch_terminal_update_lock()

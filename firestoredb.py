@@ -872,3 +872,20 @@ class FirestoreClient:
             logging.error(
                 "Failed to set fingerprint for terminal '%s': %s", terminal_name, e
             )
+
+    def safely_release_terminal_lock(self: "FirestoreClient") -> None:
+        """Safely release the terminal update lock by flipping the lock state twice.
+
+        This ensures that other instances see a change.
+        """
+        try:
+            self.release_terminal_lock()
+
+            # Then, acquire the lock to signal a change to other instances.
+            self.acquire_terminal_coll_update_lock()
+
+        except Exception as e:
+            logging.error("Failed to safely release terminal update lock: %s", e)
+
+        # Finally, release the lock as originally intended.
+        self.release_terminal_lock()
