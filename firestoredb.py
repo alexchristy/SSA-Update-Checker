@@ -10,7 +10,6 @@ from firebase_admin import credentials, firestore, initialize_app  # type: ignor
 from google.cloud.firestore import (  # type: ignore
     DocumentReference,
     DocumentSnapshot,
-    Transaction,
 )
 
 from location_tz import TerminalTzFinder
@@ -35,13 +34,30 @@ def wait_for_terminal_lock_change() -> None:
 def attribute_update_callback(
     attribute_name: str, event: threading.Event
 ) -> Callable[[Dict[str, Any]], None]:
+    """Create a callback function that signals an event when a specific attribute changes.
+
+    Args:
+    ----
+        attribute_name (str): The name of the attribute to watch for changes.
+        event (threading.Event): The event to signal when the attribute changes.
+
+    Returns:
+    -------
+        Callable[[Dict[str, Any]], None]: The callback function that signals the event when the attribute changes.
+
+    """
+
     def callback(changed_attributes: Dict[str, Any]) -> None:
         if attribute_name in changed_attributes:
             new_value = changed_attributes[attribute_name]
-            logging.info(f"{attribute_name} status changed to: {new_value}.")
+            logging.info(
+                "%s status changed to: %s.",
+                attribute_name,
+                new_value,
+            )
             event.set()  # Signal that the attribute has changed
         else:
-            logging.info(f"No change detected in {attribute_name}.")
+            logging.info("No change detected in %s.", attribute_name)
 
     return callback
 
@@ -119,6 +135,7 @@ class FirestoreClient:
         Returns:
         -------
             None
+
         """
         doc_ref = self.db.collection(collection_name).document(document_name)
         doc_ref.set(data)
@@ -142,6 +159,7 @@ class FirestoreClient:
         Returns:
         -------
             None
+
         """
         doc_ref = self.db.collection(collection_name).document(document_name)
         doc_ref.set(data, merge=True)
@@ -159,6 +177,7 @@ class FirestoreClient:
         Returns:
         -------
             None
+
         """
         # Get enviroment variable
         terminal_coll = os.getenv("TERMINAL_COLL")
@@ -198,6 +217,7 @@ class FirestoreClient:
         Returns:
         -------
             None
+
         """
         # Get enviroment variable
         terminal_coll = os.getenv("TERMINAL_COLL")
@@ -233,6 +253,7 @@ class FirestoreClient:
         Returns:
         -------
             None
+
         """
         # Get enviroment variable
         pdf_archive_coll = os.getenv("PDF_ARCHIVE_COLL")
@@ -255,6 +276,7 @@ class FirestoreClient:
         Returns:
         -------
             bool: True if the PDF has been seen before, False otherwise
+
         """
         # If hash is not valid return True so that the PDF
         # is discarded.
@@ -304,6 +326,7 @@ class FirestoreClient:
         Returns:
         -------
             bool: True if the PDF was archived, False otherwise
+
         """
         if pdf.seen_before:
             logging.warning(
@@ -337,6 +360,7 @@ class FirestoreClient:
         Returns:
         -------
             Optional[Pdf]: The retrieved PDF object, or None if the PDF was not found
+
         """
         logging.info("Entering get_pdf_by_hash().")
 
@@ -381,6 +405,7 @@ class FirestoreClient:
         Returns
         -------
             list[Terminal]: A list of all terminal objects
+
         """
         terminal_coll = os.getenv("TERMINAL_COLL")
 
@@ -417,6 +442,7 @@ class FirestoreClient:
         Returns:
         -------
             bool: True if the terminals were updated, False otherwise
+
         """
         if not scraped_terminals:
             logging.error("No terminals provided to update.")
@@ -548,6 +574,7 @@ class FirestoreClient:
         Returns:
         -------
             Optional[bool]: Returns True if the operation is successful, None otherwise.
+
         """
         coll_ref = self.db.collection(collection_name)
         return self._delete_collection_batch(coll_ref, batch_size)
@@ -583,7 +610,7 @@ class FirestoreClient:
 
         # Define the transactional operation for acquiring the lock
         @firestore.transactional
-        def update_in_transaction(transaction, doc_ref):
+        def update_in_transaction(transaction, doc_ref) -> bool:  # noqa: ANN001
             snapshot = doc_ref.get(transaction=transaction)
             new_lock_state = not snapshot.exists or not snapshot.get("lock")
 
@@ -619,7 +646,7 @@ class FirestoreClient:
 
         # Define the transactional operation for acquiring the lock
         @firestore.transactional
-        def update_in_transaction(transaction, doc_ref):
+        def update_in_transaction(transaction, doc_ref) -> bool:  # noqa: ANN001
             snapshot = doc_ref.get(transaction=transaction)
             if snapshot.exists:
                 current_lock_state = snapshot.get("pdfUpdateLock")
