@@ -17,69 +17,114 @@ from pdf_utils import local_sort_pdf_to_current, sort_terminal_pdfs
 from s3_bucket import S3Bucket
 from scraper_utils import check_env_variables, check_local_pdf_dirs, clean_up_tmp_pdfs
 
-# Set up Sentry
-sentry_sdk.init(
-    dsn="https://0206deb398bdf73816001d5aca1f0bce@o4506224652713984.ingest.sentry.io/4506440581775360",
-    # Set traces_sample_rate to 1.0 to capture 100%
-    # of transactions for performance monitoring.
-    traces_sample_rate=1.0,
-    # Set profiles_sample_rate to 1.0 to profile 100%
-    # of sampled transactions.
-    # We recommend adjusting this value in production.
-    profiles_sample_rate=1.0,
-)
 
-# List of ENV variables to check
-vars_to_check = [
-    "FS_CRED_PATH",
-    "TERMINAL_COLL",
-    "PDF_ARCHIVE_COLL",
-    "AWS_BUCKET_NAME",
-    "AWS_ACCESS_KEY_ID",
-    "AWS_SECRET_ACCESS_KEY",
-    "PDF_DIR",
-    "OPENAI_API_KEY",
-    "GOOGLE_MAPS_API_KEY",
-    "LOCK_COLL",
-]
+def init_sentry() -> bool:
+    """Initialize Sentry."""
+    sentry_dsn = os.getenv("SENTRY_DSN")
 
-# Check if all .env variables are set
-if not check_env_variables(vars_to_check):
-    logging.error("Not all environment variables are set.")
-    sys.exit(1)
+    if not sentry_dsn:
+        logging.error("No Sentry DSN enviroment variable found.")
+        return False
 
-# Get the absolute path of the script
-script_path = os.path.abspath(__file__)
+    try:
+        sentry_sdk.init(
+            dsn=sentry_dsn,
+            # Set traces_sample_rate to 1.0 to capture 100%
+            # of transactions for performance monitoring.
+            traces_sample_rate=1.0,
+            # Set profiles_sample_rate to 1.0 to profile 100%
+            # of sampled transactions.
+            # We recommend adjusting this value in production.
+            profiles_sample_rate=1.0,
+        )
+        logging.info("Sentry initialized.")
+    except Exception as e:
+        logging.error("Error initializing Sentry: %s", e)
+        return False
 
-# Set the home directory to the directory of the script
-home_dir = os.path.dirname(script_path)
+    return True
 
-# Enter correct directory
-os.chdir(home_dir)
 
-# Create an arguement parser
-log_arg_parser = argparse.ArgumentParser(description="Set the logging level.")
-log_arg_parser.add_argument("--log", default="INFO", help="Set the logging level.")
+def move_to_working_dir() -> bool:
+    """Move to the working directory."""
+    try:
+        # Get the absolute path of the script
+        script_path = os.path.abspath(__file__)
 
-args = log_arg_parser.parse_args()
+        # Set the home directory to the directory of the script
+        home_dir = os.path.dirname(script_path)
 
-# Map from string level to logging level
-levels = {
-    "DEBUG": logging.DEBUG,
-    "INFO": logging.INFO,
-    "WARNING": logging.WARNING,
-    "ERROR": logging.ERROR,
-    "CRITICAL": logging.CRITICAL,
-}
+        # Enter correct directory
+        os.chdir(home_dir)
+    except Exception as e:
+        logging.error("Error moving to working directory: %s", e)
+        return False
 
-# Set up logging
-arg_log_level = levels.get(args.log.upper(), logging.INFO)
-logging.basicConfig(
-    filename="app.log",
-    filemode="w",
-    format="%(asctime)s - %(message)s",
-    level=arg_log_level,
-)
+    return True
+
+
+def parse_args() -> argparse.Namespace:
+    """Parse command line arguments."""
+    # Log level argument
+    parser = argparse.ArgumentParser(description="Set the logging level.")
+    parser.add_argument(
+        "--log", default="INFO", help="Set the logging level.", type=str
+    )
+
+    return parser.parse_args()
+
+
+def initialize_app() -> None:
+    """Initialize the program."""
+    # Check for all required environment variables
+    vars_to_check = [
+        "FS_CRED_PATH",
+        "TERMINAL_COLL",
+        "PDF_ARCHIVE_COLL",
+        "AWS_BUCKET_NAME",
+        "AWS_ACCESS_KEY_ID",
+        "AWS_SECRET_ACCESS_KEY",
+        "PDF_DIR",
+        "OPENAI_API_KEY",
+        "GOOGLE_MAPS_API_KEY",
+        "LOCK_COLL",
+        "SENTRY_DSN",
+    ]
+
+    # Check if all .env variables are set
+    if not check_env_variables(vars_to_check):
+        logging.error("Not all environment variables are set.")
+        sys.exit(1)
+
+    if not init_sentry():
+        logging.error("Error initializing Sentry.")
+        sys.exit(1)
+
+    # Move to the working directory
+    if not move_to_working_dir():
+        logging.error("Error moving to working directory.")
+        sys.exit(1)
+
+    args = parse_args()
+
+    # Set up logging
+    # Define valid log levels
+    levels = {
+        "DEBUG": logging.DEBUG,
+        "INFO": logging.INFO,
+        "WARNING": logging.WARNING,
+        "ERROR": logging.ERROR,
+        "CRITICAL": logging.CRITICAL,
+    }
+
+    arg_log_level = levels.get(args.log.upper(), logging.INFO)
+
+    logging.basicConfig(
+        filename="app.log",
+        filemode="w",
+        format="%(asctime)s - %(message)s",
+        level=arg_log_level,
+    )
 
 
 def main() -> None:
@@ -344,4 +389,5 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    initialize_app()
     main()
