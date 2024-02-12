@@ -10,7 +10,6 @@ from typing import Any, Callable, List, Optional, Tuple
 from urllib.parse import quote, unquote, urlparse
 
 import requests
-from dotenv import load_dotenv
 
 
 def timing_decorator(func: Callable[..., Any]) -> Callable[..., Any]:
@@ -23,6 +22,7 @@ def timing_decorator(func: Callable[..., Any]) -> Callable[..., Any]:
     Returns:
     -------
         The decorated function.
+
     """
 
     @wraps(func)
@@ -55,13 +55,17 @@ def check_env_variables(variables: List[str]) -> bool:
     Returns:
     -------
         True if all of the environment variables are set, False otherwise.
+
     """
-    load_dotenv()
+    set_env_vars = list(os.environ.keys())
 
     empty_vars = []
     for var in variables:
-        value = os.getenv(var)
-        if not value:
+        if var not in set_env_vars:
+            logging.error("The following variable is missing in .env: %s", var)
+            empty_vars.append(var)
+        elif not os.getenv(var):
+            logging.error("The following variable is empty in .env: %s", var)
             empty_vars.append(var)
 
     if empty_vars:

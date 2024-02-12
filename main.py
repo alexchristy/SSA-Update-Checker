@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from typing import List
 
 import sentry_sdk
+from dotenv import load_dotenv
 
 import scraper
 from firestoredb import (
@@ -16,6 +17,32 @@ from firestoredb import (
 from pdf_utils import local_sort_pdf_to_current, sort_terminal_pdfs
 from s3_bucket import S3Bucket
 from scraper_utils import check_env_variables, check_local_pdf_dirs, clean_up_tmp_pdfs
+
+
+def setup_logging(
+    default_level=logging.INFO, log_file: str = "app.log"  # noqa: ANN001
+) -> None:
+    """Set up logging configuration.
+
+    Args:
+    ----
+        default_level: The default logging level.
+        log_file: The name/path of the log file.
+
+    """
+    for handler in logging.root.handlers[
+        :
+    ]:  # Remove all handlers associated with the root logger.
+        logging.root.removeHandler(handler)
+    logging.basicConfig(
+        filename=log_file,
+        filemode="w",
+        format="%(asctime)s || %(levelname)s - %(message)s",
+        level=default_level,
+    )
+
+
+setup_logging()
 
 
 def init_sentry() -> bool:
@@ -76,6 +103,26 @@ def parse_args() -> argparse.Namespace:
 
 def initialize_app() -> None:
     """Initialize the program."""
+    # Load environment variables
+    load_dotenv()
+
+    if not init_sentry():
+        logging.error("Error initializing Sentry.")
+        sys.exit(1)
+
+    args = parse_args()  # Moved up to ensure logging level is set as early as possible
+
+    # Set up logging with the level from command line arguments
+    levels = {
+        "DEBUG": logging.DEBUG,
+        "INFO": logging.INFO,
+        "WARNING": logging.WARNING,
+        "ERROR": logging.ERROR,
+        "CRITICAL": logging.CRITICAL,
+    }
+    arg_log_level = levels.get(args.log.upper(), logging.INFO)
+    setup_logging(arg_log_level)  # Call setup_logging with the correct level
+
     # Check for all required environment variables
     vars_to_check = [
         "FS_CRED_PATH",
@@ -96,35 +143,10 @@ def initialize_app() -> None:
         logging.error("Not all environment variables are set.")
         sys.exit(1)
 
-    if not init_sentry():
-        logging.error("Error initializing Sentry.")
-        sys.exit(1)
-
     # Move to the working directory
     if not move_to_working_dir():
         logging.error("Error moving to working directory.")
         sys.exit(1)
-
-    args = parse_args()
-
-    # Set up logging
-    # Define valid log levels
-    levels = {
-        "DEBUG": logging.DEBUG,
-        "INFO": logging.INFO,
-        "WARNING": logging.WARNING,
-        "ERROR": logging.ERROR,
-        "CRITICAL": logging.CRITICAL,
-    }
-
-    arg_log_level = levels.get(args.log.upper(), logging.INFO)
-
-    logging.basicConfig(
-        filename="app.log",
-        filemode="w",
-        format="%(asctime)s - %(message)s",
-        level=arg_log_level,
-    )
 
 
 def main() -> None:
