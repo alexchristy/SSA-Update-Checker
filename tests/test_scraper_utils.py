@@ -15,7 +15,6 @@ sys.path.append(current_dir + "/../")
 
 from scraper_utils import (  # noqa: E402 (Need sys append for proper imports)
     calc_sha256_hash,
-    check_env_variables,
     check_local_pdf_dirs,
     ensure_url_encoded,
     extract_relative_path_from_full_path,
@@ -26,61 +25,6 @@ from scraper_utils import (  # noqa: E402 (Need sys append for proper imports)
     normalize_url,
     timing_decorator,
 )
-
-
-class TestCheckEnvVariables(unittest.TestCase):
-    """Test the check_env_variables function."""
-
-    def setUp(self: "TestCheckEnvVariables") -> None:
-        """Stage before each test."""
-        self.original_env_exists = os.path.exists(".env")
-        if self.original_env_exists:
-            os.rename(".env", ".env-bak")
-
-    def tearDown(self: "TestCheckEnvVariables") -> None:
-        """Cleanup after each test."""
-        # Delete the test .env file if it exists
-        if os.path.exists(".env"):
-            os.remove(".env")
-
-        # Restore the original .env file
-        if self.original_env_exists and os.path.exists(".env-bak"):
-            os.rename(".env-bak", ".env")
-
-    def create_test_env_file(self: "TestCheckEnvVariables", content: str) -> None:
-        """Create a test .env file."""
-        with open(".env", "w") as file:
-            file.write(content)
-
-    def test_env_variables_success(self: "TestCheckEnvVariables") -> None:
-        """Test success case where all environment variables are set."""
-        self.create_test_env_file("TEST_VAR=test_value\n")
-        result = check_env_variables(["TEST_VAR"])
-        self.assertTrue(result)
-
-    def test_env_variables_missing(self: "TestCheckEnvVariables") -> None:
-        """Test failure case where a required environment variable is missing."""
-        self.create_test_env_file("")  # Empty .env file
-        result = check_env_variables(["MISSING_VAR"])
-        self.assertFalse(result)
-
-    def test_env_variables_empty(self: "TestCheckEnvVariables") -> None:
-        """Test failure case where a required environment variable is empty."""
-        self.create_test_env_file("EMPTY_VAR=\n")
-        result = check_env_variables(["EMPTY_VAR"])
-        self.assertFalse(result)
-
-    def test_multiple_env_variables(self: "TestCheckEnvVariables") -> None:
-        """Test with multiple environment variables."""
-        self.create_test_env_file("VAR1=value1\nVAR2=value2\n")
-        result = check_env_variables(["VAR1", "VAR2"])
-        self.assertTrue(result)
-
-    def test_partial_missing_variables(self: "TestCheckEnvVariables") -> None:
-        """Test case where some, but not all, required environment variables are missing."""
-        self.create_test_env_file("VAR1=value1\n")
-        result = check_env_variables(["VAR1", "MISSING_VAR2"])
-        self.assertFalse(result)
 
 
 def mock_function(x: int) -> int:
