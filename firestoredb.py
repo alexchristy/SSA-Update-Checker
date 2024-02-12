@@ -10,6 +10,7 @@ from firebase_admin import credentials, firestore, initialize_app  # type: ignor
 from google.cloud.firestore import (  # type: ignore
     DocumentReference,
     DocumentSnapshot,
+    Transaction,
 )
 
 from location_tz import TerminalTzFinder
@@ -82,6 +83,35 @@ class FirestoreClient:
 
         # Create the Firestore client
         self.db = firestore.client(app=self.app)
+
+    def get_document(
+        self: "FirestoreClient", collection_name: str, document_id: str
+    ) -> Optional[Dict[str, Any]]:
+        """Fetch a document from Firestore.
+
+        Args:
+        ----
+            collection_name: The name of the collection where the document is stored.
+            document_id: The ID of the document to retrieve.
+
+        Returns:
+        -------
+            The document data as a dictionary if the document exists, otherwise None.
+
+        """
+        # Create a reference to the document
+        doc_ref = self.db.collection(collection_name).document(document_id)
+
+        # Attempt to fetch the document
+        doc = doc_ref.get()
+
+        # Check if the document exists
+        if doc.exists:
+            print("Document data:", doc.to_dict())
+            return doc.to_dict()
+
+        print("No such document!")
+        return None
 
     def _on_snapshot(  # noqa: PLR0913
         self: "FirestoreClient",
@@ -606,14 +636,33 @@ class FirestoreClient:
         lock_coll = os.getenv("LOCK_COLL", "Locks")
         lock_doc_ref = self.db.collection(lock_coll).document("terminal_update_lock")
 
-        # Define the transactional operation for acquiring the lock
         @firestore.transactional
-        def update_in_transaction(transaction, doc_ref) -> bool:  # noqa: ANN001
+        def update_in_transaction(
+            transaction: Transaction,
+            doc_ref: DocumentReference,
+        ) -> bool:
+            """Update a document in a Firestore transaction.
+
+            Args:
+            ----
+                transaction (Transaction): The Firestore transaction object.
+                doc_ref (DocumentReference): The reference to the document to update.
+
+            Returns:
+            -------
+                bool: True if the lock was successfully acquired, False otherwise.
+
+            """
             snapshot = doc_ref.get(transaction=transaction)
             new_lock_state = not snapshot.exists or not snapshot.get("lock")
 
             if new_lock_state:
-                transaction.update(doc_ref, {"lock": True})
+                if snapshot.exists:
+                    # Update the existing document
+                    transaction.update(doc_ref, {"lock": True})
+                else:
+                    # Create the document if it does not exist
+                    transaction.set(doc_ref, {"lock": True})
 
             return new_lock_state
 

@@ -14,8 +14,14 @@ class TestFirestoreClient(unittest.TestCase):
     """Test the FirestoreClient class."""
 
     firestore_client: FirestoreClient
+
     orig_terminal_coll: Optional[str]
     test_terminal_coll: str
+
+    orig_lock_coll: Optional[str]
+    test_lock_coll: str
+
+    terminal_update_lock_doc = "terminal_update_lock"
 
     @classmethod
     def setUpClass(cls: Type["TestFirestoreClient"]) -> None:
@@ -25,6 +31,11 @@ class TestFirestoreClient(unittest.TestCase):
         cls.test_terminal_coll = "**UNIT_TEST**_Terminals"
         os.environ["TERMINAL_COLL"] = cls.test_terminal_coll
 
+        # Save the original LOCK_COLL value and set it to the test collection
+        cls.orig_lock_coll = os.environ.get("LOCK_COLL")
+        cls.test_lock_coll = "**UNIT_TEST**_Locks"
+        os.environ["LOCK_COLL"] = cls.test_lock_coll
+
         # Initialize Firestore client once for all tests
         cls.firestore_client = FirestoreClient()
 
@@ -32,6 +43,7 @@ class TestFirestoreClient(unittest.TestCase):
         """Set up the test."""
         # Clear the test collection before each test
         self.firestore_client.delete_collection(self.test_terminal_coll)
+        self.firestore_client.delete_collection(self.test_lock_coll)
 
     def test_no_terminals_in_db(self: "TestFirestoreClient") -> None:
         """Test when there are no terminals in the database."""
@@ -189,17 +201,90 @@ class TestFirestoreClient(unittest.TestCase):
 
         self.assertEqual(db_test_terminal.timezone, "Europe/Madrid")
 
+    def test_acquire_terminal_coll_update_lock(self: "TestFirestoreClient") -> None:
+        """Test acquiring the terminal collection and updating the lock."""
+        self.firestore_client.upsert_document(
+            self.test_lock_coll, self.terminal_update_lock_doc, {"lock": False}
+        )
+
+        # Scenario: The terminal update action for the collection is not locked
+        lock_acquired = self.firestore_client.acquire_terminal_coll_update_lock()
+
+        self.assertTrue(
+            lock_acquired,
+            "Should acquire terminal collection lock since it is initially unlocked",
+        )
+
+        # Check that the lock was updated
+        lock_doc_dict = self.firestore_client.get_document(
+            self.test_lock_coll, self.terminal_update_lock_doc
+        )
+
+        if lock_doc_dict is None:
+            self.fail("Lock document should exist")
+
+        self.assertTrue(lock_doc_dict["lock"])
+
+        # Try to acquire the lock again
+        lock_acquired = self.firestore_client.acquire_terminal_coll_update_lock()
+
+        self.assertFalse(
+            lock_acquired,
+            "Should not acquire terminal collection lock since it is already locked",
+        )
+
+        self.firestore_client.safely_release_terminal_lock()
+
+    def test_acquire_terminal_coll_update_lock_no_document(
+        self: "TestFirestoreClient",
+    ) -> None:
+        """Test acquiring the terminal collection update lock when the document does not exist initially."""
+        # Scenario: The terminal update action for the collection is not locked
+        lock_acquired = self.firestore_client.acquire_terminal_coll_update_lock()
+
+        self.assertTrue(
+            lock_acquired,
+            "Should acquire terminal collection lock since it is initially unlocked",
+        )
+
+        # Check that the lock was updated
+        lock_doc_dict = self.firestore_client.get_document(
+            self.test_lock_coll, self.terminal_update_lock_doc
+        )
+
+        if lock_doc_dict is None:
+            self.fail("Lock document should exist")
+
+        self.assertTrue(lock_doc_dict["lock"])
+
+        # Try to acquire the lock again
+        lock_acquired = self.firestore_client.acquire_terminal_coll_update_lock()
+
+        self.assertFalse(
+            lock_acquired,
+            "Should not acquire terminal collection lock since it is already locked",
+        )
+
+        self.firestore_client.safely_release_terminal_lock()
+
     @classmethod
     def tearDownClass(cls: Type["TestFirestoreClient"]) -> None:
         """Tear down the test class."""
         # Clean up the test collection after all tests
         cls.firestore_client.delete_collection(cls.test_terminal_coll)
+        cls.firestore_client.delete_collection(cls.test_lock_coll)
 
         # Restore the original TERMINAL_COLL value
         if cls.orig_terminal_coll is not None:
             os.environ["TERMINAL_COLL"] = cls.orig_terminal_coll
         else:
             del os.environ["TERMINAL_COLL"]
+
+        # Restore the original LOCK_COLL value
+        if cls.orig_lock_coll is not None:
+            os.environ["LOCK_COLL"] = cls.orig_lock_coll
+        else:
+            del os.environ["LOCK_COLL"]
 
 
 if __name__ == "__main__":
