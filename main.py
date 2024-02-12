@@ -10,10 +10,7 @@ import sentry_sdk
 from dotenv import load_dotenv
 
 import scraper
-from firestoredb import (
-    FirestoreClient,
-    wait_for_terminal_lock_change,
-)
+from firestoredb import FirestoreClient
 from pdf_utils import local_sort_pdf_to_current, sort_terminal_pdfs
 from s3_bucket import S3Bucket
 from scraper_utils import check_env_variables, check_local_pdf_dirs, clean_up_tmp_pdfs
@@ -148,17 +145,17 @@ def initialize_app() -> None:
         logging.error("Error moving to working directory.")
         sys.exit(1)
 
-
-def main() -> None:
-    """Run core logic of program."""
-    logging.info("Program started.")
-
     # Prep local dirs
     check_local_pdf_dirs()
 
     if not clean_up_tmp_pdfs():
         logging.error("Error cleaning up tmp PDFs.")
         sys.exit(1)
+
+
+def main() -> None:
+    """Run core logic of program."""
+    logging.info("Program started.")
 
     # Create S3 bucket object
     s3 = S3Bucket()
@@ -170,54 +167,6 @@ def main() -> None:
     fs = FirestoreClient()
 
     logging.info("Starting PDF retrieval process.")
-
-    # Got the lock
-    if fs.acquire_terminal_coll_update_lock():
-        logging.info("No other instance of the program is updating the terminals.")
-
-        last_update_timestamp = fs.get_terminal_update_lock_timestamp()
-
-        if not last_update_timestamp:
-            logging.error("No terminal update lock timestamp found.")
-            sys.exit(1)
-
-        current_time = datetime.now(last_update_timestamp.tzinfo)
-
-        time_diff = current_time - last_update_timestamp
-
-        # If the last update was less than 2 minutes ago, then it has
-        # already been updated by another instance of the program.
-        if time_diff > timedelta(minutes=2):
-            logging.info("Terminals last updated at: %s", last_update_timestamp)
-
-            logging.info("Retrieving terminal information.")
-
-            # Set URL to AMC Travel site and scrape Terminal information from it
-            url = "https://www.amc.af.mil/AMC-Travel-Site"
-            list_of_terminals = scraper.get_active_terminals(url)
-
-            if not list_of_terminals:
-                logging.error("No terminals found.")
-                sys.exit(1)
-
-            logging.info("Retrieved %s terminals.", len(list_of_terminals))
-
-            if not fs.update_terminals(list_of_terminals):
-                logging.info("No terminals were updated.")
-
-            fs.add_termimal_update_fingerprint()
-            fs.set_terminal_update_lock_timestamp()
-        else:
-            logging.info(
-                "Terminals were updated less than 2 minutes ago. Last updated at: %s",
-                last_update_timestamp,
-            )
-
-        fs.safely_release_terminal_lock()
-    else:
-        logging.info("Another instance of the program is updating the terminals.")
-        fs.watch_terminal_update_lock()
-        wait_for_terminal_lock_change()
 
     # Retrieve fingerprint for signing off on terminal updates
     update_fingerprint = fs.get_terminal_update_fingerprint()

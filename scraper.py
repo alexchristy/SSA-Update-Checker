@@ -1,11 +1,14 @@
 import logging
+import sys
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timedelta
 from typing import List
 from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup  # type: ignore
 
 import scraper_utils
+from firestoredb import FirestoreClient, wait_for_terminal_lock_change
 from pdf import Pdf
 from terminal import Terminal
 
@@ -21,6 +24,74 @@ valid_locations = [
 
 
 # Functions
+def update_db_terminals(
+    fs: FirestoreClient,
+) -> bool:
+    """Update the terminals in the database.
+
+    Args:
+    ----
+        fs: A FirestoreClient object.
+
+    Returns:
+    -------
+        bool: True if the terminals were updated, False otherwise.
+
+    Raises:
+    ------
+        SystemExit: If the AMC travel page fails to download.
+
+    """
+    if fs.acquire_terminal_coll_update_lock():
+        logging.info("No other instance of the program is updating the terminals.")
+
+        last_update_timestamp = fs.get_terminal_update_lock_timestamp()
+
+        if not last_update_timestamp:
+            logging.error("No terminal update lock timestamp found.")
+            sys.exit(1)
+
+        current_time = datetime.now(last_update_timestamp.tzinfo)
+
+        time_diff = current_time - last_update_timestamp
+
+        # If the last update was less than 2 minutes ago, then it has
+        # already been updated by another instance of the program.
+        if time_diff > timedelta(minutes=2):
+            logging.info("Terminals last updated at: %s", last_update_timestamp)
+
+            logging.info("Retrieving terminal information.")
+
+            # Set URL to AMC Travel site and scrape Terminal information from it
+            url = "https://www.amc.af.mil/AMC-Travel-Site"
+            list_of_terminals = get_active_terminals(url)
+
+            if not list_of_terminals:
+                logging.error("No terminals found.")
+                sys.exit(1)
+
+            logging.info("Retrieved %s terminals.", len(list_of_terminals))
+
+            if not fs.update_terminals(list_of_terminals):
+                logging.info("No terminals were updated.")
+
+            fs.add_termimal_update_fingerprint()
+            fs.set_terminal_update_lock_timestamp()
+        else:
+            logging.info(
+                "Terminals were updated less than 2 minutes ago. Last updated at: %s",
+                last_update_timestamp,
+            )
+
+        fs.safely_release_terminal_lock()
+        return True
+
+    logging.info("Another instance of the program is updating the terminals.")
+    fs.watch_terminal_update_lock()
+    wait_for_terminal_lock_change()
+    return False
+
+
 def get_active_terminals(url: str) -> List[Terminal]:
     """Scan the AMC travel page for terminal information to return a list of SpaceA active terminal objects.
 
@@ -31,6 +102,7 @@ def get_active_terminals(url: str) -> List[Terminal]:
     Returns:
     -------
         listOfTerminals: A list of Terminal objects.
+
     """
     logging.debug("Running get_terminal_info().")
 
@@ -163,6 +235,7 @@ def create_pdf_object(pdf_link: str, hash_only: bool) -> Pdf:
     Returns:
     -------
         Pdf: A PDF object.
+
     """  # noqa: D401
     if hash_only:
         return Pdf(pdf_link, hash_only=True)
@@ -181,6 +254,7 @@ def get_terminal_pdfs(terminal: Terminal, hash_only: bool = False) -> List[Pdf]:
     Returns:
     -------
         terminal_pdfs: A list of PDF objects.
+
     """
     logging.info("Entering get_terminal_pdfs().")
 
