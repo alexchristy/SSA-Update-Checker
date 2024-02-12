@@ -126,6 +126,7 @@ def check_local_pdf_dirs() -> bool:
     Returns
     -------
         True if the directories are successfully created or already exist, False otherwise.
+
     """
     base_dir = os.getenv("PDF_DIR")
 
@@ -180,6 +181,7 @@ def ensure_url_encoded(url: str) -> str:
     Returns:
     -------
         The encoded URL.
+
     """
     unquoted_url = unquote(url)
 
@@ -209,6 +211,7 @@ def extract_relative_path_from_full_path(
     -------
         If full_path is "/home/user/documents/archive/2023/report.pdf" and
         base_segment is "archive", the function will return "archive/2023/report.pdf".
+
     """
     if not base_segment:
         logging.error("base_segment is empty.")
@@ -232,6 +235,7 @@ def get_with_retry(url: str) -> Optional[requests.Response]:
     Returns:
     -------
         The response object if the request was successful, None otherwise.
+
     """
     logging.debug("Entering get_with_retry() requesting: %s", url)
 
@@ -279,6 +283,7 @@ def calc_sha256_hash(input_string: str) -> str:
     Returns:
     -------
         The SHA-256 hash of the input string.
+
     """
     # Create a new SHA-256 hash object
     sha256_hash = hashlib.sha256()
@@ -300,6 +305,7 @@ def is_valid_sha256(s: str) -> bool:
     Returns:
     -------
         True if the string is a valid SHA256 checksum, False otherwise.
+
     """
     hash_length = 64
 
@@ -323,6 +329,7 @@ def normalize_url(url: str) -> str:
     Returns:
     -------
         The normalized URL, or an empty string if the URL is malformed.
+
     """
     logging.debug("Entering normalize_url()")
 
@@ -349,6 +356,7 @@ def get_pdf_name(url: str) -> str:
     Returns:
     -------
         The name of the PDF file, or an empty string if no PDF file is present.
+
     """
     result = urlparse(url)
     path = unquote(result.path)
@@ -372,6 +380,7 @@ def gen_pdf_name_uuid(file_path: str) -> str:
     Returns:
     -------
         The new file name.
+
     """
     dir_path, file_name = os.path.split(file_path)
     base_name, ext = os.path.splitext(file_name)
@@ -401,6 +410,7 @@ def format_pdf_metadata_date(date_str: str) -> Optional[str]:
     Returns:
     -------
         The formatted date string, or None if the date string is invalid.
+
     """
     if date_str is None:
         return None
