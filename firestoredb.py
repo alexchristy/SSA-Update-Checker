@@ -493,10 +493,8 @@ class FirestoreClient:
             logging.info("No discrepancies found between the database and scraper.")
             seen_terminals = scraped_terminals
 
-        # If there are no new terminals, then we don't need to update the database
         if not never_seen_terminals:
             logging.info("No new terminals found.")
-            return False
 
         tz_finder = TerminalTzFinder()
 
