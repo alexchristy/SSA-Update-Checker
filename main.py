@@ -3,7 +3,6 @@ import logging
 import os
 import random
 import sys
-from datetime import datetime, timedelta
 from typing import List
 
 import sentry_sdk
