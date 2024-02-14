@@ -8,7 +8,7 @@ from urllib.parse import urljoin
 from bs4 import BeautifulSoup  # type: ignore
 
 import scraper_utils
-from firestoredb import FirestoreClient, wait_for_terminal_lock_change
+from firestoredb import FirestoreClient
 from pdf import Pdf
 from terminal import Terminal
 
@@ -47,13 +47,20 @@ def update_db_terminals(
 
         last_update_timestamp = fs.get_terminal_update_lock_timestamp()
 
-        if not last_update_timestamp:
-            logging.error("No terminal update lock timestamp found.")
-            sys.exit(1)
+        # Default to 666 minutes if no timestamp is found
+        # This prevents hanging indefinitely if this is the first time the program is run
+        time_diff = timedelta(minutes=666)
 
-        current_time = datetime.now(last_update_timestamp.tzinfo)
+        if last_update_timestamp:
+            logging.error("Terminal update lock timestamp found.")
 
-        time_diff = current_time - last_update_timestamp
+            current_time = datetime.now(last_update_timestamp.tzinfo)
+
+            time_diff = current_time - last_update_timestamp
+        else:
+            logging.info(
+                "No terminal update lock timestamp found. Continuing to update."
+            )
 
         # If the last update was less than 2 minutes ago, then it has
         # already been updated by another instance of the program.
@@ -88,7 +95,7 @@ def update_db_terminals(
 
     logging.info("Another instance of the program is updating the terminals.")
     fs.watch_terminal_update_lock()
-    wait_for_terminal_lock_change()
+    fs.wait_for_terminal_lock_change()
     return False
 
 
