@@ -1,6 +1,7 @@
 import os
 import sys
 import unittest
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional, Type
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -203,6 +204,8 @@ class TestFirestoreClient(unittest.TestCase):
 
     def test_acquire_terminal_coll_update_lock(self: "TestFirestoreClient") -> None:
         """Test acquiring the terminal collection and updating the lock."""
+        self.firestore_client.safely_release_terminal_lock()
+
         self.firestore_client.upsert_document(
             self.test_lock_coll, self.terminal_update_lock_doc, {"lock": False}
         )
@@ -240,6 +243,8 @@ class TestFirestoreClient(unittest.TestCase):
     ) -> None:
         """Test acquiring the terminal collection update lock when the document does not exist initially."""
         # Scenario: The terminal update action for the collection is not locked
+        self.firestore_client.safely_release_terminal_lock()
+
         lock_acquired = self.firestore_client.acquire_terminal_coll_update_lock()
 
         self.assertTrue(
@@ -265,6 +270,52 @@ class TestFirestoreClient(unittest.TestCase):
             "Should not acquire terminal collection lock since it is already locked",
         )
 
+        self.firestore_client.safely_release_terminal_lock()
+
+    def test_parallel_acquire_terminal_coll_update_lock(
+        self: "TestFirestoreClient",
+    ) -> None:
+        """Test that only one thread can acquire the lock when trying in parallel."""
+        # Reset lock to ensure it is unlocked before the test
+        self.firestore_client.upsert_document(
+            self.test_lock_coll, self.terminal_update_lock_doc, {"lock": False}
+        )
+
+        def try_acquire_lock() -> bool:
+            """Attempt to acquire the lock and return the result."""
+            return self.firestore_client.acquire_terminal_coll_update_lock()
+
+        # Run 3 parallel attempts to acquire the lock
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            futures = [executor.submit(try_acquire_lock) for _ in range(3)]
+            results = [future.result() for future in as_completed(futures)]
+
+        # Check that exactly one attempt succeeded
+        self.assertEqual(len(results), 3, "Three attempts should be made")
+
+        self.assertEqual(
+            results.count(True),
+            1,
+            "Only one attempt should succeed in acquiring the lock",
+        )
+
+        self.assertEqual(results.count(False), 2, "Two attempts should fail")
+
+        # Verify the lock is acquired
+        lock_doc_dict = self.firestore_client.get_document(
+            self.test_lock_coll, self.terminal_update_lock_doc
+        )
+        if lock_doc_dict is None:
+            self.fail("Lock document should exist")
+        self.assertTrue(lock_doc_dict["lock"], "Lock should be acquired")
+
+        # Ensure the lock cannot be acquired again
+        lock_acquired_again = self.firestore_client.acquire_terminal_coll_update_lock()
+        self.assertFalse(
+            lock_acquired_again, "Lock should not be re-acquired once it is locked"
+        )
+
+        # Cleanup: Release the lock
         self.firestore_client.safely_release_terminal_lock()
 
     @classmethod
