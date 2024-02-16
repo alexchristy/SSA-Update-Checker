@@ -1,3 +1,4 @@
+import datetime as dt
 import json
 import os
 import pickle
@@ -5,6 +6,7 @@ import sys
 import time
 import unittest
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timedelta
 from random import uniform
 from unittest.mock import MagicMock, patch
 
@@ -178,6 +180,14 @@ class TestUpdateTerminalCollParallel(unittest.TestCase):
 
         self.assertCountEqual(parsed_terminal_names, terminal_names)
 
+        # Ensure that the lock was released
+        lock_doc = self.fs.get_document(self.lock_coll, "terminal_update_lock")
+
+        if lock_doc is None:
+            self.fail("The lock document should not be exist in database.")
+
+        self.assertFalse(lock_doc.get("lock"), "The lock should have been released.")
+
     @patch("scraper.scraper_utils.get_with_retry")
     def test_update_db_terminals_parallel_random_starts(
         self: "TestUpdateTerminalCollParallel", mock_get_with_retry: MagicMock
@@ -239,8 +249,287 @@ class TestUpdateTerminalCollParallel(unittest.TestCase):
 
         self.assertCountEqual(parsed_terminal_names, terminal_names)
 
+        # Ensure that the lock was released
+        lock_doc = self.fs.get_document(self.lock_coll, "terminal_update_lock")
+
+        if lock_doc is None:
+            self.fail("The lock document should not be exist in database.")
+
+        self.assertFalse(lock_doc.get("lock"), "The lock should have been released.")
+
     def tearDown(self: "TestUpdateTerminalCollParallel") -> None:
         """Tear down the test cases for TestUpdateTerminalCollParallel."""
+        # Delete the test collections
+        self.fs.delete_collection(self.terminal_coll)
+        self.fs.delete_collection(self.pdf_archive_coll)
+        self.fs.delete_collection(self.lock_coll)
+
+
+class TestUpdateTerminalCollTimingLock(unittest.TestCase):
+    """Test that the update_db_terminals will no update terminals if the last update was less than 2 minutes ago."""
+
+    def setUp(self: "TestUpdateTerminalCollTimingLock") -> None:
+        """Set up the test cases for TestUpdateTerminalCollTimingLock."""
+        file_path = os.path.join(
+            current_dir,
+            "assets/TestUpdateTerminalCollTimingLock/AMC_Home_Page_12-16-23.pkl",
+        )
+
+        # Load the serialized response
+        with open(
+            file_path,
+            "rb",
+        ) as file:
+            self.serialized_response = file.read()
+
+        # Create a FirestoreClient object
+        # Set collection names
+        self.terminal_coll = "**TestUpdateTerminalCollTimingLock**_Terminals"
+        self.pdf_archive_coll = "**TestUpdateTerminalCollTimingLock**_PDF_Archive"
+        self.lock_coll = "**TestUpdateTerminalCollTimingLock**_Locks"
+        self.firestore_cert = "./creds.json"
+
+        os.environ["TERMINAL_COLL"] = self.terminal_coll
+        os.environ["PDF_ARCHIVE_COLL"] = self.pdf_archive_coll
+        os.environ["LOCK_COLL"] = self.lock_coll
+        os.environ["FS_CRED_PATH"] = self.firestore_cert
+
+        self.fs = FirestoreClient()
+
+    def insert_terminal_coll_update_lock(
+        self: "TestUpdateTerminalCollTimingLock",
+        last_update_date: datetime,
+        locked: bool = True,
+    ) -> bool:
+        """Insert a lock into the lock collection to simulate a previous update.
+
+        Args:
+        ----
+            locked (bool): Whether the lock is locked or not.
+            last_update_date (datetime): The date of the last update.
+
+        Returns:
+        -------
+            bool: True if the lock was inserted successfully.
+
+        """
+        terminal_lock_doc = "terminal_update_lock"
+        doc_data = {
+            "lock": locked,
+            "timestamp": last_update_date,
+            "fingerprint": "test_fingerprint_TestUpdateTerminalCollTimingLock",
+        }
+
+        try:
+            self.fs.set_document(self.lock_coll, terminal_lock_doc, doc_data)
+        except Exception:
+            return False
+
+        return True
+
+    @patch("scraper.scraper_utils.get_with_retry")
+    def test_no_update_if_less_than_2_minutes(
+        self: "TestUpdateTerminalCollTimingLock", mock_get_with_retry: MagicMock
+    ) -> None:
+        """Test that the function does not update the terminals if the last update was less than 2 minutes ago."""
+        # Deserialize the response
+        response_data = pickle.loads(  # noqa: S301 (Loading test data)
+            self.serialized_response
+        )
+
+        # Set the last update date to 1 minute ago
+        last_update_date = datetime.now(tz=dt.UTC) - timedelta(minutes=1)
+
+        # Insert a lock into the lock collection to simulate a previous update
+        insert_success = self.insert_terminal_coll_update_lock(
+            last_update_date, locked=False
+        )
+
+        self.assertTrue(insert_success, "Failed to insert lock into lock collection.")
+
+        # Mock the get_with_retry function
+        mock_response = unittest.mock.Mock()
+        mock_response.configure_mock(**response_data)
+
+        mock_get_with_retry.return_value = mock_response
+
+        # Run the update_db_terminals function
+        result = update_db_terminals(self.fs)
+
+        self.assertFalse(result, "The function should not have updated the terminals.")
+
+        # Ensure that the lock was released
+        lock_doc = self.fs.get_document(self.lock_coll, "terminal_update_lock")
+
+        if lock_doc is None:
+            self.fail("The lock document should not be exist in database.")
+
+        self.assertFalse(lock_doc.get("lock"), "The lock should have been released.")
+
+    @patch("scraper.scraper_utils.get_with_retry")
+    def test_update_if_more_than_2_minutes(
+        self: "TestUpdateTerminalCollTimingLock", mock_get_with_retry: MagicMock
+    ) -> None:
+        """Test that the function updates the terminals if the last update was more than 2 minutes ago."""
+        # Deserialize the response
+        response_data = pickle.loads(  # noqa: S301 (Loading test data)
+            self.serialized_response
+        )
+
+        # Set the last update date to 3 minutes ago
+        last_update_date = datetime.now(tz=dt.UTC) - timedelta(minutes=3)
+
+        # Insert a lock into the lock collection to simulate a previous update
+        insert_success = self.insert_terminal_coll_update_lock(
+            last_update_date, locked=False
+        )
+
+        self.assertTrue(insert_success, "Failed to insert lock into lock collection.")
+
+        # Mock response with empty list
+        mock_response = unittest.mock.Mock()
+        mock_response.configure_mock(**response_data)
+        mock_get_with_retry.return_value = mock_response
+
+        # Run the update_db_terminals function
+        result = update_db_terminals(self.fs)
+
+        self.assertTrue(result, "The function should have updated the terminals.")
+
+        # Ensure that the lock was released
+        lock_doc = self.fs.get_document(self.lock_coll, "terminal_update_lock")
+
+        if lock_doc is None:
+            self.fail("The lock document should not be exist in database.")
+
+        self.assertFalse(lock_doc.get("lock"), "The lock should have been released.")
+
+        # Ensure that the found terminals are correct
+        result_terminals = self.fs.get_all_terminals()
+
+        self.assertIsInstance(result_terminals, list)
+        self.assertEqual(len(result_terminals), 40)
+
+        array_path = os.path.join(
+            current_dir,
+            "assets/TestUpdateTerminalCollParallel/terminal_names.json",
+        )
+        # Load the expected terminal_names array
+        with open(array_path, "r") as file:
+            terminal_names = json.load(file)
+
+        parsed_terminal_names = [terminal.name for terminal in result_terminals]
+
+        self.assertCountEqual(parsed_terminal_names, terminal_names)
+
+    @patch("scraper.scraper_utils.get_with_retry")
+    def test_update_if_no_timestamp(
+        self: "TestUpdateTerminalCollTimingLock", mock_get_with_retry: MagicMock
+    ) -> None:
+        """Test that the function updates the terminals if the last update timestamp is not present."""
+        # Deserialize the response
+        response_data = pickle.loads(  # noqa: S301 (Loading test data)
+            self.serialized_response
+        )
+
+        # Insert a lock into the lock collection that has no timestamp
+        self.fs.set_document(
+            self.lock_coll,
+            "terminal_update_lock",
+            {
+                "lock": False,
+                "fingerprint": "test_fingerprint_TestUpdateTerminalCollTimingLock",
+            },
+        )
+
+        # Mock response with empty list
+        mock_response = unittest.mock.Mock()
+        mock_response.configure_mock(**response_data)
+        mock_get_with_retry.return_value = mock_response
+
+        # Run the update_db_terminals function
+        result = update_db_terminals(self.fs)
+
+        self.assertTrue(result, "The function should have updated the terminals.")
+
+        # Ensure that the lock was released
+        lock_doc = self.fs.get_document(self.lock_coll, "terminal_update_lock")
+
+        if lock_doc is None:
+            self.fail("The lock document should not be exist in database.")
+
+        self.assertFalse(lock_doc.get("lock"), "The lock should have been released.")
+
+        # Ensure that the found terminals are correct
+        result_terminals = self.fs.get_all_terminals()
+
+        self.assertIsInstance(result_terminals, list)
+        self.assertEqual(len(result_terminals), 40)
+
+        array_path = os.path.join(
+            current_dir,
+            "assets/TestUpdateTerminalCollParallel/terminal_names.json",
+        )
+        # Load the expected terminal_names array
+        with open(array_path, "r") as file:
+            terminal_names = json.load(file)
+
+        parsed_terminal_names = [terminal.name for terminal in result_terminals]
+
+        self.assertCountEqual(parsed_terminal_names, terminal_names)
+
+    def tearDown(self: "TestUpdateTerminalCollTimingLock") -> None:
+        """Tear down the test cases for TestUpdateTerminalCollTimingLock."""
+        # Delete the test collections
+        self.fs.delete_collection(self.terminal_coll)
+        self.fs.delete_collection(self.pdf_archive_coll)
+        self.fs.delete_collection(self.lock_coll)
+
+
+class TestUpdateTerminalCollErrors(unittest.TestCase):
+    """Test that the update_db_terminals handles errors correctly by releasing the lock."""
+
+    def setUp(self: "TestUpdateTerminalCollErrors") -> None:
+        """Set up the test cases for TestUpdateTerminalCollErrors."""
+        # Create a FirestoreClient object
+        # Set collection names
+        self.terminal_coll = "**TestUpdateTerminalCollErrors**_Terminals"
+        self.pdf_archive_coll = "**TestUpdateTerminalCollErrors**_PDF_Archive"
+        self.lock_coll = "**TestUpdateTerminalCollErrors**_Locks"
+        self.firestore_cert = "./creds.json"
+
+        os.environ["TERMINAL_COLL"] = self.terminal_coll
+        os.environ["PDF_ARCHIVE_COLL"] = self.pdf_archive_coll
+        os.environ["LOCK_COLL"] = self.lock_coll
+        os.environ["FS_CRED_PATH"] = self.firestore_cert
+
+        self.fs = FirestoreClient()
+
+    @patch("scraper.scraper_utils.get_with_retry")
+    def test_no_terminals_found(
+        self: "TestUpdateTerminalCollErrors", mock_get_with_retry: MagicMock
+    ) -> None:
+        """Test that the function releases the lock if no terminals are found."""
+        # Mock response with empty list
+        mock_response = unittest.mock.Mock()
+        mock_response.configure_mock(**{"content": "No terminals found"})
+        mock_get_with_retry.return_value = mock_response
+
+        # Run the update_db_terminals function
+        result = update_db_terminals(self.fs)
+
+        self.assertFalse(result, "The function should not have updated the terminals.")
+
+        # Ensure that the lock was released
+        lock_doc = self.fs.get_document(self.lock_coll, "terminal_update_lock")
+
+        if lock_doc is None:
+            self.fail("The lock document should not be exist in database.")
+
+        self.assertFalse(lock_doc.get("lock"), "The lock should have been released.")
+
+    def tearDown(self: "TestUpdateTerminalCollErrors") -> None:
+        """Tear down the test cases for TestUpdateTerminalCollErrors."""
         # Delete the test collections
         self.fs.delete_collection(self.terminal_coll)
         self.fs.delete_collection(self.pdf_archive_coll)

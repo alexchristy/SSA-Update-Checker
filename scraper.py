@@ -1,5 +1,4 @@
 import logging
-import sys
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from typing import List
@@ -42,61 +41,70 @@ def update_db_terminals(
         SystemExit: If the AMC travel page fails to download.
 
     """
-    if fs.acquire_terminal_coll_update_lock():
-        logging.info("No other instance of the program is updating the terminals.")
+    try:
+        if fs.acquire_terminal_coll_update_lock():
+            logging.info("No other instance of the program is updating the terminals.")
 
-        last_update_timestamp = fs.get_terminal_update_lock_timestamp()
+            last_update_timestamp = fs.get_terminal_update_lock_timestamp()
 
-        # Default to 666 minutes if no timestamp is found
-        # This prevents hanging indefinitely if this is the first time the program is run
-        time_diff = timedelta(minutes=666)
+            # Default to 666 minutes if no timestamp is found
+            # This prevents hanging indefinitely if this is the first time the program is run
+            time_diff = timedelta(minutes=666)
 
-        if last_update_timestamp:
-            logging.error("Terminal update lock timestamp found.")
+            if last_update_timestamp:
+                logging.error("Terminal update lock timestamp found.")
 
-            current_time = datetime.now(last_update_timestamp.tzinfo)
+                current_time = datetime.now(last_update_timestamp.tzinfo)
 
-            time_diff = current_time - last_update_timestamp
-        else:
-            logging.info(
-                "No terminal update lock timestamp found. Continuing to update."
-            )
+                time_diff = current_time - last_update_timestamp
+            else:
+                logging.info(
+                    "No terminal update lock timestamp found. Continuing to update."
+                )
 
-        # If the last update was less than 2 minutes ago, then it has
-        # already been updated by another instance of the program.
-        if time_diff > timedelta(minutes=2):
-            logging.info("Terminals last updated at: %s", last_update_timestamp)
+            # If the last update was less than 2 minutes ago, then it has
+            # already been updated by another instance of the program.
+            if time_diff > timedelta(minutes=2):
+                logging.info("Terminals last updated at: %s", last_update_timestamp)
 
-            logging.info("Retrieving terminal information.")
+                logging.info("Retrieving terminal information.")
 
-            # Set URL to AMC Travel site and scrape Terminal information from it
-            url = "https://www.amc.af.mil/AMC-Travel-Site"
-            list_of_terminals = get_active_terminals(url)
+                # Set URL to AMC Travel site and scrape Terminal information from it
+                url = "https://www.amc.af.mil/AMC-Travel-Site"
+                list_of_terminals = get_active_terminals(url)
 
-            if not list_of_terminals:
-                logging.error("No terminals found.")
-                sys.exit(1)
+                if not list_of_terminals:
+                    msg = "No terminals found."
+                    logging.error(msg)
+                    raise ValueError(msg)
 
-            logging.info("Retrieved %s terminals.", len(list_of_terminals))
+                logging.info("Retrieved %s terminals.", len(list_of_terminals))
 
-            if not fs.update_terminals(list_of_terminals):
-                logging.info("No terminals were updated.")
+                if not fs.update_terminals(list_of_terminals):
+                    logging.info("No terminals were updated.")
 
-            fs.add_termimal_update_fingerprint()
-            fs.set_terminal_update_lock_timestamp()
-        else:
-            logging.info(
-                "Terminals were updated less than 2 minutes ago. Last updated at: %s",
-                last_update_timestamp,
-            )
+                fs.add_termimal_update_fingerprint()
+                fs.set_terminal_update_lock_timestamp()
+            else:
+                logging.info(
+                    "Terminals were updated less than 2 minutes ago. Last updated at: %s",
+                    last_update_timestamp,
+                )
+                fs.safely_release_terminal_lock()
+                return False
 
+            fs.safely_release_terminal_lock()
+            return True
+
+        logging.info("Another instance of the program is updating the terminals.")
+        fs.watch_terminal_update_lock()
+        fs.wait_for_terminal_lock_change()
+        return False
+    except Exception as e:
+        logging.error("An error occurred while updating the terminals.")
+        logging.error(e)
         fs.safely_release_terminal_lock()
-        return True
-
-    logging.info("Another instance of the program is updating the terminals.")
-    fs.watch_terminal_update_lock()
-    fs.wait_for_terminal_lock_change()
-    return False
+        return False
 
 
 def get_active_terminals(url: str) -> List[Terminal]:
