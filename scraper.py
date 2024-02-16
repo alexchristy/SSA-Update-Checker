@@ -9,6 +9,8 @@ from bs4 import BeautifulSoup  # type: ignore
 import scraper_utils
 from firestoredb import FirestoreClient
 from pdf import Pdf
+from pdf_utils import local_sort_pdf_to_current, sort_terminal_pdfs
+from s3_bucket import S3Bucket
 from terminal import Terminal
 
 valid_locations = [
@@ -20,6 +22,25 @@ valid_locations = [
     "Non-AMC CONUS Terminals",
     "ANG & Reserve Terminals",
 ]
+
+
+class TerminalDocumentLockedError(Exception):
+    """Exception raised when a terminal document is locked.".
+
+    Attributes
+    ----------
+        message: The error message.
+
+    """
+
+    def __init__(self: "TerminalDocumentLockedError", message: str) -> None:
+        """Initialize the error message."""
+        self.message = message
+        super().__init__(self.message)
+
+    def __str__(self: "TerminalDocumentLockedError") -> str:
+        """Return the error message."""
+        return f"{self.message}"
 
 
 # Functions
@@ -104,6 +125,184 @@ def update_db_terminals(
         logging.error("An error occurred while updating the terminals.")
         logging.error(e)
         fs.safely_release_terminal_lock()
+        return False
+
+
+def update_terminal_pdfs(
+    fs: FirestoreClient,
+    s3: S3Bucket,
+    terminal: Terminal,
+    update_fingerprint: str,
+    num_pdfs_updated: int,
+    terminals_updated: List[str],
+) -> bool:
+    try:
+        if not fs.acquire_terminal_doc_update_lock(terminal.name):
+            msg = f"Terminal {terminal.name} document is locked."
+            raise TerminalDocumentLockedError(msg)
+
+        # Set status of terminal to updating
+        fs.set_terminal_update_status(terminal.name, "UPDATING")
+
+        # Pull down the latest terminal document
+        terminal_update_fingerprint = fs.get_terminal_update_signature(terminal.name)
+
+        if (
+            terminal_update_fingerprint is None
+        ):  # None indicates the terminal document does not exist
+            msg = "No terminal pdf update run fingerprint found in terminal document."
+            logging.error(msg)
+            raise ValueError(msg)
+
+        # The terminal has already been updated in this run
+        if update_fingerprint == terminal_update_fingerprint:
+            logging.info(
+                "Terminal %s has already been updated in this run.", terminal.name
+            )
+            fs.release_terminal_doc_lock(terminal.name)
+            return False
+
+        fs.set_terminal_update_signature(terminal.name, update_fingerprint)
+
+        logging.info("==========( %s )==========", terminal.name)
+
+        # Get list of PDF objects and only their hashes from terminal
+        pdfs = get_terminal_pdfs(terminal, hash_only=True)
+
+        # Check if any PDFs are new
+        for pdf in pdfs:
+            if not fs.pdf_seen_before(pdf):
+                # Populate PDF object with all information
+                pdf.populate()
+                pdf.set_terminal(terminal.name)
+                continue
+
+            # Should discard PDFs we have seen before
+            pdf.seen_before = True
+
+            # Discard irrelevant PDFs to reduce processing time
+            db_pdf = fs.get_pdf_by_hash(pdf.hash)
+
+            if db_pdf is None:
+                msg = f"Unable to find PDF with hash {pdf.hash} in the DB."
+                logging.error(msg)
+                raise ValueError(msg)
+
+            # We need all other seen PDFs as they
+            # provide context when sorting PDFs
+            if db_pdf.type == "DISCARD":
+                pdf.type = "DISCARD"
+                continue
+
+            # If the PDF is useful type, then we keep the db
+            # version for context when sorting but we prevent reprocesing it.
+            if db_pdf.type in ("72_HR", "30_DAY", "ROLLCALL"):
+                pdf.type = db_pdf.type
+            else:
+                msg = f"PDF type {db_pdf.type} is not recognized."
+                logging.error(msg)
+                raise ValueError(msg)
+
+        # Remove DISCARD PDFs from list
+        pdfs_cleaned = [pdf for pdf in pdfs if pdf.type != "DISCARD"]
+        pdfs = pdfs_cleaned
+
+        # Try to determine the type of each new PDF
+        # and return the most plausible new PDF of
+        # each type.
+        pdf_72hr, pdf_30day, pdf_rollcall = sort_terminal_pdfs(pdfs)
+
+        # If new 72 hour schedule was found
+        if pdf_72hr and not pdf_72hr.seen_before and terminal.pdf_72hr_hash:
+            old_pdf_72hr = fs.get_pdf_by_hash(terminal.pdf_72hr_hash)
+
+            # Check if old 72 hour schedule was found
+            # in the DB. Need to exit if it was not found as
+            # it means that it was never uploaded to S3.
+            if old_pdf_72hr is None:
+                msg = (
+                    f"Unable to find PDF with hash {terminal.pdf_72hr_hash} in the DB."
+                )
+                logging.error(msg)
+                raise ValueError(msg)
+
+            # Archive the old 72 hour schedule and
+            # update it with its new archived path
+            # in S3.
+            s3.archive_pdf(old_pdf_72hr)
+            fs.upsert_pdf_to_archive(old_pdf_72hr)
+
+        # If a new 30 day schedule was found
+        if pdf_30day and not pdf_30day.seen_before and terminal.pdf_30day_hash:
+            old_30day_pdf = fs.get_pdf_by_hash(terminal.pdf_30day_hash)
+
+            # Check if old 30 day schedule was found
+            # in the DB. Need to exit if it was not found as
+            # it means that it was never uploaded to S3.
+            if old_30day_pdf is None:
+                msg = (
+                    "Unable to find PDF with hash {terminal.pdf_30day_hash} in the DB."
+                )
+                logging.error(msg)
+                raise ValueError(msg)
+
+            # Archive the old 30 day schedule and
+            # update it with its new archived path
+            # in S3.
+            s3.archive_pdf(old_30day_pdf)
+            fs.upsert_pdf_to_archive(old_30day_pdf)
+
+        # If new rollcall was found
+        if pdf_rollcall and not pdf_rollcall.seen_before and terminal.pdf_rollcall_hash:
+            old_rollcall_pdf = fs.get_pdf_by_hash(terminal.pdf_rollcall_hash)
+
+            # Check if old rollcall was found
+            # in the DB. Need to exit if it was not found as
+            # it means that it was never uploaded to S3.
+            if old_rollcall_pdf is None:
+                msg = "Unable to find PDF with hash {terminal.pdf_rollcall_hash} in the DB."
+                logging.error(msg)
+                raise ValueError(msg)
+
+            # Archive the old rollcall and update
+            # it with its new archived path in S3.
+            s3.archive_pdf(old_rollcall_pdf)
+            fs.upsert_pdf_to_archive(old_rollcall_pdf)
+
+        # Insert new PDFs to PDF Archive/seen before collection
+        # in the DB to prevent reprocessing them in subsequent
+        # runs.
+        for pdf in pdfs:
+            if not pdf.seen_before and pdf.type != "DISCARD":
+                fs.update_terminal_pdf_hash(pdf)
+                fs.set_pdf_last_update_timestamp(
+                    terminal_name=terminal.name, pdf_type=pdf.type
+                )
+                local_sort_pdf_to_current(pdf)
+                fs.upsert_pdf_to_archive(pdf)
+                s3.upload_pdf_to_current_s3(pdf)
+                num_pdfs_updated += 1
+                terminals_updated.append(terminal.name)
+                logging.info(
+                    "A new %s pdf for %s was found called: %s.",
+                    pdf.type,
+                    terminal.name,
+                    pdf.filename,
+                )
+            elif not pdf.seen_before and pdf.type == "DISCARD":
+                fs.upsert_pdf_to_archive(pdf)
+                logging.info("A new DISCARD pdf was found called: %s.", pdf.filename)
+
+        # Release the lock
+        fs.set_terminal_last_check_timestamp(terminal.name)
+        fs.release_terminal_doc_lock(terminal.name)
+        fs.set_terminal_update_status(terminal.name, "SUCCESS")
+        return True
+    except Exception as e:
+        logging.error("An error occurred while updating the terminal PDFs.")
+        logging.error(e)
+        fs.release_terminal_doc_lock(terminal.name)
+        fs.set_terminal_update_status(terminal.name, "FAILED")
         return False
 
 
