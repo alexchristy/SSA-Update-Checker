@@ -137,12 +137,11 @@ def update_terminal_pdfs(
     terminals_updated: List[str],
 ) -> bool:
     try:
+        logging.info("==========( %s )==========", terminal.name)
+
         if not fs.acquire_terminal_doc_update_lock(terminal.name):
             msg = f"Terminal {terminal.name} document is locked."
             raise TerminalDocumentLockedError(msg)
-
-        # Set status of terminal to updating
-        fs.set_terminal_update_status(terminal.name, "UPDATING")
 
         # Pull down the latest terminal document
         terminal_update_fingerprint = fs.get_terminal_update_signature(terminal.name)
@@ -162,9 +161,8 @@ def update_terminal_pdfs(
             fs.release_terminal_doc_lock(terminal.name)
             return False
 
-        fs.set_terminal_update_signature(terminal.name, update_fingerprint)
-
-        logging.info("==========( %s )==========", terminal.name)
+        # Set status of terminal to updating
+        fs.set_terminal_update_status(terminal.name, "UPDATING")
 
         # Get list of PDF objects and only their hashes from terminal
         pdfs = get_terminal_pdfs(terminal, hash_only=True)
@@ -294,10 +292,15 @@ def update_terminal_pdfs(
                 logging.info("A new DISCARD pdf was found called: %s.", pdf.filename)
 
         # Release the lock
+        fs.set_terminal_update_signature(terminal.name, update_fingerprint)
         fs.set_terminal_last_check_timestamp(terminal.name)
         fs.release_terminal_doc_lock(terminal.name)
         fs.set_terminal_update_status(terminal.name, "SUCCESS")
         return True
+    except TerminalDocumentLockedError as e:
+        logging.error(e)
+        return False
+
     except Exception as e:
         logging.error("An error occurred while updating the terminal PDFs.")
         logging.error(e)
