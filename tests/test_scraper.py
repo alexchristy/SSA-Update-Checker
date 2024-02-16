@@ -115,10 +115,12 @@ class TestUpdateTerminalCollParallel(unittest.TestCase):
         self.terminal_coll = "**TestUpdateTerminalCollParallel**_Terminals"
         self.pdf_archive_coll = "**TestUpdateTerminalCollParallel**_PDF_Archive"
         self.lock_coll = "**TestUpdateTerminalCollParallel**_Locks"
+        self.firestore_cert = "./creds.json"
 
         os.environ["TERMINAL_COLL"] = self.terminal_coll
         os.environ["PDF_ARCHIVE_COLL"] = self.pdf_archive_coll
         os.environ["LOCK_COLL"] = self.lock_coll
+        os.environ["FS_CRED_PATH"] = self.firestore_cert
 
         self.fs = FirestoreClient()
 
@@ -209,7 +211,7 @@ class TestUpdateTerminalCollParallel(unittest.TestCase):
             time.sleep(uniform(0, 5))  # noqa: S311 (not for cryptographic purposes)
             return update_db_terminals(fs_client)
 
-        # Run 2 parallel threads to update the database
+        # Run 3 parallel threads to update the database
         with ThreadPoolExecutor(max_workers=3) as executor:
             futures = [
                 executor.submit(try_rand_update_db_terminals, self.fs) for _ in range(3)
