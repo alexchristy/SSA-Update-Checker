@@ -979,3 +979,140 @@ class FirestoreClient:
 
         # Reset the event if you need to wait for this condition again in the future
         terminal_lock_change_event.clear()
+
+    def set_terminal_last_check_timestamp(
+        self: "FirestoreClient", terminal_name: str
+    ) -> None:
+        """Add a timestamp to the terminal document of the last check.
+
+        Args:
+        ----
+            terminal_name (str): The name of the terminal to add the timestamp to.
+
+        Returns:
+        -------
+            None
+
+        """
+        terminal_coll = os.getenv("TERMINAL_COLL")
+
+        if not terminal_coll:
+            logging.error("Terminal collection name not found in enviroment variables.")
+            return
+
+        doc_ref = self.db.collection(terminal_coll).document(terminal_name)
+
+        update_data = {"lastCheckTimestamp": firestore.SERVER_TIMESTAMP}
+
+        try:
+            # Perform a non-transactional update to add the timestamp
+            doc_ref.update(update_data)
+            logging.info("Added timestamp to terminal '%s' last check.", terminal_name)
+        except Exception as e:
+            logging.error(
+                "Failed to add timestamp to terminal '%s' last check: %s",
+                terminal_name,
+                e,
+            )
+
+    def set_pdf_last_update_timestamp(
+        self: "FirestoreClient", terminal_name: str, pdf_type: str
+    ) -> None:
+        """Add a timestamp to the terminal document of the last update for a specific PDF type.
+
+        Args:
+        ----
+            terminal_name (str): The name of the terminal to add the timestamp to.
+            pdf_type (str): The type of the PDF to add the timestamp to.
+
+        Returns:
+        -------
+            None
+
+        """
+        terminal_coll = os.getenv("TERMINAL_COLL")
+
+        if not terminal_coll:
+            logging.error("Terminal collection name not found in enviroment variables.")
+            return
+
+        valid_pdf_types = ["72_HR", "30_DAY", "ROLLCALL"]
+
+        if pdf_type not in valid_pdf_types:
+            logging.error("Invalid PDF type: %s", pdf_type)
+            return
+
+        doc_ref = self.db.collection(terminal_coll).document(terminal_name)
+
+        if pdf_type == "72_HR":
+            pdf_type = "72Hour"
+        elif pdf_type == "30_DAY":
+            pdf_type = "30Day"
+        elif pdf_type == "ROLLCALL":
+            pdf_type = "Rollcall"
+        else:
+            logging.error("Invalid PDF type: %s", pdf_type)
+            return
+
+        update_data = {f"last{pdf_type}UpdateTimestamp": firestore.SERVER_TIMESTAMP}
+
+        try:
+            # Perform a non-transactional update to add the timestamp
+            doc_ref.update(update_data)
+            logging.info(
+                "Added timestamp to terminal '%s' last %s update.",
+                terminal_name,
+                pdf_type,
+            )
+        except Exception as e:
+            logging.error(
+                "Failed to add timestamp to terminal '%s' last %s update: %s",
+                terminal_name,
+                pdf_type,
+                e,
+            )
+
+    def set_terminal_update_status(
+        self: "FirestoreClient", terminal_name: str, status: str
+    ) -> None:
+        """Set the update status for a terminal document.
+
+        Valid statuses are: "UPDATING", "SUCCESS", "FAILED".
+
+        Args:
+        ----
+            terminal_name (str): The name of the terminal to set the update status for.
+            status (str): The status to set.
+
+        Returns:
+        -------
+            None
+
+        """
+        status = status.upper()
+        valid_statuses = ["UPDATING", "SUCCESS", "FAILED"]
+
+        if status not in valid_statuses:
+            logging.error("Invalid status: %s", status)
+            return
+
+        terminal_coll = os.getenv("TERMINAL_COLL")
+
+        if not terminal_coll:
+            logging.error("Terminal collection name not found in enviroment variables.")
+            return
+
+        doc_ref = self.db.collection(terminal_coll).document(terminal_name)
+
+        update_data = {"updateStatus": status}
+
+        try:
+            # Perform a non-transactional update to set the status
+            doc_ref.update(update_data)
+            logging.info(
+                "Set update status for terminal '%s' to '%s'.", terminal_name, status
+            )
+        except Exception as e:
+            logging.error(
+                "Failed to set update status for terminal '%s': %s", terminal_name, e
+            )
