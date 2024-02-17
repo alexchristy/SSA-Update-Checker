@@ -241,6 +241,7 @@ def get_with_retry(url: str) -> Optional[requests.Response]:
 
     max_attempts = 3
     delay = 2
+    timeout = 5
 
     url = ensure_url_encoded(url)
 
@@ -248,7 +249,7 @@ def get_with_retry(url: str) -> Optional[requests.Response]:
         try:
             logging.debug("Sending GET request.")
 
-            response = requests.get(url, timeout=5)
+            response = requests.get(url, timeout=timeout)
 
             logging.debug("GET request successful.")
             return response
@@ -265,6 +266,7 @@ def get_with_retry(url: str) -> Optional[requests.Response]:
             logging.info("Retrying request to %s in %d seconds...", url, delay)
             time.sleep(delay)  # Wait before next attempt
             delay *= 2
+            timeout += 5
 
         # It was the last attempt
         else:
