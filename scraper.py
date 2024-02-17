@@ -128,7 +128,7 @@ def update_db_terminals(
         return False
 
 
-def update_terminal_pdfs(
+def update_terminal_pdfs(  # noqa: PLR0913
     fs: FirestoreClient,
     s3: S3Bucket,
     terminal: Terminal,
@@ -136,6 +136,22 @@ def update_terminal_pdfs(
     num_pdfs_updated: int,
     terminals_updated: List[str],
 ) -> bool:
+    """Update the PDFs for a terminal.
+
+    Args:
+    ----
+        fs: A FirestoreClient object.
+        s3: An S3Bucket object.
+        terminal: A Terminal object.
+        update_fingerprint: The fingerprint of the current update run.
+        num_pdfs_updated: The number of PDFs updated.
+        terminals_updated: A list of terminals updated.
+
+    Returns:
+    -------
+        bool: True if the terminal was updated, False otherwise.
+
+    """
     try:
         logging.info("==========( %s )==========", terminal.name)
 
