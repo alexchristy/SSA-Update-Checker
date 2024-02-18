@@ -131,7 +131,13 @@ def initialize_app() -> None:
         "GOOGLE_MAPS_API_KEY",
         "LOCK_COLL",
         "SENTRY_DSN",
+        "LOCAL_EXEC",
     ]
+
+    local_exec = os.getenv("LOCAL_EXEC", "False")
+
+    if local_exec.lower() == "false":
+        vars_to_check = [var for var in vars_to_check if "aws" not in var.lower()]
 
     # Check if all .env variables are set
     if not check_env_variables(vars_to_check):
