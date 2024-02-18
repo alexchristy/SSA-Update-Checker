@@ -131,7 +131,15 @@ def initialize_app() -> None:
         "GOOGLE_MAPS_API_KEY",
         "LOCK_COLL",
         "SENTRY_DSN",
+        "LOCAL_EXEC",
     ]
+
+    # If not running locally, remove AWS environment variables
+    local_exec = os.getenv("LOCAL_EXEC", "false")
+    if local_exec.lower() == "false":
+        for var in vars_to_check:
+            if "aws" in var.lower():
+                vars_to_check.remove(var)
 
     # Check if all .env variables are set
     if not check_env_variables(vars_to_check):
