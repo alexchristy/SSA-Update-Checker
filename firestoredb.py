@@ -1,13 +1,56 @@
 import logging
 import os
-from typing import Any, Dict, List, Optional
+import threading
+from datetime import datetime
+from functools import partial
+from typing import Any, Callable, Dict, List, Optional
+from uuid import uuid4
 
 from firebase_admin import credentials, firestore, initialize_app  # type: ignore
+from google.cloud.firestore import (  # type: ignore
+    DocumentReference,
+    DocumentSnapshot,
+    Transaction,
+)
 
 from location_tz import TerminalTzFinder
 from pdf import Pdf
 from scraper_utils import is_valid_sha256
 from terminal import Terminal
+
+# Global or shared event object
+terminal_lock_change_event = threading.Event()
+
+
+def attribute_update_callback(
+    attribute_name: str, event: threading.Event
+) -> Callable[[Dict[str, Any]], None]:
+    """Create a callback function that signals an event when a specific attribute changes.
+
+    Args:
+    ----
+        attribute_name (str): The name of the attribute to watch for changes.
+        event (threading.Event): The event to signal when the attribute changes.
+
+    Returns:
+    -------
+        Callable[[Dict[str, Any]], None]: The callback function that signals the event when the attribute changes.
+
+    """
+
+    def callback(changed_attributes: Dict[str, Any]) -> None:
+        if attribute_name in changed_attributes:
+            new_value = changed_attributes[attribute_name]
+            logging.info(
+                "%s status changed to: %s.",
+                attribute_name,
+                new_value,
+            )
+            event.set()  # Signal that the attribute has changed
+        else:
+            logging.info("No change detected in %s.", attribute_name)
+
+    return callback
 
 
 class FirestoreClient:
@@ -31,6 +74,70 @@ class FirestoreClient:
         # Create the Firestore client
         self.db = firestore.client(app=self.app)
 
+    def get_document(
+        self: "FirestoreClient", collection_name: str, document_id: str
+    ) -> Optional[Dict[str, Any]]:
+        """Fetch a document from Firestore.
+
+        Args:
+        ----
+            collection_name: The name of the collection where the document is stored.
+            document_id: The ID of the document to retrieve.
+
+        Returns:
+        -------
+            The document data as a dictionary if the document exists, otherwise None.
+
+        """
+        # Create a reference to the document
+        doc_ref = self.db.collection(collection_name).document(document_id)
+
+        # Attempt to fetch the document
+        doc = doc_ref.get()
+
+        # Check if the document exists
+        if doc.exists:
+            print("Document data:", doc.to_dict())
+            return doc.to_dict()
+
+        print("No such document!")
+        return None
+
+    def _on_snapshot(  # noqa: PLR0913
+        self: "FirestoreClient",
+        attributes: List[str],
+        callback: Callable[[Dict[str, Any]], None],
+        doc_snapshot: List[DocumentSnapshot],
+        changes: List[Any],
+        read_time: datetime,
+    ) -> None:
+        """Handle real-time updates to documents in a generic manner.
+
+        Args:
+        ----
+            attributes (List[str]): List of document attributes to track.
+            callback (Callable[[Dict[str, any]], None]): Callback function to execute with the changed attributes.
+            doc_snapshot (List[DocumentSnapshot]): The snapshot of the document.
+            changes (List[DocumentChange]): A list of changes made to the document.
+            read_time (datetime): The time of the read.
+
+        """
+        for change in changes:
+            if change.type.name == "MODIFIED":
+                logging.info("Document modified.")
+                changed_data = change.document.to_dict()
+                changed_attributes = {
+                    attr: changed_data[attr]
+                    for attr in attributes
+                    if attr in changed_data
+                }
+                if changed_attributes:
+                    callback(changed_attributes)
+            elif change.type.name == "ADDED":
+                logging.info("Document added.")
+            elif change.type.name == "REMOVED":
+                logging.info("Document removed.")
+
     def set_document(
         self: "FirestoreClient",
         collection_name: str,
@@ -48,6 +155,7 @@ class FirestoreClient:
         Returns:
         -------
             None
+
         """
         doc_ref = self.db.collection(collection_name).document(document_name)
         doc_ref.set(data)
@@ -71,6 +179,7 @@ class FirestoreClient:
         Returns:
         -------
             None
+
         """
         doc_ref = self.db.collection(collection_name).document(document_name)
         doc_ref.set(data, merge=True)
@@ -88,6 +197,7 @@ class FirestoreClient:
         Returns:
         -------
             None
+
         """
         # Get enviroment variable
         terminal_coll = os.getenv("TERMINAL_COLL")
@@ -127,6 +237,7 @@ class FirestoreClient:
         Returns:
         -------
             None
+
         """
         # Get enviroment variable
         terminal_coll = os.getenv("TERMINAL_COLL")
@@ -162,6 +273,7 @@ class FirestoreClient:
         Returns:
         -------
             None
+
         """
         # Get enviroment variable
         pdf_archive_coll = os.getenv("PDF_ARCHIVE_COLL")
@@ -184,6 +296,7 @@ class FirestoreClient:
         Returns:
         -------
             bool: True if the PDF has been seen before, False otherwise
+
         """
         # If hash is not valid return True so that the PDF
         # is discarded.
@@ -233,6 +346,7 @@ class FirestoreClient:
         Returns:
         -------
             bool: True if the PDF was archived, False otherwise
+
         """
         if pdf.seen_before:
             logging.warning(
@@ -266,6 +380,7 @@ class FirestoreClient:
         Returns:
         -------
             Optional[Pdf]: The retrieved PDF object, or None if the PDF was not found
+
         """
         logging.info("Entering get_pdf_by_hash().")
 
@@ -310,6 +425,7 @@ class FirestoreClient:
         Returns
         -------
             list[Terminal]: A list of all terminal objects
+
         """
         terminal_coll = os.getenv("TERMINAL_COLL")
 
@@ -346,6 +462,7 @@ class FirestoreClient:
         Returns:
         -------
             bool: True if the terminals were updated, False otherwise
+
         """
         if not scraped_terminals:
             logging.error("No terminals provided to update.")
@@ -370,26 +487,34 @@ class FirestoreClient:
         # Check for discrepancies between the number of terminals in the database
         # and the number of terminals found by the scraper
         if len(terminals_from_db) != len(scraped_terminals):
-            scraper_terminal_set = set(scraped_terminals)
-            old_terminal_set = set(terminals_from_db)
+            scraper_terminal_set = {terminal.name for terminal in scraped_terminals}
+            old_terminal_set = {terminal.name for terminal in terminals_from_db}
 
             # Get the difference between the two sets
-            terminal_diff = scraper_terminal_set - old_terminal_set
-            diff_names = [terminal.name for terminal in terminal_diff]
+            diff_terminal_names = scraper_terminal_set - old_terminal_set
 
             if len(scraped_terminals) > len(terminals_from_db):
-                logging.info("New terminals found: %s", diff_names)
+                logging.info("New terminals found: %s", diff_terminal_names)
 
                 # Get the terminals that have never been seen before
-                never_seen_terminals = list(terminal_diff)
-                seen_terminals = list(scraper_terminal_set - terminal_diff)
+                for terminal in scraped_terminals:
+                    if terminal.name in diff_terminal_names:
+                        never_seen_terminals.append(terminal)
+
+                # Get the terminals that have been seen before
+                for terminal in terminals_from_db:
+                    if terminal.name not in diff_terminal_names:
+                        seen_terminals.append(terminal)
 
             if len(terminals_from_db) > len(scraped_terminals):
-                logging.error("Scraper missed terminals: %s", diff_names)
+                logging.critical("Scraper missed terminals: %s", diff_terminal_names)
                 return False
         else:
             logging.info("No discrepancies found between the database and scraper.")
             seen_terminals = scraped_terminals
+
+        if not never_seen_terminals:
+            logging.info("No new terminals found.")
 
         tz_finder = TerminalTzFinder()
 
@@ -467,6 +592,7 @@ class FirestoreClient:
         Returns:
         -------
             Optional[bool]: Returns True if the operation is successful, None otherwise.
+
         """
         coll_ref = self.db.collection(collection_name)
         return self._delete_collection_batch(coll_ref, batch_size)
@@ -488,3 +614,505 @@ class FirestoreClient:
             return self._delete_collection_batch(coll_ref, batch_size)
 
         return True
+
+    def acquire_terminal_coll_update_lock(self: "FirestoreClient") -> bool:
+        """Atomically acquire the terminal update lock.
+
+        Returns
+        -------
+            bool: True if the lock was successfully acquired, False otherwise.
+
+        """
+        lock_coll = os.getenv("LOCK_COLL", "Locks")
+        lock_doc_ref = self.db.collection(lock_coll).document("terminal_update_lock")
+
+        @firestore.transactional
+        def update_in_transaction(
+            transaction: Transaction,
+            doc_ref: DocumentReference,
+        ) -> bool:
+            """Update a document in a Firestore transaction.
+
+            Args:
+            ----
+                transaction (Transaction): The Firestore transaction object.
+                doc_ref (DocumentReference): The reference to the document to update.
+
+            Returns:
+            -------
+                bool: True if the lock was successfully acquired, False otherwise.
+
+            """
+            snapshot = doc_ref.get(transaction=transaction)
+            new_lock_state = not snapshot.exists or not snapshot.get("lock")
+
+            if new_lock_state:
+                if snapshot.exists:
+                    # Update the existing document
+                    transaction.update(doc_ref, {"lock": True})
+                else:
+                    # Create the document if it does not exist
+                    transaction.set(doc_ref, {"lock": True})
+
+            return new_lock_state
+
+        # Execute the transaction
+        try:
+            transaction = self.db.transaction()
+            return update_in_transaction(transaction, lock_doc_ref)
+        except Exception as e:
+            logging.error("Failed to acquire terminal update lock: %s", e)
+            return False
+
+    def acquire_terminal_doc_update_lock(
+        self: "FirestoreClient", terminal_name: str
+    ) -> bool:
+        """Atomically acquire a lock for updating a single terminal document.
+
+        Args:
+        ----
+            terminal_name (str): The name of the terminal to acquire the lock for.
+
+        Returns:
+        -------
+            bool: True if the lock was successfully acquired, False otherwise.
+
+        """
+        lock_coll = os.getenv("TERMINAL_COLL", "Terminals")
+        lock_doc_ref = self.db.collection(lock_coll).document(terminal_name)
+
+        # Define the transactional operation for acquiring the lock
+        @firestore.transactional
+        def update_in_transaction(transaction, doc_ref) -> bool:  # noqa: ANN001
+            snapshot = doc_ref.get(transaction=transaction)
+            if snapshot.exists:
+                current_lock_state = snapshot.get("pdfUpdateLock")
+                if not current_lock_state:
+                    transaction.update(doc_ref, {"pdfUpdateLock": True})
+                    return True
+            return False
+
+        # Execute the transaction
+        try:
+            transaction = self.db.transaction()
+            result = update_in_transaction(transaction, lock_doc_ref)
+            if result:
+                logging.info(
+                    "Successfully acquired update lock for terminal '%s'.",
+                    terminal_name,
+                )
+            else:
+                logging.warning(
+                    "Failed to acquire update lock for terminal '%s' because it's already locked.",
+                    terminal_name,
+                )
+            return result
+        except Exception as e:
+            logging.error(
+                "Failed to acquire terminal update lock for '%s': %s", terminal_name, e
+            )
+            return False
+
+    def set_terminal_update_lock_timestamp(self: "FirestoreClient") -> bool:
+        """Add a timestamp to the terminal_update_lock document."""
+        lock_coll = os.getenv("LOCK_COLL", "Locks")
+
+        lock_doc_ref = self.db.collection(lock_coll).document("terminal_update_lock")
+
+        update_data = {"timestamp": firestore.SERVER_TIMESTAMP}
+
+        try:
+            # Perform a non-transactional update to add the timestamp
+            lock_doc_ref.set(update_data, merge=True)
+            logging.info("Added timestamp to terminal update lock.")
+            return True
+
+        except Exception as e:
+            logging.error("Failed to add timestamp to terminal update lock: %s", e)
+            return False
+
+    def get_terminal_update_lock_timestamp(
+        self: "FirestoreClient",
+    ) -> Optional[datetime]:
+        """Get the timestamp from the terminal update lock document.
+
+        Returns
+        -------
+            Optional[datetime]: The timestamp, or None if the document does not exist
+
+        """
+        lock_coll = os.getenv("LOCK_COLL", "Locks")
+        lock_doc_ref = self.db.collection(lock_coll).document("terminal_update_lock")
+
+        doc = lock_doc_ref.get()
+
+        if doc.exists:
+
+            try:
+                return doc.get("timestamp")
+            except KeyError:
+                logging.error("Timestamp not found in terminal update lock document.")
+                return None
+
+        return None
+
+    def add_termimal_update_fingerprint(self: "FirestoreClient") -> None:
+        """Add a fingerprint to the terminal update lock document.
+
+        This will be used in conjunction with terminal names to sign off pdf update job
+        completion. This can be used to check if the terminal update job was completed
+        in the current run of the program or a previous run.
+        """
+        lock_coll = os.getenv("LOCK_COLL", "Locks")  # Use a default value or from env
+        lock_doc_ref = self.db.collection(lock_coll).document("terminal_update_lock")
+
+        update_data = {"fingerprint": str(uuid4())}
+
+        try:
+            # Perform a non-transactional update to release the lock
+            lock_doc_ref.set(update_data, merge=True)
+            logging.info("Added fingerprint to terminal update lock.")
+        except Exception as e:
+            logging.error("Failed to add fingerprint to terminal update lock: %s", e)
+
+    def get_terminal_update_fingerprint(self: "FirestoreClient") -> Optional[str]:
+        """Get the fingerprint from the terminal update lock document.
+
+        Returns
+        -------
+            Optional[str]: The fingerprint, or None if the document does not exist
+
+        """
+        lock_coll = os.getenv("LOCK_COLL", "Locks")
+        lock_doc_ref = self.db.collection(lock_coll).document("terminal_update_lock")
+
+        doc = lock_doc_ref.get()
+
+        if doc.exists:
+            return doc.get("fingerprint")
+
+        return None
+
+    def release_terminal_lock(self: "FirestoreClient") -> None:
+        """Release the terminal update lock.
+
+        This function sets the lock attribute to False, effectively releasing the lock.
+        """
+        lock_coll = os.getenv("LOCK_COLL", "Locks")  # Use a default value or from env
+        lock_doc_ref = self.db.collection(lock_coll).document("terminal_update_lock")
+
+        # Update the lock attribute to False
+        update_data = {"lock": False}
+
+        try:
+            # Perform a non-transactional update to release the lock
+            lock_doc_ref.set(update_data, merge=True)
+            logging.info("Terminal update lock released.")
+        except Exception as e:
+            logging.error("Failed to release terminal update lock: %s", e)
+
+    def watch_terminal_update_lock(self: "FirestoreClient") -> None:
+        """Watch the terminal update lock for changes in Firestore."""
+        lock_coll = os.getenv("LOCK_COLL", "Locks")
+        document_id = "terminal_update_lock"
+        attribute_to_watch = "lock"
+
+        # Pass the event object to the callback function
+        callback = attribute_update_callback(
+            attribute_to_watch, terminal_lock_change_event
+        )
+
+        # Define a partial function for the _on_snapshot with pre-defined attributes and callback
+        on_snapshot_callback = partial(
+            self._on_snapshot, [attribute_to_watch], callback
+        )
+
+        # Get a reference to the document
+        doc_ref: DocumentReference = self.db.collection(lock_coll).document(document_id)
+
+        # Set up the listener
+        try:
+            doc_watch = doc_ref.on_snapshot(on_snapshot_callback)  # noqa: F841
+            logging.info(
+                "Started watching '%s' for changes in '%s' collection.",
+                document_id,
+                lock_coll,
+            )
+        except Exception as e:
+            logging.error("Failed to set up watch on '%s': %s", document_id, e)
+
+    def release_terminal_doc_lock(self: "FirestoreClient", terminal_name: str) -> None:
+        """Release the lock for updating a single terminal document.
+
+        Args:
+        ----
+            terminal_name (str): The name of the terminal to release the lock for.
+
+        """
+        lock_coll = os.getenv("TERMINAL_COLL", "Terminals")
+        lock_doc_ref = self.db.collection(lock_coll).document(terminal_name)
+
+        # Update the lock attribute to False
+        update_data = {"pdfUpdateLock": False}
+
+        try:
+            # Perform a non-transactional update to release the lock
+            lock_doc_ref.set(update_data, merge=True)
+            logging.info("Released update lock for terminal '%s'.", terminal_name)
+        except Exception as e:
+            logging.error(
+                "Failed to release update lock for terminal '%s': %s", terminal_name, e
+            )
+
+    def get_terminal_update_signature(
+        self: "FirestoreClient", terminal_name: str
+    ) -> Optional[str]:
+        """Get the fingerprint from the terminal update lock document.
+
+        Args:
+        ----
+            terminal_name (str): The name of the terminal to get the fingerprint for.
+
+        Returns:
+        -------
+            Optional[str]: The fingerprint, or None if the document does not exist
+
+        """
+        lock_coll = os.getenv("TERMINAL_COLL", "Terminals")
+        lock_doc_ref = self.db.collection(lock_coll).document(terminal_name)
+
+        doc = lock_doc_ref.get()
+
+        if doc.exists:
+            return doc.get("pdfUpdateSignature")
+
+        return None
+
+    def set_terminal_update_signature(
+        self: "FirestoreClient", terminal_name: str, signature: str
+    ) -> None:
+        """Set the fingerprint for the terminal update lock document.
+
+        Args:
+        ----
+            terminal_name (str): The name of the terminal to set the fingerprint for.
+            signature (str): The fingerprint to set.
+
+        """
+        lock_coll = os.getenv("TERMINAL_COLL", "Terminals")
+        lock_doc_ref = self.db.collection(lock_coll).document(terminal_name)
+
+        update_data = {"pdfUpdateSignature": signature}
+
+        try:
+            # Perform a non-transactional update to set the fingerprint
+            lock_doc_ref.set(update_data, merge=True)
+            logging.info(
+                "Set fingerprint for terminal '%s' to '%s'.", terminal_name, signature
+            )
+        except Exception as e:
+            logging.error(
+                "Failed to set fingerprint for terminal '%s': %s", terminal_name, e
+            )
+
+    def safely_release_terminal_lock(self: "FirestoreClient") -> None:
+        """Safely release the terminal update lock by flipping the lock state twice.
+
+        This ensures that other instances see a change.
+        """
+        try:
+            self.release_terminal_lock()
+
+            # Then, acquire the lock to signal a change to other instances.
+            self.acquire_terminal_coll_update_lock()
+
+        except Exception as e:
+            logging.error("Failed to safely release terminal update lock: %s", e)
+
+        # Finally, release the lock as originally intended.
+        self.release_terminal_lock()
+
+    def get_terminal_coll_update_lock_value(self: "FirestoreClient") -> bool:
+        """Get the terminal update lock value.
+
+        Returns
+        -------
+            bool: True if the lock was successfully acquired, False otherwise.
+
+        """
+        lock_status = self.acquire_terminal_coll_update_lock()
+
+        if lock_status:
+            self.safely_release_terminal_lock()
+
+        # Acquire lock = True means the lock was successfully acquired
+        # and the lock is currently was set to False.
+        return not lock_status
+
+    def wait_for_terminal_lock_change(self: "FirestoreClient") -> None:
+        """Wait for the terminal_update_lock 'lock' attribute to change.
+
+        First we wait only for 5 seconds and then check if the lock was already false. This
+        can happen if the lock was acquired by another instance and then released before we
+        could watch for changes. If the lock was already false, we can stop waiting. If not
+        we did not miss the change and can continue waiting.
+        """
+        logging.info("Waiting for terminal_update_lock 'lock' attribute to change...")
+
+        try:
+            terminal_lock_change_event.wait(
+                timeout=5
+            )  # This will block until the event is set
+        except TimeoutError:
+            logging.info(
+                "Timed out after 5 seconds waiting for terminal_update_lock 'lock' attribute to change."
+            )
+
+            # If lock is false we missed the change and can stop waiting
+            if not self.get_terminal_coll_update_lock_value():
+                logging.info("terminal_update_lock 'lock' was already false.")
+                return
+
+        terminal_lock_change_event.wait()  # Block until the event is set
+
+        logging.info("terminal_update_lock 'lock' attribute changed!")
+
+        # Reset the event if you need to wait for this condition again in the future
+        terminal_lock_change_event.clear()
+
+    def set_terminal_last_check_timestamp(
+        self: "FirestoreClient", terminal_name: str
+    ) -> None:
+        """Add a timestamp to the terminal document of the last check.
+
+        Args:
+        ----
+            terminal_name (str): The name of the terminal to add the timestamp to.
+
+        Returns:
+        -------
+            None
+
+        """
+        terminal_coll = os.getenv("TERMINAL_COLL")
+
+        if not terminal_coll:
+            logging.error("Terminal collection name not found in enviroment variables.")
+            return
+
+        doc_ref = self.db.collection(terminal_coll).document(terminal_name)
+
+        update_data = {"lastCheckTimestamp": firestore.SERVER_TIMESTAMP}
+
+        try:
+            # Perform a non-transactional update to add the timestamp
+            doc_ref.update(update_data)
+            logging.info("Added timestamp to terminal '%s' last check.", terminal_name)
+        except Exception as e:
+            logging.error(
+                "Failed to add timestamp to terminal '%s' last check: %s",
+                terminal_name,
+                e,
+            )
+
+    def set_pdf_last_update_timestamp(
+        self: "FirestoreClient", terminal_name: str, pdf_type: str
+    ) -> None:
+        """Add a timestamp to the terminal document of the last update for a specific PDF type.
+
+        Args:
+        ----
+            terminal_name (str): The name of the terminal to add the timestamp to.
+            pdf_type (str): The type of the PDF to add the timestamp to.
+
+        Returns:
+        -------
+            None
+
+        """
+        terminal_coll = os.getenv("TERMINAL_COLL")
+
+        if not terminal_coll:
+            logging.error("Terminal collection name not found in enviroment variables.")
+            return
+
+        valid_pdf_types = ["72_HR", "30_DAY", "ROLLCALL"]
+
+        if pdf_type not in valid_pdf_types:
+            logging.error("Invalid PDF type: %s", pdf_type)
+            return
+
+        doc_ref = self.db.collection(terminal_coll).document(terminal_name)
+
+        if pdf_type == "72_HR":
+            pdf_type = "72Hour"
+        elif pdf_type == "30_DAY":
+            pdf_type = "30Day"
+        elif pdf_type == "ROLLCALL":
+            pdf_type = "Rollcall"
+        else:
+            logging.error("Invalid PDF type: %s", pdf_type)
+            return
+
+        update_data = {f"last{pdf_type}UpdateTimestamp": firestore.SERVER_TIMESTAMP}
+
+        try:
+            # Perform a non-transactional update to add the timestamp
+            doc_ref.update(update_data)
+            logging.info(
+                "Added timestamp to terminal '%s' last %s update.",
+                terminal_name,
+                pdf_type,
+            )
+        except Exception as e:
+            logging.error(
+                "Failed to add timestamp to terminal '%s' last %s update: %s",
+                terminal_name,
+                pdf_type,
+                e,
+            )
+
+    def set_terminal_update_status(
+        self: "FirestoreClient", terminal_name: str, status: str
+    ) -> None:
+        """Set the update status for a terminal document.
+
+        Valid statuses are: "UPDATING", "SUCCESS", "FAILED".
+
+        Args:
+        ----
+            terminal_name (str): The name of the terminal to set the update status for.
+            status (str): The status to set.
+
+        Returns:
+        -------
+            None
+
+        """
+        status = status.upper()
+        valid_statuses = ["UPDATING", "SUCCESS", "FAILED"]
+
+        if status not in valid_statuses:
+            logging.error("Invalid status: %s", status)
+            return
+
+        terminal_coll = os.getenv("TERMINAL_COLL")
+
+        if not terminal_coll:
+            logging.error("Terminal collection name not found in enviroment variables.")
+            return
+
+        doc_ref = self.db.collection(terminal_coll).document(terminal_name)
+
+        update_data = {"updateStatus": status}
+
+        try:
+            # Perform a non-transactional update to set the status
+            doc_ref.update(update_data)
+            logging.info(
+                "Set update status for terminal '%s' to '%s'.", terminal_name, status
+            )
+        except Exception as e:
+            logging.error(
+                "Failed to set update status for terminal '%s': %s", terminal_name, e
+            )

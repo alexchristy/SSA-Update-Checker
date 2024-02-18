@@ -10,7 +10,6 @@ from typing import Any, Callable, List, Optional, Tuple
 from urllib.parse import quote, unquote, urlparse
 
 import requests
-from dotenv import load_dotenv
 
 
 def timing_decorator(func: Callable[..., Any]) -> Callable[..., Any]:
@@ -23,6 +22,7 @@ def timing_decorator(func: Callable[..., Any]) -> Callable[..., Any]:
     Returns:
     -------
         The decorated function.
+
     """
 
     @wraps(func)
@@ -55,13 +55,17 @@ def check_env_variables(variables: List[str]) -> bool:
     Returns:
     -------
         True if all of the environment variables are set, False otherwise.
+
     """
-    load_dotenv()
+    set_env_vars = list(os.environ.keys())
 
     empty_vars = []
     for var in variables:
-        value = os.getenv(var)
-        if not value:
+        if var not in set_env_vars:
+            logging.error("The following variable is missing in .env: %s", var)
+            empty_vars.append(var)
+        elif not os.getenv(var):
+            logging.error("The following variable is empty in .env: %s", var)
             empty_vars.append(var)
 
     if empty_vars:
@@ -122,6 +126,7 @@ def check_local_pdf_dirs() -> bool:
     Returns
     -------
         True if the directories are successfully created or already exist, False otherwise.
+
     """
     base_dir = os.getenv("PDF_DIR")
 
@@ -176,6 +181,7 @@ def ensure_url_encoded(url: str) -> str:
     Returns:
     -------
         The encoded URL.
+
     """
     unquoted_url = unquote(url)
 
@@ -205,6 +211,7 @@ def extract_relative_path_from_full_path(
     -------
         If full_path is "/home/user/documents/archive/2023/report.pdf" and
         base_segment is "archive", the function will return "archive/2023/report.pdf".
+
     """
     if not base_segment:
         logging.error("base_segment is empty.")
@@ -228,11 +235,13 @@ def get_with_retry(url: str) -> Optional[requests.Response]:
     Returns:
     -------
         The response object if the request was successful, None otherwise.
+
     """
     logging.debug("Entering get_with_retry() requesting: %s", url)
 
     max_attempts = 3
     delay = 2
+    timeout = 5
 
     url = ensure_url_encoded(url)
 
@@ -240,7 +249,7 @@ def get_with_retry(url: str) -> Optional[requests.Response]:
         try:
             logging.debug("Sending GET request.")
 
-            response = requests.get(url, timeout=5)
+            response = requests.get(url, timeout=timeout)
 
             logging.debug("GET request successful.")
             return response
@@ -257,6 +266,7 @@ def get_with_retry(url: str) -> Optional[requests.Response]:
             logging.info("Retrying request to %s in %d seconds...", url, delay)
             time.sleep(delay)  # Wait before next attempt
             delay *= 2
+            timeout += 5
 
         # It was the last attempt
         else:
@@ -275,6 +285,7 @@ def calc_sha256_hash(input_string: str) -> str:
     Returns:
     -------
         The SHA-256 hash of the input string.
+
     """
     # Create a new SHA-256 hash object
     sha256_hash = hashlib.sha256()
@@ -296,6 +307,7 @@ def is_valid_sha256(s: str) -> bool:
     Returns:
     -------
         True if the string is a valid SHA256 checksum, False otherwise.
+
     """
     hash_length = 64
 
@@ -319,6 +331,7 @@ def normalize_url(url: str) -> str:
     Returns:
     -------
         The normalized URL, or an empty string if the URL is malformed.
+
     """
     logging.debug("Entering normalize_url()")
 
@@ -345,6 +358,7 @@ def get_pdf_name(url: str) -> str:
     Returns:
     -------
         The name of the PDF file, or an empty string if no PDF file is present.
+
     """
     result = urlparse(url)
     path = unquote(result.path)
@@ -368,6 +382,7 @@ def gen_pdf_name_uuid(file_path: str) -> str:
     Returns:
     -------
         The new file name.
+
     """
     dir_path, file_name = os.path.split(file_path)
     base_name, ext = os.path.splitext(file_name)
@@ -397,6 +412,7 @@ def format_pdf_metadata_date(date_str: str) -> Optional[str]:
     Returns:
     -------
         The formatted date string, or None if the date string is invalid.
+
     """
     if date_str is None:
         return None
