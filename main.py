@@ -190,7 +190,7 @@ def main() -> None:
     num_pdfs_updated = 0
 
     for terminal in list_of_terminals:
-        scraper.update_terminal_pdfs(
+        _, num_pdfs_updated = scraper.update_terminal_pdfs(
             fs,
             s3,
             terminal,

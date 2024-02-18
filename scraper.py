@@ -1,7 +1,7 @@
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
-from typing import List
+from typing import List, Tuple
 from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup  # type: ignore
@@ -136,7 +136,7 @@ def update_terminal_pdfs(  # noqa: PLR0913
     num_pdfs_updated: int,
     terminals_updated: List[str],
     terminals_checked: List[str],
-) -> bool:
+) -> Tuple[bool, int]:
     """Update the PDFs for a terminal.
 
     Args:
@@ -177,7 +177,7 @@ def update_terminal_pdfs(  # noqa: PLR0913
                 "Terminal %s has already been updated in this run.", terminal.name
             )
             fs.release_terminal_doc_lock(terminal.name)
-            return False
+            return False, num_pdfs_updated
 
         # Set status of terminal to updating
         fs.set_terminal_update_status(terminal.name, "UPDATING")
@@ -318,17 +318,17 @@ def update_terminal_pdfs(  # noqa: PLR0913
         fs.set_terminal_last_check_timestamp(terminal.name)
         fs.set_terminal_update_status(terminal.name, "SUCCESS")
         fs.release_terminal_doc_lock(terminal.name)
-        return True
+        return True, num_pdfs_updated
     except TerminalDocumentLockedError as e:
         logging.error(e)
-        return False
+        return False, num_pdfs_updated
 
     except Exception as e:
         logging.error("An error occurred while updating the terminal PDFs.")
         logging.error(e)
         fs.release_terminal_doc_lock(terminal.name)
         fs.set_terminal_update_status(terminal.name, "FAILED")
-        return False
+        return False, num_pdfs_updated
 
 
 def get_active_terminals(url: str) -> List[Terminal]:
