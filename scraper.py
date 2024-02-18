@@ -135,6 +135,7 @@ def update_terminal_pdfs(  # noqa: PLR0913
     update_fingerprint: str,
     num_pdfs_updated: int,
     terminals_updated: List[str],
+    terminals_checked: List[str],
 ) -> bool:
     """Update the PDFs for a terminal.
 
@@ -146,6 +147,7 @@ def update_terminal_pdfs(  # noqa: PLR0913
         update_fingerprint: The fingerprint of the current update run.
         num_pdfs_updated: The number of PDFs updated.
         terminals_updated: A list of terminals updated.
+        terminals_checked: A list of terminals checked.
 
     Returns:
     -------
@@ -216,6 +218,9 @@ def update_terminal_pdfs(  # noqa: PLR0913
                 msg = f"PDF type {db_pdf.type} is not recognized."
                 logging.error(msg)
                 raise ValueError(msg)
+
+        if not pdfs:
+            logging.warning("No PDFs found for %s.", terminal.name)
 
         # Remove DISCARD PDFs from list
         pdfs_cleaned = [pdf for pdf in pdfs if pdf.type != "DISCARD"]
@@ -308,10 +313,11 @@ def update_terminal_pdfs(  # noqa: PLR0913
                 logging.info("A new DISCARD pdf was found called: %s.", pdf.filename)
 
         # Release the lock
+        terminals_checked.append(terminal.name)
         fs.set_terminal_update_signature(terminal.name, update_fingerprint)
         fs.set_terminal_last_check_timestamp(terminal.name)
-        fs.release_terminal_doc_lock(terminal.name)
         fs.set_terminal_update_status(terminal.name, "SUCCESS")
+        fs.release_terminal_doc_lock(terminal.name)
         return True
     except TerminalDocumentLockedError as e:
         logging.error(e)

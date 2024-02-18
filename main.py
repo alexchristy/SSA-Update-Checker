@@ -186,15 +186,28 @@ def main() -> None:
 
     # Summary variables
     terminals_updated: List[str] = []
+    terminals_checked: List[str] = []
     num_pdfs_updated = 0
 
     for terminal in list_of_terminals:
         scraper.update_terminal_pdfs(
-            fs, s3, terminal, update_fingerprint, num_pdfs_updated, terminals_updated
+            fs,
+            s3,
+            terminal,
+            update_fingerprint,
+            num_pdfs_updated,
+            terminals_updated,
+            terminals_checked,
         )
 
     # Generate summary logs before exiting
     logging.info("======== Summary of Updates ========")
+
+    logging.info(
+        "%d terminals checked: %s",
+        len(set(terminals_checked)),
+        ", ".join(set(terminals_checked)),
+    )
 
     if terminals_updated:
         logging.info(

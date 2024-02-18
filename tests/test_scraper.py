@@ -8,9 +8,13 @@ import unittest
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 from random import uniform
+from typing import List
 from unittest.mock import MagicMock, patch
+from zoneinfo import ZoneInfo
 
 from firestoredb import FirestoreClient
+from s3_bucket import S3Bucket
+from terminal import Terminal
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(current_dir + "/../")
@@ -18,6 +22,7 @@ sys.path.append(current_dir + "/../")
 from scraper import (  # noqa: E402 (Need to import after adding to path)
     get_active_terminals,
     update_db_terminals,
+    update_terminal_pdfs,
 )
 
 
@@ -530,6 +535,398 @@ class TestUpdateTerminalCollErrors(unittest.TestCase):
 
     def tearDown(self: "TestUpdateTerminalCollErrors") -> None:
         """Tear down the test cases for TestUpdateTerminalCollErrors."""
+        # Delete the test collections
+        self.fs.delete_collection(self.terminal_coll)
+        self.fs.delete_collection(self.pdf_archive_coll)
+        self.fs.delete_collection(self.lock_coll)
+
+
+class TestUpdateTerminalPdfs(unittest.TestCase):
+    """Test the update_terminal_pdfs function."""
+
+    def setUp(self: "TestUpdateTerminalPdfs") -> None:
+        """Set up the test cases for TestUpdateTerminalPdfs."""
+        # Create a FirestoreClient object
+        # Set collection names
+        self.terminal_coll = "**TestUpdateTerminalPdfs**_Terminals"
+        self.pdf_archive_coll = "**TestUpdateTerminalPdfs**_PDF_Archive"
+        self.lock_coll = "**TestUpdateTerminalPdfs**_Locks"
+        self.firestore_cert = "./creds.json"
+
+        os.environ["TERMINAL_COLL"] = self.terminal_coll
+        os.environ["PDF_ARCHIVE_COLL"] = self.pdf_archive_coll
+        os.environ["LOCK_COLL"] = self.lock_coll
+        os.environ["FS_CRED_PATH"] = self.firestore_cert
+
+        self.fs = FirestoreClient()
+        self.s3 = S3Bucket()
+
+        # Load the serialized response
+        with open(
+            "tests/assets/TestUpdateTerminalPdfs/bwi_page_02-17-2024.pkl",
+            "rb",
+        ) as file:
+            self.bwi_page = pickle.load(file)  # noqa: S301 (Loading test data)
+
+        with open(
+            "tests/assets/TestUpdateTerminalPdfs/dover_page_02-17-24_NO_PDFS.pkl",
+            "rb",
+        ) as file:
+            self.dover_page_no_pdfs = pickle.load(  # noqa: S301 (Loading test data)
+                file
+            )
+
+        with open(
+            "tests/assets/TestUpdateTerminalPdfs/andrews_page_02-17-24_NO_PDFS.pkl",
+            "rb",
+        ) as file:
+            self.andrews_page_no_pdfs = pickle.load(  # noqa: S301 (Loading test data)
+                file
+            )
+
+        with open(
+            "tests/assets/TestUpdateTerminalPdfs/seattle_page_02-17-24_NO_PDFS.pkl",
+            "rb",
+        ) as file:
+            self.seattle_page_no_pdfs = pickle.load(  # noqa: S301 (Loading test data)
+                file
+            )
+
+        with open(
+            "tests/assets/TestUpdateTerminalPdfs/charleston_page_02-17-24_NO_PDFS.pkl",
+            "rb",
+        ) as file:
+            self.charleston_page_no_pdfs = pickle.load(
+                file
+            )  # noqa: S301 (Loading test data)
+
+    @patch("scraper.scraper_utils.get_with_retry")
+    def test_update_terminal_fail_unlocked(
+        self: "TestUpdateTerminalPdfs", mock_get_with_retry: MagicMock
+    ) -> None:
+        """Test that the function unlocks the terminal if it fails to update the pdfs."""
+        # Mock response with empty list
+        mock_response = unittest.mock.Mock()
+        mock_response.configure_mock(**self.bwi_page)
+        mock_get_with_retry.return_value = mock_response
+
+        terminal_name = "Travis AFB Passenger Terminal"
+
+        # Insert a terminal into the terminal collection
+        terminal_data = {
+            "name": terminal_name,
+            "link": "https://www.amc.af.mil/AMC-Travel-Site/Terminals/CONUS-Terminals/Travis-AFB-Passenger-Terminal/",
+            "group": "AMC CONUS TERMINALS",
+            "location": "Travis AFB, CA",
+            "pagePosition": 0,
+            "pdf30DayHash": "TestUpdateTerminalPdfs_test_hash",
+            "pdf72HourHash": "TestUpdateTerminalPdfs_test_hash",
+            "pdfRollcallHash": "TestUpdateTerminalPdfs_test_hash",
+            "pdfUpdateLock": False,
+            "pdfUpdateSignature": "test_signature",
+            "timezone": "America/Los_Angeles",
+            "updateStatus": "test_status",
+        }
+
+        test_terminal = Terminal.from_dict(terminal_data)
+
+        # Insert the terminal into the terminal collection
+        self.fs.set_document(
+            self.terminal_coll, "Travis AFB Passenger Terminal", terminal_data
+        )
+
+        # Run the update_terminal_pdfs function
+        result = update_terminal_pdfs(
+            fs=self.fs,
+            s3=self.s3,
+            terminal=test_terminal,
+            update_fingerprint="diff_string_than_test_terminal",
+            num_pdfs_updated=0,
+            terminals_updated=[],
+            terminals_checked=[],
+        )
+
+        self.assertFalse(
+            result,
+            "The function should fail since it can't find a pdf with the given hash.",
+        )
+
+        # Ensure that the lock was released
+        terminal_doc = self.fs.get_document(self.terminal_coll, terminal_name)
+
+        if terminal_doc is None:
+            self.fail("The terminal document should not be exist in database.")
+
+        # Ensure that the lock was released
+        self.assertFalse(
+            terminal_doc.get("pdfUpdateLock"), "The lock should have been released."
+        )
+
+        # Ensure that the update signature was not updated
+        self.assertNotEqual(
+            terminal_doc.get("pdfUpdateSignature"),
+            "diff_string_than_test_terminal",
+            "The update signature should have been updated.",
+        )
+
+        # Ensure that the update status was updated to FAILED
+        self.assertEqual(
+            terminal_doc.get("updateStatus"),
+            "FAILED",
+            "The update status should be failed.",
+        )
+
+    @patch("scraper.scraper_utils.get_with_retry")
+    def test_update_terminal_unlock_after_completion(
+        self: "TestUpdateTerminalPdfs", mock_get_with_retry: MagicMock
+    ) -> None:
+        """Test that the function unlocks the terminal after it completes successfully."""
+        # Mock response with empty list
+        mock_response = unittest.mock.Mock()
+        mock_response.configure_mock(**self.dover_page_no_pdfs)
+        mock_get_with_retry.return_value = mock_response
+
+        terminal_name = "Dover AFB Passenger Terminal"
+
+        # Insert a terminal into the terminal collection
+        terminal_data = {
+            "name": terminal_name,
+            "link": "https://www.amc.af.mil/AMC-Travel-Site/Terminals/CONUS-Terminals/Dover-AFB-Passenger-Terminal/",
+            "group": "AMC CONUS TERMINALS",
+            "location": "The Moon, Moon Base Alpha",
+            "pagePosition": 0,
+            "pdf30DayHash": "TestUpdateTerminalPdfs_test_hash",
+            "pdf72HourHash": "TestUpdateTerminalPdfs_test_hash",
+            "pdfRollcallHash": "TestUpdateTerminalPdfs_test_hash",
+            "pdfUpdateLock": False,
+            "pdfUpdateSignature": "test_signature",
+            "timezone": "America/Moon_Base_Alpha",
+            "updateStatus": "test_status",
+        }
+
+        test_terminal = Terminal.from_dict(terminal_data)
+
+        # Insert the terminal into the terminal collection
+        self.fs.set_document(self.terminal_coll, terminal_name, terminal_data)
+
+        # Run the update_terminal_pdfs function
+        result = update_terminal_pdfs(
+            fs=self.fs,
+            s3=self.s3,
+            terminal=test_terminal,
+            update_fingerprint="diff_string_than_test_terminal",
+            num_pdfs_updated=0,
+            terminals_updated=[],
+            terminals_checked=[],
+        )
+
+        self.assertTrue(
+            result,
+            "The function should fail since it can't find a pdf with the given hash.",
+        )
+
+        # Ensure that the lock was released
+        terminal_doc = self.fs.get_document(self.terminal_coll, terminal_name)
+
+        if terminal_doc is None:
+            self.fail("The terminal document should not be exist in database.")
+
+        # Ensure that the lock was released
+        self.assertFalse(
+            terminal_doc.get("pdfUpdateLock"), "The lock should have been released."
+        )
+
+        # Ensure that the update signature was not updated
+        self.assertEqual(
+            terminal_doc.get("pdfUpdateSignature"),
+            "diff_string_than_test_terminal",
+            "The update signature should have been updated.",
+        )
+
+        # Ensure that the update status was updated to SUCCESS
+        self.assertEqual(
+            terminal_doc.get("updateStatus"),
+            "SUCCESS",
+            "The update status should be SUCCESS.",
+        )
+
+        # Check that the lastCheckTimestamp was
+        timestamp = terminal_doc.get("lastCheckTimestamp")
+
+        if not isinstance(timestamp, datetime):
+            self.fail("The timestamp should exist.")
+
+        self.assertIsInstance(
+            timestamp,
+            datetime,
+            "The timestamp should exist.",
+        )
+
+        # Timestamp should be within the last 2 minutes
+        self.assertLess(
+            datetime.now(ZoneInfo("UTC")) - timestamp,
+            timedelta(minutes=2),
+            "The timestamp should be within the last 2 minutes.",
+        )
+
+    def run_update_with_mock_response(  # noqa: PLR0913 (For testing purposes, we need to pass in a lot of parameters)
+        self: "TestUpdateTerminalPdfs",
+        mock_get_with_retry: MagicMock,
+        test_terminal: Terminal,
+        mock_response: dict,
+        update_fingerprint: str,
+        num_pdfs_updated: int,
+        terminals_updated: List[str],
+        checked_terminals: List[str],
+    ) -> bool:
+        """Execute update_terminal_pdfs with a specific mock response.
+
+        Args:
+        ----
+            mock_get_with_retry (MagicMock): The mock get_with_retry function.
+            test_terminal (Terminal): The terminal to update.
+            mock_response (dict): The mock response to return.
+            update_fingerprint (str): The update fingerprint.
+            num_pdfs_updated (int): The number of pdfs updated.
+            terminals_updated (List[str]): The list of terminals updated.
+            checked_terminals (List[str]): The list of terminals checked.
+
+        Returns:
+        -------
+            bool: True if the function was successful.
+
+        """
+        mock_get_with_retry.return_value = unittest.mock.Mock(**mock_response)
+
+        results: List[bool] = []
+
+        db_terminals = self.fs.get_all_terminals()
+
+        if not db_terminals:
+            self.fail("No terminals found in the database.")
+
+        # Run the update_terminal_pdfs function with parameters adjusted as needed
+        try:
+            for terminal in db_terminals:
+                result = update_terminal_pdfs(
+                    fs=self.fs,
+                    s3=self.s3,
+                    terminal=terminal,
+                    update_fingerprint=update_fingerprint,
+                    num_pdfs_updated=num_pdfs_updated,
+                    terminals_updated=terminals_updated,
+                    terminals_checked=checked_terminals,
+                )
+
+                results.append(result)
+        except Exception:
+            return False
+
+        return True
+
+    @patch("scraper.scraper_utils.get_with_retry")
+    def test_parallel_update_terminal_pdfs(
+        self: "TestUpdateTerminalPdfs", mock_get_with_retry: MagicMock
+    ) -> None:
+        """Test that the update_terminal_pdfs function works in parallel.
+
+        Insert 8 fake terminal documents into the terminal collection and then run 3 threads of the update_terminal_pdfs function.
+        Mocked page responses are reused but since there are no pdfs to update, the function should return True for each terminal.
+        Effectively, it's a dry run of the function to test that it works in parallel.
+        """
+        # Insert all 8 terminals into the terminal collection
+        terminals: List[Terminal] = []
+
+        for terminal_name in [
+            "Dover",
+            "Andrews",
+            "Seattle",
+            "Charleston",
+        ]:
+            terminal_data = {
+                "name": f"{terminal_name} AFB Passenger Terminal",
+                "link": f"https://www.amc.af.mil/AMC-Travel-Site/Terminals/{terminal_name}-AFB-Passenger-Terminal/",
+                "group": "AMC CONUS TERMINALS",
+                "location": "The Moon, Moon Base Alpha",
+                "pagePosition": 0,
+                "pdf30DayHash": "TestUpdateTerminalPdfs_test_hash",
+                "pdf72HourHash": "TestUpdateTerminalPdfs_test_hash",
+                "pdfRollcallHash": "TestUpdateTerminalPdfs_test_hash",
+                "pdfUpdateLock": False,
+                "pdfUpdateSignature": "test_signature",
+                "timezone": "America/Moon_Base_Alpha",
+                "updateStatus": "test_status",
+            }
+
+            self.fs.set_document(
+                self.terminal_coll,
+                f"{terminal_name} AFB Passenger Terminal",
+                terminal_data,
+            )
+
+            terminals.append(Terminal.from_dict(terminal_data))
+
+        terminal_responses = {
+            "Dover AFB Passenger Terminal": self.dover_page_no_pdfs,
+            "Andrews AFB Passenger Terminal": self.andrews_page_no_pdfs,
+            "Seattle AFB Passenger Terminal": self.seattle_page_no_pdfs,
+            "Charleston AFB Passenger Terminal": self.charleston_page_no_pdfs,
+        }
+
+        results = []
+        checked_terminals: List[List[str]] = [
+            [],
+            [],
+            [],
+            [],
+        ]  # To store the updated terminals for each thread
+        index = 0
+
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            futures = []
+            for _, mock_response in terminal_responses.items():
+                # Note: Directly passing the mock_response to the function
+                future = executor.submit(
+                    self.run_update_with_mock_response,
+                    mock_get_with_retry,
+                    terminals[index],
+                    mock_response,
+                    "diff_string_than_test_terminal_BLAH",
+                    0,
+                    [],
+                    checked_terminals[index],
+                )
+                futures.append(future)
+                index += 1
+            for future in futures:
+                results.append(future.result())
+
+        # Assertions about the results or side effects here
+        for result in results:
+            self.assertTrue(result, "Expected successful update for each terminal.")
+
+        # Prune empty lists from checked_terminals
+        checked_terminals = [terminals for terminals in checked_terminals if terminals]
+
+        # There should only be three workers updating the terminals
+        # Technically, there is a 4th but the first 3 workers will
+        # keep updating the same terminals until they are all updated.
+        self.assertEqual(
+            len(checked_terminals), 3, "Expected 3 workers to update terminals."
+        )
+
+        combined_list = [
+            terminal for sublist in checked_terminals for terminal in sublist
+        ]
+
+        self.assertEqual(
+            len(combined_list),
+            4,
+            "Expected 4 terminals to be updated.",
+        )
+
+    def tearDown(self: "TestUpdateTerminalPdfs") -> None:
+        """Tear down the test cases for TestUpdateTerminalPdfs."""
         # Delete the test collections
         self.fs.delete_collection(self.terminal_coll)
         self.fs.delete_collection(self.pdf_archive_coll)
