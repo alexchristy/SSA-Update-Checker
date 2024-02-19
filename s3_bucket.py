@@ -78,6 +78,7 @@ class S3Bucket:
         Raises:
         ------
             Exception: If there is an error uploading the file to S3.
+
         """
         try:
             self.client.upload_file(local_path, self.bucket_name, s3_path)
@@ -95,6 +96,7 @@ class S3Bucket:
         Returns:
         -------
             List[str]: A list of the files in S3. Empty list if no files found.
+
         """
         try:
             response = self.client.list_objects(
@@ -123,6 +125,7 @@ class S3Bucket:
         Returns:
         -------
             None
+
         """
         try:
             self.client.download_file(self.bucket_name, s3_path, local_path)
@@ -141,6 +144,7 @@ class S3Bucket:
         Returns:
         -------
             None
+
         """
         try:
             # Copy the object to the new location
@@ -182,6 +186,7 @@ class S3Bucket:
         Returns:
         -------
             None
+
         """
         try:
             # Make sure the path ends with a '/'
@@ -210,6 +215,7 @@ class S3Bucket:
         Returns:
         -------
             bool: True if the directory exists, False otherwise.
+
         """
         try:
             # Make sure the path ends with a '/'
@@ -222,7 +228,7 @@ class S3Bucket:
             )
 
             # Check if any objects are returned with the given prefix
-            if "Contents" in response and response["Contents"]:
+            if response.get("Contents"):
                 logging.info(
                     "Directory %s exists in bucket %s.",
                     path,
@@ -254,6 +260,7 @@ class S3Bucket:
         Returns:
         -------
             str: The path of the archive directory for the terminal.
+
         """
         logging.info("Creating archive directories in s3 bucket: %s", self.bucket_name)
 
@@ -303,6 +310,7 @@ class S3Bucket:
         Returns:
         -------
             None
+
         """
         # Verify the archive directory for the PDF exists
         # if not we'll make it.
@@ -330,6 +338,7 @@ class S3Bucket:
         Returns:
         -------
             None
+
         """
         logging.info("Entering upload_pdf_to_current_s3()")
 
@@ -351,6 +360,7 @@ class S3Bucket:
         Returns
         -------
             None
+
         """
         current_dir = "current/"
         archive_dir = "archive/"
