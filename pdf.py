@@ -22,6 +22,7 @@ def count_words_in_pdf(pdf_path: str) -> Optional[int]:
     Returns:
     -------
         Optional[int]: Number of words in the PDF, None if an error occurred
+
     """
     try:
         word_count = 0
@@ -51,6 +52,7 @@ def count_characters_in_pdf(pdf_path: str) -> Optional[int]:
     Returns:
     -------
         Optional[int]: Number of characters in the PDF, None if an error occurred
+
     """
     try:
         character_count = 0
@@ -79,6 +81,7 @@ def count_pages_in_pdf(pdf_path: str) -> Optional[int]:
     Returns:
     -------
         Optional[int]: Number of pages in the PDF, None if an error occurred
+
     """
     try:
         # Open the PDF file
@@ -131,6 +134,7 @@ class Pdf:
         Returns:
         -------
             None
+
         """
         self.filename: str = ""
         self.original_filename: str = ""
@@ -328,6 +332,7 @@ class Pdf:
         Returns
         -------
             None
+
         """
         self.first_seen_time = datetime.datetime.now(tz=datetime.timezone.utc).strftime(
             "%Y%m%d%H%M%S"
@@ -459,6 +464,7 @@ class Pdf:
         Returns:
         -------
             int: Number of words on the specified page.
+
         """
         word_count = 0
         for page_layout in extract_pages(pdf_path, page_numbers=[page_number]):
@@ -480,6 +486,7 @@ class Pdf:
         Returns:
         -------
             int: Number of characters on the specified page.
+
         """
         character_count = 0
         for page_layout in extract_pages(pdf_path, page_numbers=[page_number]):
@@ -495,6 +502,7 @@ class Pdf:
         Returns
         -------
             None
+
         """
         if self.num_pages > self.MAX_PAGES:
             logging.warning(
@@ -574,6 +582,7 @@ class Pdf:
         Returns:
         -------
             Pdf: PDF object.
+
         """
         pdf = cls(link=data["link"], populate=False)
         pdf.filename = data["filename"]
