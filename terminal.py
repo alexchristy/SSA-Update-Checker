@@ -23,6 +23,7 @@ class Terminal:
             pdf_update_lock: A flag to indicate if the terminal's PDFs are being updated.
 
         Sets all attributes to None.
+
         """
         self.name = ""
         self.link = ""
@@ -43,6 +44,7 @@ class Terminal:
         Returns
         -------
             A dictionary representation of this Terminal object
+
         """
         return {
             "name": self.name,
@@ -79,6 +81,7 @@ class Terminal:
         -------
         bool
             True if all member variables are equal, False otherwise.
+
         """
         if not isinstance(other, Terminal):
             # The other object is not a Terminal, so they are not equal
@@ -108,6 +111,7 @@ class Terminal:
         -------
         int
             The hash of this Terminal object.
+
         """
         return hash(
             (
@@ -135,6 +139,7 @@ class Terminal:
         -------
         bool
             True if all member variables are equal, False otherwise.
+
         """
         return (
             a.name == b.name
