@@ -596,9 +596,9 @@ class TestUpdateTerminalPdfs(unittest.TestCase):
             "tests/assets/TestUpdateTerminalPdfs/charleston_page_02-17-24_NO_PDFS.pkl",
             "rb",
         ) as file:
-            self.charleston_page_no_pdfs = pickle.load(
+            self.charleston_page_no_pdfs = pickle.load( # noqa: S301 (Loading test data)
                 file
-            )  # noqa: S301 (Loading test data)
+            )
 
     @patch("scraper.scraper_utils.get_with_retry")
     def test_update_terminal_fail_unlocked(
@@ -636,7 +636,7 @@ class TestUpdateTerminalPdfs(unittest.TestCase):
         )
 
         # Run the update_terminal_pdfs function
-        result = update_terminal_pdfs(
+        result, _ = update_terminal_pdfs(
             fs=self.fs,
             s3=self.s3,
             terminal=test_terminal,
@@ -808,7 +808,7 @@ class TestUpdateTerminalPdfs(unittest.TestCase):
         # Run the update_terminal_pdfs function with parameters adjusted as needed
         try:
             for terminal in db_terminals:
-                result = update_terminal_pdfs(
+                result, _ = update_terminal_pdfs(
                     fs=self.fs,
                     s3=self.s3,
                     terminal=terminal,

@@ -952,32 +952,33 @@ class FirestoreClient:
     def wait_for_terminal_lock_change(self: "FirestoreClient") -> None:
         """Wait for the terminal_update_lock 'lock' attribute to change.
 
-        First we wait only for 5 seconds and then check if the lock was already false. This
+        First, we wait only for 7 seconds and then check if the lock was already false. This
         can happen if the lock was acquired by another instance and then released before we
-        could watch for changes. If the lock was already false, we can stop waiting. If not
+        could watch for changes. If the lock was already false, we can stop waiting. If not,
         we did not miss the change and can continue waiting.
         """
         logging.info("Waiting for terminal_update_lock 'lock' attribute to change...")
 
-        try:
-            terminal_lock_change_event.wait(
-                timeout=5
-            )  # This will block until the event is set
-        except TimeoutError:
-            logging.info(
-                "Timed out after 5 seconds waiting for terminal_update_lock 'lock' attribute to change."
-            )
-
-            # If lock is false we missed the change and can stop waiting
+        # Initial wait for 7 seconds to catch quick changes
+        event_set = terminal_lock_change_event.wait(timeout=7)
+        if not event_set:
+            logging.info("Initial 7 seconds wait completed without event being set.")
+            # Check if the lock was already released
             if not self.get_terminal_coll_update_lock_value():
-                logging.info("terminal_update_lock 'lock' was already false.")
+                logging.info(
+                    "terminal_update_lock 'lock' was already false, no need to wait further."
+                )
                 return
 
-        terminal_lock_change_event.wait()  # Block until the event is set
+            logging.info("Lock still acquired, continuing to wait for up to 3 minutes.")
 
+        # Continue waiting for the lock to change for up to 3 minutes
+        terminal_lock_change_event.wait(
+            timeout=180
+        )  # Extend wait to 3 minutes if necessary
         logging.info("terminal_update_lock 'lock' attribute changed!")
 
-        # Reset the event if you need to wait for this condition again in the future
+        # Reset the event for future waits
         terminal_lock_change_event.clear()
 
     def set_terminal_last_check_timestamp(
