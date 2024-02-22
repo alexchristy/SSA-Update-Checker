@@ -159,14 +159,14 @@ def update_terminal_pdfs(  # noqa: PLR0913
 
         if not fs.acquire_terminal_doc_update_lock(terminal.name):
             msg = f"Terminal {terminal.name} document is locked."
-            raise TerminalDocumentLockedError(msg)
+            logging.warning(msg)
+            return False, num_pdfs_updated
 
         # Pull down the latest terminal document
         terminal_update_fingerprint = fs.get_terminal_update_signature(terminal.name)
 
-        if (
-            terminal_update_fingerprint is None
-        ):  # None indicates the terminal document does not exist
+        # None indicates the terminal document does not exist
+        if terminal_update_fingerprint is None:
             msg = "No terminal pdf update run fingerprint found in terminal document."
             logging.error(msg)
             raise ValueError(msg)
@@ -319,9 +319,6 @@ def update_terminal_pdfs(  # noqa: PLR0913
         fs.set_terminal_update_status(terminal.name, "SUCCESS")
         fs.release_terminal_doc_lock(terminal.name)
         return True, num_pdfs_updated
-    except TerminalDocumentLockedError as e:
-        logging.error(e)
-        return False, num_pdfs_updated
 
     except Exception as e:
         logging.error("An error occurred while updating the terminal PDFs.")
