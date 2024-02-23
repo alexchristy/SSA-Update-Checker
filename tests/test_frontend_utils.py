@@ -1,11 +1,10 @@
 import unittest
 from unittest.mock import patch, MagicMock
-from frontend_utils import get_terminal_image_url
+from frontend_utils import _get_terminal_image_url
 import pickle
 import os
 from firestoredb import FirestoreClient
 from s3_bucket import S3Bucket
-from scraper_utils import get_with_retry
 
 
 class TestGetTerminalImageUrl(unittest.TestCase):
@@ -98,7 +97,7 @@ class TestGetTerminalImageUrl(unittest.TestCase):
         expected_image_url = "https://media.defense.gov/2022/Jan/11/2002919982/-1/-1/0/200122-F-F3200-002.JPG"  # Adjust based on your expectations
 
         # Call the function under test
-        found_image_url = get_terminal_image_url(url)
+        found_image_url = _get_terminal_image_url(url)
 
         # Verify the function returns the expected URL
         self.assertEqual(found_image_url, expected_image_url)
@@ -126,7 +125,7 @@ class TestGetTerminalImageUrl(unittest.TestCase):
         expected_image_url = "https://media.defense.gov/2022/Mar/07/2002951829/-1/-1/0/070322-F-F3200-001.JPG"  # Adjust based on your expectations
 
         # Call the function under test
-        found_image_url = get_terminal_image_url(url)
+        found_image_url = _get_terminal_image_url(url)
 
         # Verify the function returns the expected URL
         self.assertEqual(found_image_url, expected_image_url)
@@ -154,7 +153,7 @@ class TestGetTerminalImageUrl(unittest.TestCase):
         expected_image_url = "https://media.defense.gov/2022/Feb/02/2002931758/-1/-1/0/020222-F-F3200-002.JPG"  # Adjust based on your expectations
 
         # Call the function under test
-        found_image_url = get_terminal_image_url(url)
+        found_image_url = _get_terminal_image_url(url)
 
         # Verify the function returns the expected URL
         self.assertEqual(found_image_url, expected_image_url)
@@ -182,7 +181,7 @@ class TestGetTerminalImageUrl(unittest.TestCase):
         expected_image_url = "https://media.defense.gov/2023/Aug/29/2003290861/-1/-1/0/230829-F-DJ189-1001.JPG"  # Adjust based on your expectations
 
         # Call the function under test
-        found_image_url = get_terminal_image_url(url)
+        found_image_url = _get_terminal_image_url(url)
 
         # Verify the function returns the expected URL
         self.assertEqual(found_image_url, expected_image_url)
@@ -210,7 +209,7 @@ class TestGetTerminalImageUrl(unittest.TestCase):
         expected_image_url = "https://media.defense.gov/2023/Jan/13/2003144784/-1/-1/0/230110-F-XY111-1001.JPG"  # Adjust based on your expectations
 
         # Call the function under test
-        found_image_url = get_terminal_image_url(url)
+        found_image_url = _get_terminal_image_url(url)
 
         # Verify the function returns the expected URL
         self.assertEqual(found_image_url, expected_image_url)

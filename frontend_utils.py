@@ -6,7 +6,7 @@ from scraper_utils import get_with_retry
 from bs4 import BeautifulSoup  # type: ignore
 
 
-def get_terminal_image_url(url: str) -> Optional[str]:
+def _get_terminal_image_url(url: str) -> Optional[str]:
     """
     Retrieves the image URL from a webpage given its URL.
 
@@ -41,7 +41,7 @@ def get_terminal_image_url(url: str) -> Optional[str]:
         return None
 
 
-def download_image(image_url: str, save_path: str) -> bool:
+def _download_image(image_url: str, save_path: str) -> bool:
     """
     Downloads an image from the specified URL and saves it to the given path.
 
@@ -74,10 +74,10 @@ def download_terminal_image(url: str) -> Optional[str]:
     Returns:
         Optional[str]: The full path to the downloaded image or None if the image could not be downloaded.
     """
-    image_url = get_terminal_image_url(url)
+    image_url = _get_terminal_image_url(url)
     if image_url:
         image_name = os.path.basename(image_url)
         full_path = os.path.join(os.getcwd(), image_name)
-        if download_image(image_url, full_path):
+        if _download_image(image_url, full_path):
             return full_path
     return None
