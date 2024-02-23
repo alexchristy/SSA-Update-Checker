@@ -1,9 +1,10 @@
 from typing import Optional
 import os
-import urllib.request
 import logging
 from scraper_utils import get_with_retry
 from bs4 import BeautifulSoup  # type: ignore
+from s3_bucket import S3Bucket
+import tempfile
 
 
 def _get_terminal_image_url(url: str) -> Optional[str]:
@@ -41,43 +42,20 @@ def _get_terminal_image_url(url: str) -> Optional[str]:
         return None
 
 
-def _download_image(image_url: str, save_path: str) -> bool:
-    """
-    Downloads an image from the specified URL and saves it to the given path.
-
-    Args:
-        image_url (str): The URL of the image to download.
-        save_path (str): The path to save the downloaded image.
-
-    Returns:
-        bool: True if the image was successfully downloaded, False otherwise.
-    """
-    try:
-        urllib.request.urlretrieve(image_url, save_path)
-        logging.info(f"Image successfully downloaded: {save_path}")
-        return True
-    except Exception as e:
-        logging.error(
-            "An error occurred while downloading the image (%s): %s", image_url, e
-        )
-        return False
-
-
-def download_terminal_image(url: str) -> Optional[str]:
-    """
-    Downloads an image from a webpage given its URL. This function uses `get_image_url_from_html`
-    to retrieve the image URL and `download_image` to download the image.
-
-    Args:
-        url (str): The URL of the webpage to download the image from.
-
-    Returns:
-        Optional[str]: The full path to the downloaded image or None if the image could not be downloaded.
-    """
+def save_terminal_image(url: str, s3_bucket: S3Bucket) -> Optional[str]:
     image_url = _get_terminal_image_url(url)
     if image_url:
         image_name = os.path.basename(image_url)
-        full_path = os.path.join(os.getcwd(), image_name)
-        if _download_image(image_url, full_path):
-            return full_path
+        s3_key = f"terminal_images/{image_name}"
+
+        # Temporary workaround: download to a temporary file and then upload
+        with tempfile.NamedTemporaryFile() as temp_file:
+            response = get_with_retry(image_url)
+            if response and response.status_code == 200:
+                temp_file.write(response.content)
+                temp_file.flush()
+                s3_bucket.upload_to_s3(temp_file.name, s3_key)
+                return s3_bucket.get_public_url(s3_key)
+            else:
+                logging.error("Failed to download the image.")
     return None
