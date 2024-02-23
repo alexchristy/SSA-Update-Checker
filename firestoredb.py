@@ -17,6 +17,8 @@ from location_tz import TerminalTzFinder
 from pdf import Pdf
 from scraper_utils import is_valid_sha256
 from terminal import Terminal
+from frontend_utils import save_terminal_image
+from s3_bucket import S3Bucket
 
 # Global or shared event object
 terminal_lock_change_event = threading.Event()
@@ -219,6 +221,7 @@ class FirestoreClient:
                 "location": terminal.location,
                 "group": terminal.group,
                 "timezone": terminal.timezone,
+                "terminalImageUrl": terminal.terminal_image_url,
             }
 
             doc_ref.update(updates)
@@ -446,7 +449,7 @@ class FirestoreClient:
         return terminal_objects
 
     def update_terminals(
-        self: "FirestoreClient", scraped_terminals: List[Terminal]
+        self: "FirestoreClient", scraped_terminals: List[Terminal], s3_bucket: S3Bucket
     ) -> bool:
         """Update the Terminals collection with new terminal objects.
 
@@ -481,8 +484,8 @@ class FirestoreClient:
         if not terminals_from_db:
             logging.warning("No terminals found in the database.")
 
-        never_seen_terminals = []
-        seen_terminals = []
+        never_seen_terminals: List[Terminal] = []
+        seen_terminals: List[Terminal] = []
 
         # Check for discrepancies between the number of terminals in the database
         # and the number of terminals found by the scraper
@@ -525,6 +528,17 @@ class FirestoreClient:
                 continue
 
             terminal.timezone = tz_finder.get_timezone(terminal.location)
+            self.upsert_terminal_info(terminal)
+
+        # Add terminal images to terminals that have never been seen before
+        for terminal in never_seen_terminals:
+            terminal_image_url = save_terminal_image(terminal.link, s3_bucket)
+
+            if not terminal_image_url:
+                logging.warning("Terminal %s has no image.", terminal.name)
+                continue
+
+            terminal.terminal_image_url = terminal_image_url
             self.upsert_terminal_info(terminal)
 
         terminals_to_update = []

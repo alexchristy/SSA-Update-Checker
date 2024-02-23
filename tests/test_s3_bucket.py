@@ -33,9 +33,9 @@ class TestS3Bucket(unittest.TestCase):
         self.addCleanup(patcher.stop)  # Ensure the patcher is stopped after tests
 
         os.environ["AWS_ACCESS_KEY_ID"] = "fake_access_key"
-        os.environ[
-            "AWS_SECRET_ACCESS_KEY"
-        ] = "fake_secret_key"  # noqa: S105 (Fake key for tests)
+        os.environ["AWS_SECRET_ACCESS_KEY"] = (
+            "fake_secret_key"  # noqa: S105 (Fake key for tests)
+        )
         os.environ["AWS_BUCKET_NAME"] = "fake_bucket_name"
         self.mock_client = self.mock_boto_client.return_value
         self.s3_bucket = S3Bucket()

@@ -46,6 +46,7 @@ class TerminalDocumentLockedError(Exception):
 # Functions
 def update_db_terminals(
     fs: FirestoreClient,
+    s3: S3Bucket,
 ) -> bool:
     """Update the terminals in the database.
 
@@ -101,7 +102,7 @@ def update_db_terminals(
 
                 logging.info("Retrieved %s terminals.", len(list_of_terminals))
 
-                if not fs.update_terminals(list_of_terminals):
+                if not fs.update_terminals(list_of_terminals, s3):
                     logging.info("No terminals were updated.")
 
                 fs.add_termimal_update_fingerprint()

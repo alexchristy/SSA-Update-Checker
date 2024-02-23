@@ -130,10 +130,14 @@ class TestUpdateTerminalCollParallel(unittest.TestCase):
         os.environ["FS_CRED_PATH"] = self.firestore_cert
 
         self.fs = FirestoreClient()
+        self.s3 = S3Bucket()
 
     @patch("scraper.scraper_utils.get_with_retry")
+    @patch("frontend_utils.save_terminal_image")
     def test_update_db_terminals_3_parallel(
-        self: "TestUpdateTerminalCollParallel", mock_get_with_retry: MagicMock
+        self: "TestUpdateTerminalCollParallel",
+        mock_get_with_retry: MagicMock,
+        mock_save_terminal_image: MagicMock,
     ) -> None:
         """Test that the function only allows one instance of the function to run at a time.
 
@@ -155,7 +159,7 @@ class TestUpdateTerminalCollParallel(unittest.TestCase):
 
         def try_update_db_terminals(fs_client: FirestoreClient) -> bool:
             """Attempt to update the terminals in the database anmd return True if successful."""
-            return update_db_terminals(fs_client)
+            return update_db_terminals(fs_client, self.s3)
 
         # Run 2 parallel threads to update the database
         with ThreadPoolExecutor(max_workers=3) as executor:
@@ -224,7 +228,7 @@ class TestUpdateTerminalCollParallel(unittest.TestCase):
             Start at a random time between 0 and 5 seconds.
             """
             time.sleep(uniform(0, 5))  # noqa: S311 (not for cryptographic purposes)
-            return update_db_terminals(fs_client)
+            return update_db_terminals(fs_client, self.s3)
 
         # Run 3 parallel threads to update the database
         with ThreadPoolExecutor(max_workers=3) as executor:
@@ -509,6 +513,7 @@ class TestUpdateTerminalCollErrors(unittest.TestCase):
         os.environ["FS_CRED_PATH"] = self.firestore_cert
 
         self.fs = FirestoreClient()
+        self.s3 = S3Bucket()
 
     @patch("scraper.scraper_utils.get_with_retry")
     def test_no_terminals_found(
@@ -521,7 +526,7 @@ class TestUpdateTerminalCollErrors(unittest.TestCase):
         mock_get_with_retry.return_value = mock_response
 
         # Run the update_db_terminals function
-        result = update_db_terminals(self.fs)
+        result = update_db_terminals(self.fs, self.s3)
 
         self.assertFalse(result, "The function should not have updated the terminals.")
 
@@ -596,9 +601,9 @@ class TestUpdateTerminalPdfs(unittest.TestCase):
             "tests/assets/TestUpdateTerminalPdfs/charleston_page_02-17-24_NO_PDFS.pkl",
             "rb",
         ) as file:
-            self.charleston_page_no_pdfs = pickle.load( # noqa: S301 (Loading test data)
+            self.charleston_page_no_pdfs = pickle.load(
                 file
-            )
+            )  # noqa: S301 (Loading test data)
 
     @patch("scraper.scraper_utils.get_with_retry")
     def test_update_terminal_fail_unlocked(

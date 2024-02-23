@@ -173,7 +173,7 @@ def main() -> None:
     logging.info("Starting PDF retrieval process.")
 
     # Update the terminals in the database
-    scraper.update_db_terminals(fs)
+    scraper.update_db_terminals(fs, s3)
 
     # Retrieve fingerprint for signing off on terminal updates
     update_fingerprint = fs.get_terminal_update_fingerprint()

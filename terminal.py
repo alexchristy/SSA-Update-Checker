@@ -21,6 +21,7 @@ class Terminal:
             timezone: The timezone of the terminal.
             pdf_update_signature: The signature of the last PDF update.
             pdf_update_lock: A flag to indicate if the terminal's PDFs are being updated.
+            terminal_image_url: The URL of the terminal's image.
 
         Sets all attributes to None.
 
@@ -37,6 +38,7 @@ class Terminal:
         self.timezone = ""
         self.pdf_update_signature = ""
         self.pdf_update_lock = False
+        self.terminal_image_url = ""
 
     def to_dict(self: "Terminal") -> Dict[str, Any]:
         """Convert this Terminal object to a dictionary, suitable for storing in Firestore or another database.
@@ -59,6 +61,7 @@ class Terminal:
             "timezone": self.timezone,
             "pdfUpdateSignature": self.pdf_update_signature,
             "pdfUpdateLock": self.pdf_update_lock,
+            "terminalImageUrl": self.terminal_image_url,
         }
 
     def __eq__(self: "Terminal", other: object) -> bool:
@@ -170,5 +173,6 @@ class Terminal:
         terminal.timezone = data.get("timezone", None)
         terminal.pdf_update_signature = data.get("pdfUpdateSignature", None)
         terminal.pdf_update_lock = data.get("pdfUpdateLock", False)
+        terminal.terminal_image_url = data.get("terminalImageUrl", None)
 
         return terminal

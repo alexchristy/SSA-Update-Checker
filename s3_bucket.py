@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import List
+from typing import List, Optional
 
 import boto3  # type: ignore
 from botocore.exceptions import ClientError, NoCredentialsError  # type: ignore
@@ -11,21 +11,31 @@ from pdf import Pdf
 class S3Bucket:
     """S3 bucket class for uploading, downloading, and moving files in S3."""
 
-    def __init__(self: "S3Bucket") -> None:
+    def __init__(
+        self: "S3Bucket",
+        bucket_name: Optional[str] = None,
+        region: Optional[str] = None,
+    ) -> None:
         """Initialize the S3 bucket class.
 
         Tries to create a boto3 client using IAM role credentials.
         If it fails, it looks for AWS credentials in the environment variables.
         """
+
         # Get bucket name from environment variables or set a default
-        env_bucket_name = os.environ.get("AWS_BUCKET_NAME", "ssa-pdf-store")
+        if not bucket_name:
+            bucket_name = os.environ.get("AWS_BUCKET_NAME", "ssa-pdf-store")
+
+        # Get region from environment variables or set a default
+        if not region:
+            self.region = os.environ.get("AWS_REGION", "us-east-2")
 
         # Initialize boto3 client with IAM role credentials or environment variables
         try:
             self.client = boto3.client("s3")
 
             # Test access to the specified bucket
-            self.client.list_objects_v2(Bucket=env_bucket_name, MaxKeys=1)
+            self.client.list_objects_v2(Bucket=bucket_name, MaxKeys=1)
             logging.info("Initialized boto3 client and verified access to the bucket.")
         except NoCredentialsError:
             logging.warning(
@@ -50,18 +60,18 @@ class S3Bucket:
             )
 
             # Test access to the specified bucket again
-            self.client.list_objects_v2(Bucket=env_bucket_name, MaxKeys=1)
+            self.client.list_objects_v2(Bucket=bucket_name, MaxKeys=1)
             logging.info(
                 "Initialized boto3 client with environment variable credentials and verified access to the bucket."
             )
         except ClientError as e:
             # Handle specific errors, such as the bucket not existing or being inaccessible
-            logging.error("Error accessing bucket %s: %s", env_bucket_name, e)
-            msg = f"Unable to access specified S3 bucket: {env_bucket_name}"
+            logging.error("Error accessing bucket %s: %s", bucket_name, e)
+            msg = f"Unable to access specified S3 bucket: {bucket_name}"
             raise EnvironmentError(msg) from None
 
         # Set bucket name
-        self.bucket_name = env_bucket_name
+        self.bucket_name = bucket_name
 
     def upload_to_s3(self: "S3Bucket", local_path: str, s3_path: str) -> None:
         """Upload a file to S3.
@@ -377,3 +387,23 @@ class S3Bucket:
 
         if not self.directory_exists(archive_dir):
             self.create_directory(archive_dir)
+
+    def get_public_url(self: "S3Bucket", s3_path: str) -> str:
+        """Get the public URL of an object in S3.
+
+        Args:
+        ----
+            s3_path (str): The S3 path of the object.
+
+        Returns:
+        -------
+            str: The public URL of the object.
+
+        """
+        try:
+            url = f"https://{self.bucket_name}.s3.{self.region}.amazonaws.com/{s3_path}"
+            logging.info("Public URL for %s: %s", s3_path, url)
+            return url
+        except Exception as e:
+            logging.error("Error getting public URL for %s: %s", s3_path, e)
+            raise
