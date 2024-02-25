@@ -3,7 +3,9 @@ import os
 import shutil
 import sys
 import time
+from typing import List
 import unittest
+import pickle
 import uuid
 from unittest.mock import MagicMock, patch
 from urllib.parse import quote
@@ -24,6 +26,7 @@ from scraper_utils import (  # noqa: E402 (Need sys append for proper imports)
     get_with_retry,
     normalize_url,
     timing_decorator,
+    deduplicate_with_attribute,
 )
 
 
@@ -536,6 +539,105 @@ class TestFormatPdfMetadataDate(unittest.TestCase):
         date_str = "D:2021-03-15T12:34:56"  # Incorrect format
         result = format_pdf_metadata_date(date_str)
         self.assertIsNone(result)
+
+
+class TestDeduplicateObjects(unittest.TestCase):
+    """Test the deduplicate_with_attribute function."""
+
+    class TestObject:
+        """A test class for deduplication testing."""
+
+        def __init__(self: "TestDeduplicateObjects.TestObject", id: int) -> None:
+            """Initialize the test object."""
+            self.id = id
+
+    def test_deduplication_of_objects(self: "TestDeduplicateObjects") -> None:
+        """Test that the function deduplicates a list of objects based on an attribute."""
+        obj1 = self.TestObject(1)
+        obj2 = self.TestObject(2)
+        obj3 = self.TestObject(1)
+        obj4 = self.TestObject(3)
+        obj5 = self.TestObject(2)
+        obj6 = self.TestObject(4)
+        obj7 = self.TestObject(3)
+
+        objects = [obj1, obj2, obj3, obj4, obj5, obj6, obj7]
+        result = deduplicate_with_attribute(objects, "id")
+
+        # Assert that the deduplicated list contains the expected objects
+        self.assertEqual(len(result), 4)
+        self.assertIn(obj1, result)
+        self.assertIn(obj2, result)
+        self.assertIn(obj4, result)
+        self.assertIn(obj6, result)
+
+    def test_empty_list(self: "TestDeduplicateObjects") -> None:
+        """Test that the function returns an empty list for an empty input list."""
+        objects: List[object] = []
+        result = deduplicate_with_attribute(objects, "id")
+        self.assertEqual(len(result), 0)
+
+    def test_no_attribute(self: "TestDeduplicateObjects") -> None:
+        """Test that the function throws an AttributeError when the attribute is not present."""
+        obj1 = self.TestObject(1)
+        obj2 = self.TestObject(2)
+        obj3 = self.TestObject(1)
+        obj4 = self.TestObject(3)
+        obj5 = self.TestObject(2)
+        obj6 = self.TestObject(4)
+        obj7 = self.TestObject(3)
+
+        objects = [obj1, obj2, obj3, obj4, obj5, obj6, obj7]
+        with self.assertRaises(AttributeError):
+            deduplicate_with_attribute(objects, "nonexistent_attribute")
+
+    def test_pdf_objects(self: "TestDeduplicateObjects") -> None:
+        """Test that the function deduplicates a list of PDF objects based on the hash."""
+        with open("tests/assets/TestDeduplicateObjects/pdf1.pkl", "rb") as f:
+            pdf1 = pickle.load(f)
+
+        if not pdf1:
+            self.fail(
+                "Failed to load test PDF1 object. TestDeduplicateObjects --> test_pdf_objects"
+            )
+
+        with open("tests/assets/TestDeduplicateObjects/pdf2.pkl", "rb") as f:
+            pdf2 = pickle.load(f)
+
+        if not pdf2:
+            self.fail(
+                "Failed to load test PDF2 object. TestDeduplicateObjects --> test_pdf_objects"
+            )
+
+        with open("tests/assets/TestDeduplicateObjects/pdf3.pkl", "rb") as f:
+            pdf3 = pickle.load(f)
+
+        if not pdf3:
+            self.fail(
+                "Failed to load test PDF3 object. TestDeduplicateObjects --> test_pdf_objects"
+            )
+
+        with open("tests/assets/TestDeduplicateObjects/pdf4.pkl", "rb") as f:
+            pdf4 = pickle.load(f)
+
+        if not pdf4:
+            self.fail(
+                "Failed to load test PDF4 object. TestDeduplicateObjects --> test_pdf_objects"
+            )
+
+        pdfs = [pdf1, pdf2, pdf3, pdf4]
+        dedup_pdfs = [pdf1, pdf2, pdf3]
+
+        # Ensure that the PDFs are not already deduplicated
+        self.assertEqual(len(pdfs), 4)
+
+        # Deduplicate the PDFs
+        result = deduplicate_with_attribute(pdfs, "hash")
+
+        # Assert that the deduplicated list contains the expected objects
+        self.assertEqual(len(result), 3)
+
+        self.assertCountEqual(result, dedup_pdfs)
 
 
 if __name__ == "__main__":

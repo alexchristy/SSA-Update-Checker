@@ -199,6 +199,7 @@ def update_terminal_pdfs(  # noqa: PLR0913
             # Discard irrelevant PDFs to reduce processing time
             db_pdf = fs.get_pdf_by_hash(pdf.hash)
 
+            # Only PDFs that have been seen before should be in the DB
             if db_pdf is None:
                 msg = f"Unable to find PDF with hash {pdf.hash} in the DB."
                 logging.error(msg)
@@ -224,7 +225,12 @@ def update_terminal_pdfs(  # noqa: PLR0913
 
         # Remove DISCARD PDFs from list
         pdfs_cleaned = [pdf for pdf in pdfs if pdf.type != "DISCARD"]
+
+        # Deduplicate PDFs by hash
+        pdfs_cleaned = scraper_utils.deduplicate_with_attribute(pdfs_cleaned, "hash")
+
         pdfs = pdfs_cleaned
+        logging.info("Cleaned PDFs: %s", [pdf.hash for pdf in pdfs])
 
         # Try to determine the type of each new PDF
         # and return the most plausible new PDF of

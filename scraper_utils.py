@@ -6,7 +6,7 @@ import re
 import time
 import uuid
 from functools import wraps
-from typing import Any, Callable, List, Optional, Tuple
+from typing import Any, Callable, List, Optional, Tuple, TypeVar, Sequence
 from urllib.parse import quote, unquote, urlparse
 
 import requests
@@ -424,3 +424,40 @@ def format_pdf_metadata_date(date_str: str) -> Optional[str]:
         return "".join(match.groups())
 
     return None
+
+
+# Define a type variable that can be any subtype of 'object'
+T = TypeVar("T")
+
+
+def deduplicate_with_attribute(object_list: Sequence[T], attribute: str) -> List[T]:
+    """Deduplicate a list of objects based on a specified attribute.
+
+    Args:
+        object_list: The list of objects to deduplicate.
+        attribute: The attribute to deduplicate on.
+
+    Returns:
+        A list of unique objects based on the specified attribute.
+    """
+    unique_attrs = set()
+    unique_objects: List[T] = []  # Specify the list to hold objects of type T
+    unique_count = 0  # Tracks the number of unique attributes seen
+
+    if not object_list:
+        return []
+
+    if not hasattr(object_list[0], attribute):
+        logging.error("Attribute %s does not exist in object list.", attribute)
+        raise AttributeError(f"Attribute {attribute} does not exist in object list.")
+
+    for obj in object_list:
+        attr_value = getattr(obj, attribute)
+        # Attempt to add the attribute value to the set
+        unique_attrs.add(attr_value)
+        if len(unique_attrs) > unique_count:
+            # If the set size increased, update the unique count and add the object to the result list
+            unique_count += 1
+            unique_objects.append(obj)
+
+    return unique_objects
