@@ -8,9 +8,10 @@ import unittest
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 from random import uniform
-from typing import List
+from typing import List, Type
 from unittest.mock import MagicMock, patch
 from zoneinfo import ZoneInfo
+from firebase_admin import delete_app  # type: ignore
 
 from firestoredb import FirestoreClient
 from s3_bucket import S3Bucket
@@ -103,7 +104,16 @@ class TestGetActiveTerminals(unittest.TestCase):
 class TestUpdateTerminalCollParallel(unittest.TestCase):
     """Test that the update_db_temrinals works in parallel."""
 
-    def setUp(self: "TestUpdateTerminalCollParallel") -> None:
+    # Class variables
+    terminal_coll: str
+    pdf_archive_coll: str
+    lock_coll: str
+    firestore_cert: str
+    fs: FirestoreClient
+    serialized_response: bytes
+
+    @classmethod
+    def setUpClass(cls: Type["TestUpdateTerminalCollParallel"]) -> None:
         """Set up the test cases for TestUpdateTerminalCollParallel."""
         file_path = os.path.join(
             current_dir,
@@ -115,21 +125,21 @@ class TestUpdateTerminalCollParallel(unittest.TestCase):
             file_path,
             "rb",
         ) as file:
-            self.serialized_response = file.read()
+            cls.serialized_response = file.read()
 
         # Create a FirestoreClient object
         # Set collection names
-        self.terminal_coll = "**TestUpdateTerminalCollParallel**_Terminals"
-        self.pdf_archive_coll = "**TestUpdateTerminalCollParallel**_PDF_Archive"
-        self.lock_coll = "**TestUpdateTerminalCollParallel**_Locks"
-        self.firestore_cert = "./creds.json"
+        cls.terminal_coll = "**TestUpdateTerminalCollParallel**_Terminals"
+        cls.pdf_archive_coll = "**TestUpdateTerminalCollParallel**_PDF_Archive"
+        cls.lock_coll = "**TestUpdateTerminalCollParallel**_Locks"
+        cls.firestore_cert = "./creds.json"
 
-        os.environ["TERMINAL_COLL"] = self.terminal_coll
-        os.environ["PDF_ARCHIVE_COLL"] = self.pdf_archive_coll
-        os.environ["LOCK_COLL"] = self.lock_coll
-        os.environ["FS_CRED_PATH"] = self.firestore_cert
+        os.environ["TERMINAL_COLL"] = cls.terminal_coll
+        os.environ["PDF_ARCHIVE_COLL"] = cls.pdf_archive_coll
+        os.environ["LOCK_COLL"] = cls.lock_coll
+        os.environ["FS_CRED_PATH"] = cls.firestore_cert
 
-        self.fs = FirestoreClient()
+        cls.fs = FirestoreClient()
 
     @patch("scraper.scraper_utils.get_with_retry")
     def test_update_db_terminals_3_parallel(
@@ -269,11 +279,26 @@ class TestUpdateTerminalCollParallel(unittest.TestCase):
         self.fs.delete_collection(self.pdf_archive_coll)
         self.fs.delete_collection(self.lock_coll)
 
+    @classmethod
+    def tearDownClass(cls: Type["TestUpdateTerminalCollParallel"]) -> None:
+        """Tear down the test cases for TestUpdateTerminalCollParallel."""
+        # Delete the firestore app
+        delete_app(cls.fs.app)
+
 
 class TestUpdateTerminalCollTimingLock(unittest.TestCase):
     """Test that the update_db_terminals will no update terminals if the last update was less than 2 minutes ago."""
 
-    def setUp(self: "TestUpdateTerminalCollTimingLock") -> None:
+    # Class variables
+    terminal_coll: str
+    pdf_archive_coll: str
+    lock_coll: str
+    firestore_cert: str
+    fs: FirestoreClient
+    serialized_response: bytes
+
+    @classmethod
+    def setUpClass(cls: Type["TestUpdateTerminalCollTimingLock"]) -> None:
         """Set up the test cases for TestUpdateTerminalCollTimingLock."""
         file_path = os.path.join(
             current_dir,
@@ -285,21 +310,21 @@ class TestUpdateTerminalCollTimingLock(unittest.TestCase):
             file_path,
             "rb",
         ) as file:
-            self.serialized_response = file.read()
+            cls.serialized_response = file.read()
 
         # Create a FirestoreClient object
         # Set collection names
-        self.terminal_coll = "**TestUpdateTerminalCollTimingLock**_Terminals"
-        self.pdf_archive_coll = "**TestUpdateTerminalCollTimingLock**_PDF_Archive"
-        self.lock_coll = "**TestUpdateTerminalCollTimingLock**_Locks"
-        self.firestore_cert = "./creds.json"
+        cls.terminal_coll = "**TestUpdateTerminalCollTimingLock**_Terminals"
+        cls.pdf_archive_coll = "**TestUpdateTerminalCollTimingLock**_PDF_Archive"
+        cls.lock_coll = "**TestUpdateTerminalCollTimingLock**_Locks"
+        cls.firestore_cert = "./creds.json"
 
-        os.environ["TERMINAL_COLL"] = self.terminal_coll
-        os.environ["PDF_ARCHIVE_COLL"] = self.pdf_archive_coll
-        os.environ["LOCK_COLL"] = self.lock_coll
-        os.environ["FS_CRED_PATH"] = self.firestore_cert
+        os.environ["TERMINAL_COLL"] = cls.terminal_coll
+        os.environ["PDF_ARCHIVE_COLL"] = cls.pdf_archive_coll
+        os.environ["LOCK_COLL"] = cls.lock_coll
+        os.environ["FS_CRED_PATH"] = cls.firestore_cert
 
-        self.fs = FirestoreClient()
+        cls.fs = FirestoreClient()
 
     def insert_terminal_coll_update_lock(
         self: "TestUpdateTerminalCollTimingLock",
@@ -490,25 +515,39 @@ class TestUpdateTerminalCollTimingLock(unittest.TestCase):
         self.fs.delete_collection(self.pdf_archive_coll)
         self.fs.delete_collection(self.lock_coll)
 
+    @classmethod
+    def tearDownClass(cls: Type["TestUpdateTerminalCollTimingLock"]) -> None:
+        """Tear down the test cases for TestUpdateTerminalCollTimingLock."""
+        # Delete the firestore app
+        delete_app(cls.fs.app)
+
 
 class TestUpdateTerminalCollErrors(unittest.TestCase):
     """Test that the update_db_terminals handles errors correctly by releasing the lock."""
 
-    def setUp(self: "TestUpdateTerminalCollErrors") -> None:
+    # Class variables
+    terminal_coll: str
+    pdf_archive_coll: str
+    lock_coll: str
+    firestore_cert: str
+    fs: FirestoreClient
+
+    @classmethod
+    def setUpClass(cls: Type["TestUpdateTerminalCollErrors"]) -> None:
         """Set up the test cases for TestUpdateTerminalCollErrors."""
         # Create a FirestoreClient object
         # Set collection names
-        self.terminal_coll = "**TestUpdateTerminalCollErrors**_Terminals"
-        self.pdf_archive_coll = "**TestUpdateTerminalCollErrors**_PDF_Archive"
-        self.lock_coll = "**TestUpdateTerminalCollErrors**_Locks"
-        self.firestore_cert = "./creds.json"
+        cls.terminal_coll = "**TestUpdateTerminalCollErrors**_Terminals"
+        cls.pdf_archive_coll = "**TestUpdateTerminalCollErrors**_PDF_Archive"
+        cls.lock_coll = "**TestUpdateTerminalCollErrors**_Locks"
+        cls.firestore_cert = "./creds.json"
 
-        os.environ["TERMINAL_COLL"] = self.terminal_coll
-        os.environ["PDF_ARCHIVE_COLL"] = self.pdf_archive_coll
-        os.environ["LOCK_COLL"] = self.lock_coll
-        os.environ["FS_CRED_PATH"] = self.firestore_cert
+        os.environ["TERMINAL_COLL"] = cls.terminal_coll
+        os.environ["PDF_ARCHIVE_COLL"] = cls.pdf_archive_coll
+        os.environ["LOCK_COLL"] = cls.lock_coll
+        os.environ["FS_CRED_PATH"] = cls.firestore_cert
 
-        self.fs = FirestoreClient()
+        cls.fs = FirestoreClient()
 
     @patch("scraper.scraper_utils.get_with_retry")
     def test_no_terminals_found(
@@ -540,47 +579,65 @@ class TestUpdateTerminalCollErrors(unittest.TestCase):
         self.fs.delete_collection(self.pdf_archive_coll)
         self.fs.delete_collection(self.lock_coll)
 
+    @classmethod
+    def tearDownClass(cls: Type["TestUpdateTerminalCollErrors"]) -> None:
+        """Tear down the test cases for TestUpdateTerminalCollErrors."""
+        # Delete the firestore app
+        delete_app(cls.fs.app)
+
 
 class TestUpdateTerminalPdfs(unittest.TestCase):
     """Test the update_terminal_pdfs function."""
 
-    def setUp(self: "TestUpdateTerminalPdfs") -> None:
+    # Class variables
+    terminal_coll: str
+    pdf_archive_coll: str
+    lock_coll: str
+    firestore_cert: str
+    fs: FirestoreClient
+    s3: S3Bucket
+    bwi_page: dict
+    dover_page_no_pdfs: dict
+    andrews_page_no_pdfs: dict
+    seattle_page_no_pdfs: dict
+    charleston_page_no_pdfs: dict
+
+    @classmethod
+    def setUpClass(cls: Type["TestUpdateTerminalPdfs"]) -> None:
         """Set up the test cases for TestUpdateTerminalPdfs."""
         # Create a FirestoreClient object
         # Set collection names
-        self.terminal_coll = "**TestUpdateTerminalPdfs**_Terminals"
-        self.pdf_archive_coll = "**TestUpdateTerminalPdfs**_PDF_Archive"
-        self.lock_coll = "**TestUpdateTerminalPdfs**_Locks"
-        self.firestore_cert = "./creds.json"
+        cls.terminal_coll = "**TestUpdateTerminalPdfs**_Terminals"
+        cls.pdf_archive_coll = "**TestUpdateTerminalPdfs**_PDF_Archive"
+        cls.lock_coll = "**TestUpdateTerminalPdfs**_Locks"
+        cls.firestore_cert = "./creds.json"
 
-        os.environ["TERMINAL_COLL"] = self.terminal_coll
-        os.environ["PDF_ARCHIVE_COLL"] = self.pdf_archive_coll
-        os.environ["LOCK_COLL"] = self.lock_coll
-        os.environ["FS_CRED_PATH"] = self.firestore_cert
+        os.environ["TERMINAL_COLL"] = cls.terminal_coll
+        os.environ["PDF_ARCHIVE_COLL"] = cls.pdf_archive_coll
+        os.environ["LOCK_COLL"] = cls.lock_coll
+        os.environ["FS_CRED_PATH"] = cls.firestore_cert
 
-        self.fs = FirestoreClient()
-        self.s3 = S3Bucket()
+        cls.fs = FirestoreClient()
+        cls.s3 = S3Bucket()
 
         # Load the serialized response
         with open(
             "tests/assets/TestUpdateTerminalPdfs/bwi_page_02-17-2024.pkl",
             "rb",
         ) as file:
-            self.bwi_page = pickle.load(file)  # noqa: S301 (Loading test data)
+            cls.bwi_page = pickle.load(file)  # noqa: S301 (Loading test data)
 
         with open(
             "tests/assets/TestUpdateTerminalPdfs/dover_page_02-17-24_NO_PDFS.pkl",
             "rb",
         ) as file:
-            self.dover_page_no_pdfs = pickle.load(  # noqa: S301 (Loading test data)
-                file
-            )
+            cls.dover_page_no_pdfs = pickle.load(file)  # noqa: S301 (Loading test data)
 
         with open(
             "tests/assets/TestUpdateTerminalPdfs/andrews_page_02-17-24_NO_PDFS.pkl",
             "rb",
         ) as file:
-            self.andrews_page_no_pdfs = pickle.load(  # noqa: S301 (Loading test data)
+            cls.andrews_page_no_pdfs = pickle.load(  # noqa: S301 (Loading test data)
                 file
             )
 
@@ -588,7 +645,7 @@ class TestUpdateTerminalPdfs(unittest.TestCase):
             "tests/assets/TestUpdateTerminalPdfs/seattle_page_02-17-24_NO_PDFS.pkl",
             "rb",
         ) as file:
-            self.seattle_page_no_pdfs = pickle.load(  # noqa: S301 (Loading test data)
+            cls.seattle_page_no_pdfs = pickle.load(  # noqa: S301 (Loading test data)
                 file
             )
 
@@ -596,9 +653,9 @@ class TestUpdateTerminalPdfs(unittest.TestCase):
             "tests/assets/TestUpdateTerminalPdfs/charleston_page_02-17-24_NO_PDFS.pkl",
             "rb",
         ) as file:
-            self.charleston_page_no_pdfs = pickle.load( # noqa: S301 (Loading test data)
+            cls.charleston_page_no_pdfs = pickle.load(
                 file
-            )
+            )  # noqa: S301 (Loading test data)
 
     @patch("scraper.scraper_utils.get_with_retry")
     def test_update_terminal_fail_unlocked(
@@ -931,6 +988,12 @@ class TestUpdateTerminalPdfs(unittest.TestCase):
         self.fs.delete_collection(self.terminal_coll)
         self.fs.delete_collection(self.pdf_archive_coll)
         self.fs.delete_collection(self.lock_coll)
+
+    @classmethod
+    def tearDownClass(cls: Type["TestUpdateTerminalPdfs"]) -> None:
+        """Tear down the test cases for TestUpdateTerminalPdfs."""
+        # Delete the firestore app
+        delete_app(cls.fs.app)
 
 
 if __name__ == "__main__":
