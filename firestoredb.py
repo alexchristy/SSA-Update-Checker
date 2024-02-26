@@ -5,6 +5,7 @@ from datetime import datetime
 from functools import partial
 from typing import Any, Callable, Dict, List, Optional
 from uuid import uuid4
+from time import sleep
 
 from firebase_admin import credentials, firestore, initialize_app  # type: ignore
 from google.cloud.firestore import (  # type: ignore
@@ -661,7 +662,7 @@ class FirestoreClient:
             transaction = self.db.transaction()
             return update_in_transaction(transaction, lock_doc_ref)
         except Exception as e:
-            logging.error("Failed to acquire terminal update lock: %s", e)
+            logging.warning("Failed to acquire terminal update lock: %s", e)
             return False
 
     def acquire_terminal_doc_update_lock(
@@ -708,7 +709,7 @@ class FirestoreClient:
                 )
             return result
         except Exception as e:
-            logging.error(
+            logging.warning(
                 "Failed to acquire terminal update lock for '%s': %s", terminal_name, e
             )
             return False
@@ -718,6 +719,11 @@ class FirestoreClient:
         lock_coll = os.getenv("LOCK_COLL", "Locks")
 
         lock_doc_ref = self.db.collection(lock_coll).document("terminal_update_lock")
+
+        # Check if the document exists
+        if not lock_doc_ref.get().exists:
+            logging.error("Terminal update lock document does not exist.")
+            return False
 
         update_data = {"timestamp": firestore.SERVER_TIMESTAMP}
 
@@ -852,17 +858,37 @@ class FirestoreClient:
         lock_coll = os.getenv("TERMINAL_COLL", "Terminals")
         lock_doc_ref = self.db.collection(lock_coll).document(terminal_name)
 
+        # Check if the document exists
+        if not lock_doc_ref.get().exists:
+            logging.error(
+                "Cannot release lock for non-existent terminal '%s'.", terminal_name
+            )
+            return
+
         # Update the lock attribute to False
         update_data = {"pdfUpdateLock": False}
 
-        try:
-            # Perform a non-transactional update to release the lock
-            lock_doc_ref.set(update_data, merge=True)
-            logging.info("Released update lock for terminal '%s'.", terminal_name)
-        except Exception as e:
-            logging.error(
-                "Failed to release update lock for terminal '%s': %s", terminal_name, e
-            )
+        retry = 0
+        while retry < 5:
+            try:
+                # Perform a non-transactional update to release the lock
+                lock_doc_ref.set(update_data, merge=True)
+                logging.info("Released update lock for terminal '%s'.", terminal_name)
+                return
+            except Exception as e:
+                logging.warning(
+                    "Failed to release update lock for terminal '%s': %s",
+                    terminal_name,
+                    e,
+                )
+                retry += 1
+                sleep(1 * retry)
+
+        logging.critical(
+            "Attemped %d retries. Failed to release update lock for terminal '%s'.",
+            retry,
+            terminal_name,
+        )
 
     def get_terminal_update_signature(
         self: "FirestoreClient", terminal_name: str
@@ -902,18 +928,38 @@ class FirestoreClient:
         lock_coll = os.getenv("TERMINAL_COLL", "Terminals")
         lock_doc_ref = self.db.collection(lock_coll).document(terminal_name)
 
+        # Check if the document exists
+        if not lock_doc_ref.get().exists:
+            logging.error(
+                "Cannot set fingerprint for non-existent terminal '%s'.", terminal_name
+            )
+            return
+
         update_data = {"pdfUpdateSignature": signature}
 
-        try:
-            # Perform a non-transactional update to set the fingerprint
-            lock_doc_ref.set(update_data, merge=True)
-            logging.info(
-                "Set fingerprint for terminal '%s' to '%s'.", terminal_name, signature
-            )
-        except Exception as e:
-            logging.error(
-                "Failed to set fingerprint for terminal '%s': %s", terminal_name, e
-            )
+        retry = 0
+        while retry < 5:
+            try:
+                # Perform a non-transactional update to set the fingerprint
+                lock_doc_ref.set(update_data, merge=True)
+                logging.info(
+                    "Set fingerprint for terminal '%s' to '%s'.",
+                    terminal_name,
+                    signature,
+                )
+                return
+            except Exception as e:
+                logging.warning(
+                    "Failed to set fingerprint for terminal '%s': %s", terminal_name, e
+                )
+                retry += 1
+                sleep(1 * retry)
+
+        logging.error(  # Not critical because if the signature is not set, the terminal will be updated again in the worst case.
+            "Attemped %d retries. Failed to set fingerprint for terminal '%s'.",
+            retry,
+            terminal_name,
+        )
 
     def safely_release_terminal_lock(self: "FirestoreClient") -> None:
         """Safely release the terminal update lock by flipping the lock state twice.
@@ -1003,18 +1049,38 @@ class FirestoreClient:
 
         doc_ref = self.db.collection(terminal_coll).document(terminal_name)
 
+        # Check if the document exists
+        if not doc_ref.get().exists:
+            logging.error(
+                "Cannot add timestamp to non-existent terminal '%s'.", terminal_name
+            )
+            return
+
         update_data = {"lastCheckTimestamp": firestore.SERVER_TIMESTAMP}
 
-        try:
-            # Perform a non-transactional update to add the timestamp
-            doc_ref.update(update_data)
-            logging.info("Added timestamp to terminal '%s' last check.", terminal_name)
-        except Exception as e:
-            logging.error(
-                "Failed to add timestamp to terminal '%s' last check: %s",
-                terminal_name,
-                e,
-            )
+        retry = 0
+        while retry < 5:
+            try:
+                # Perform a non-transactional update to add the timestamp
+                doc_ref.update(update_data)
+                logging.info(
+                    "Added timestamp to terminal '%s' last check.", terminal_name
+                )
+                return
+            except Exception as e:
+                logging.warning(
+                    "Failed to add timestamp to terminal '%s' last check: %s",
+                    terminal_name,
+                    e,
+                )
+                retry += 1
+                sleep(1 * retry)
+
+        logging.error(  # Not critical because if the timestamp is not set, the terminal will be incorrect until the next run (~10 minutes).
+            "Attemped %d retries. Failed to add timestamp to terminal '%s' last check.",
+            retry,
+            terminal_name,
+        )
 
     def set_pdf_last_update_timestamp(
         self: "FirestoreClient", terminal_name: str, pdf_type: str
@@ -1045,6 +1111,14 @@ class FirestoreClient:
 
         doc_ref = self.db.collection(terminal_coll).document(terminal_name)
 
+        # Check if the document exists
+        if not doc_ref.get().exists:
+            logging.error(
+                "Cannot add pdf update timestamp to non-existent terminal '%s'.",
+                terminal_name,
+            )
+            return
+
         if pdf_type == "72_HR":
             pdf_type = "72Hour"
         elif pdf_type == "30_DAY":
@@ -1052,26 +1126,40 @@ class FirestoreClient:
         elif pdf_type == "ROLLCALL":
             pdf_type = "Rollcall"
         else:
-            logging.error("Invalid PDF type: %s", pdf_type)
+            logging.error(
+                "Cannot set pdf update timestamp. Invalid PDF type: %s", pdf_type
+            )
             return
 
         update_data = {f"last{pdf_type}UpdateTimestamp": firestore.SERVER_TIMESTAMP}
 
-        try:
-            # Perform a non-transactional update to add the timestamp
-            doc_ref.update(update_data)
-            logging.info(
-                "Added timestamp to terminal '%s' last %s update.",
-                terminal_name,
-                pdf_type,
-            )
-        except Exception as e:
-            logging.error(
-                "Failed to add timestamp to terminal '%s' last %s update: %s",
-                terminal_name,
-                pdf_type,
-                e,
-            )
+        retry = 0
+        while retry < 5:
+            try:
+                # Perform a non-transactional update to add the timestamp
+                doc_ref.update(update_data)
+                logging.info(
+                    "Added timestamp to terminal '%s' last %s update.",
+                    terminal_name,
+                    pdf_type,
+                )
+                return
+            except Exception as e:
+                logging.warning(
+                    "Failed to add pdf update timestamp to terminal '%s' last %s update: %s",
+                    terminal_name,
+                    pdf_type,
+                    e,
+                )
+                retry += 1
+                sleep(1 * retry)
+
+        logging.error(  # Not critical because if the timestamp is not set, the terminal will be incorrect until the next run (~10 minutes).
+            "Attemped %d retries. Failed to add pdf update timestamp to terminal '%s' last %s update.",
+            retry,
+            terminal_name,
+            pdf_type,
+        )
 
     def set_terminal_update_status(
         self: "FirestoreClient", terminal_name: str, status: str
@@ -1105,15 +1193,38 @@ class FirestoreClient:
 
         doc_ref = self.db.collection(terminal_coll).document(terminal_name)
 
+        # Check if the document exists
+        if not doc_ref.get().exists:
+            logging.error(
+                "Cannot set update status for non-existent terminal '%s'.",
+                terminal_name,
+            )
+            return
+
         update_data = {"updateStatus": status}
 
-        try:
-            # Perform a non-transactional update to set the status
-            doc_ref.update(update_data)
-            logging.info(
-                "Set update status for terminal '%s' to '%s'.", terminal_name, status
-            )
-        except Exception as e:
-            logging.error(
-                "Failed to set update status for terminal '%s': %s", terminal_name, e
-            )
+        retry = 0
+        while retry < 5:
+            try:
+                # Perform a non-transactional update to set the status
+                doc_ref.update(update_data)
+                logging.info(
+                    "Set update status for terminal '%s' to '%s'.",
+                    terminal_name,
+                    status,
+                )
+                return
+            except Exception as e:
+                logging.warning(
+                    "Failed to set update status for terminal '%s': %s",
+                    terminal_name,
+                    e,
+                )
+                retry += 1
+                sleep(1 * retry)
+
+        logging.error(  # Not critical because if the status is not set, the terminal will be incorrect until the next run (~10 minutes).
+            "Attemped %d retries. Failed to set update status for terminal '%s'.",
+            retry,
+            terminal_name,
+        )
