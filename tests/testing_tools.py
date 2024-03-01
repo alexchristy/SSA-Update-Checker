@@ -1,5 +1,8 @@
 import pickle
 
+import firebase_admin  # type: ignore
+from firebase_admin import credentials, firestore  # type: ignore
+
 import requests
 from bs4 import BeautifulSoup  # type: ignore
 
@@ -64,8 +67,32 @@ def pickle_response_attributes(
         pickle.dump(attributes_to_save, f)
 
 
-pickle_response_attributes(
-    url="https://www.amc.af.mil/AMC-Travel-Site/Terminals/CONUS-Terminals/Joint-Base-Charleston-Passenger-Terminal/",
-    filename="charleston_page_02-17-24_NO_PDFS.pkl",
-    remove_pdfs=True,
-)
+# Adjusted to check for existing Firebase app instances
+def initialize_firestore(service_account_key, name="default"):
+    # Read service account key file
+    cred = credentials.Certificate(service_account_key)
+
+    # Check if app already exists
+    app = firebase_admin.initialize_app(cred, name=name)
+
+    db = firestore.client(app=app)
+    return db
+
+
+# Adjusted clone_firestore function
+def clone_firestore(source_key, target_key):
+    # Initialize source and target Firestore databases with unique names
+    source_db = initialize_firestore(source_key, name="source")
+    target_db = initialize_firestore(target_key, name="target")
+
+    collections = source_db.collections()
+    for collection in collections:
+        docs = collection.stream()
+        for doc in docs:
+            data = doc.to_dict()
+            target_db.collection(collection.id).document(doc.id).set(data)
+            print(f"Cloned document {doc.id} in collection {collection.id}")
+
+
+# Example usage
+clone_firestore("./creds.json", "./testcreds.json")

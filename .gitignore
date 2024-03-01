@@ -5,6 +5,7 @@
 /pdfs
 .env
 /creds.json
+/testcreds.json
 /SSA-ENV
 /app.log
 /testing
