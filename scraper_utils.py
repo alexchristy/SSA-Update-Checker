@@ -258,7 +258,7 @@ def get_with_retry(url: str) -> Optional[requests.Response]:
             logging.error("Request to %s timed out.", url)
 
         except Exception as e:  # Catch any exceptions
-            logging.error("Request to %s failed in get_with_retry().", url)
+            logging.warning("Request to %s failed in get_with_retry().", url)
             logging.debug("Error: %s", e)
 
         # If it was not the last attempt
