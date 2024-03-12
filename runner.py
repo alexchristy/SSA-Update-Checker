@@ -7,10 +7,26 @@ import sys
 from datetime import timezone
 from pathlib import Path
 
+import sentry_sdk
+
 # Setup constants
 LOCK_FILE_PATH = Path("/tmp/ssa-update-checker.lock")  # noqa S108 (Lock file path)
 LOG_DIRECTORY_PATH = Path("/home/ssa-worker/SSA-Update-Checker/log")
 BASE_DIRECTORY = Path("/home/ssa-worker/SSA-Update-Checker")
+
+
+def init_sentry() -> None:
+    """Initialize Sentry SDK for error tracking."""
+    sentry_sdk.init(
+        dsn="https://0a6117986a084203f3480083c2cb4237@o4506224652713984.ingest.us.sentry.io/4506900246691840",
+        # Set traces_sample_rate to 1.0 to capture 100%
+        # of transactions for performance monitoring.
+        traces_sample_rate=1.0,
+        # Set profiles_sample_rate to 1.0 to profile 100%
+        # of sampled transactions.
+        # We recommend adjusting this value in production.
+        profiles_sample_rate=1.0,
+    )
 
 
 def rotate_log_file(log_file_path: Path, log_type: str = "app") -> None:
