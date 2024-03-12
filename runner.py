@@ -56,7 +56,13 @@ def rotate_log_file(log_file_path: Path, log_type: str = "app") -> None:
 def setup_logging() -> logging.Logger:
     """Set up logging for the wrapper script, with rotation for the log file."""
     wrapper_log_path = Path(LOG_DIRECTORY_PATH, "wrapper_script.log")
-    rotate_log_file(wrapper_log_path, log_type="wrapper")
+
+    # Ensure the log directory exists
+    LOG_DIRECTORY_PATH.mkdir(parents=True, exist_ok=True)
+
+    # Check if the log file exists and rotate it if necessary
+    if wrapper_log_path.exists():
+        rotate_log_file(wrapper_log_path, log_type="wrapper")
 
     logger = logging.getLogger("wrapper_logger")
     logger.setLevel(logging.INFO)
