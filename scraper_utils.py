@@ -6,7 +6,7 @@ import re
 import time
 import uuid
 from functools import wraps
-from typing import Any, Callable, List, Optional, Tuple, TypeVar, Sequence
+from typing import Any, Callable, List, Optional, Sequence, Tuple, TypeVar
 from urllib.parse import quote, unquote, urlparse
 
 import requests
@@ -434,11 +434,14 @@ def deduplicate_with_attribute(object_list: Sequence[T], attribute: str) -> List
     """Deduplicate a list of objects based on a specified attribute.
 
     Args:
+    ----
         object_list: The list of objects to deduplicate.
         attribute: The attribute to deduplicate on.
 
     Returns:
+    -------
         A list of unique objects based on the specified attribute.
+
     """
     unique_attrs = set()
     unique_objects: List[T] = []  # Specify the list to hold objects of type T
@@ -449,7 +452,8 @@ def deduplicate_with_attribute(object_list: Sequence[T], attribute: str) -> List
 
     if not hasattr(object_list[0], attribute):
         logging.error("Attribute %s does not exist in object list.", attribute)
-        raise AttributeError(f"Attribute {attribute} does not exist in object list.")
+        msg = f"Attribute {attribute} does not exist in object list."
+        raise AttributeError(msg)
 
     for obj in object_list:
         attr_value = getattr(obj, attribute)
