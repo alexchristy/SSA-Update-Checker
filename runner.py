@@ -4,24 +4,53 @@ import logging
 import os
 import subprocess
 import sys
-import tempfile
 from datetime import timezone
 from pathlib import Path
 
 # Setup constants
-LOCK_FILE_PATH = tempfile.NamedTemporaryFile(
-    delete=False
-).name  # Remove the lock file after execution
-LOG_DIRECTORY_PATH = "/home/ssa-worker/SSA-Update-Checker/log"
-BASE_DIRECTORY = "/home/ssa-worker/SSA-Update-Checker"
+LOCK_FILE_PATH = Path("/tmp/ssa-update-checker.lock")  # noqa S108 (Lock file path)
+LOG_DIRECTORY_PATH = Path("/home/ssa-worker/SSA-Update-Checker/log")
+BASE_DIRECTORY = Path("/home/ssa-worker/SSA-Update-Checker")
 
-# Setup logging for the wrapper script
-wrapper_logger = logging.getLogger("wrapper_logger")
-wrapper_logger.setLevel(logging.INFO)
-fh = logging.FileHandler(f"{LOG_DIRECTORY_PATH}/wrapper_script.log")
-formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-fh.setFormatter(formatter)
-wrapper_logger.addHandler(fh)
+
+def rotate_log_file(log_file_path: Path, log_type: str = "app") -> None:
+    """Rotate a log file, appending a timestamp and moving it to the log directory.
+
+    Args:
+    ----
+        log_file_path (Path): The path to the log file to rotate.
+        log_type (str): The type of log file to rotate (default: "app").
+
+    Returns:
+    -------
+        None
+
+    """
+    if log_file_path.exists():
+        timestamp = datetime.datetime.now(tz=timezone.utc).strftime("%Y-%m-%d_%H-%M-%S")
+        if log_type == "app":
+            rotated_log_file = log_file_path.with_name(f"app_{timestamp}.log")
+        else:  # Assuming log_type == "wrapper"
+            rotated_log_file = log_file_path.with_name(
+                f"wrapper_script_{timestamp}.log"
+            )
+        log_file_path.rename(rotated_log_file)
+
+
+def setup_logging() -> logging.Logger:
+    """Set up logging for the wrapper script, with rotation for the log file."""
+    wrapper_log_path = Path(LOG_DIRECTORY_PATH, "wrapper_script.log")
+    rotate_log_file(wrapper_log_path, log_type="wrapper")
+
+    logger = logging.getLogger("wrapper_logger")
+    logger.setLevel(logging.INFO)
+    file_handler = logging.FileHandler(wrapper_log_path)
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+    return logger
 
 
 def run_main_script(working_dir: str, venv_path: str) -> tuple[str, str]:
@@ -84,6 +113,9 @@ def main(working_dir: str, venv_name: str) -> None:
     # Create a lock file to prevent concurrent execution
     lock_file.touch()
 
+    # Rotate the app.log file before running the script
+    rotate_log_file(LOG_DIRECTORY_PATH)
+
     # Construct full path for the virtual environment
     venv_path = os.path.join(working_dir, venv_name)
 
@@ -116,6 +148,7 @@ def main(working_dir: str, venv_name: str) -> None:
 
 
 if __name__ == "__main__":
+    wrapper_logger = setup_logging()
     parser = argparse.ArgumentParser(
         description="Wrapper script for running the SSA Update Checker."
     )
