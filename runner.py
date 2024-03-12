@@ -118,6 +118,8 @@ def main(working_dir: str, venv_name: str) -> None:
         venv_name (str): The name of the virtual environment.
 
     """
+    init_sentry()
+    wrapper_logger = setup_logging()
     # Check and handle the lock file
     lock_file = Path(LOCK_FILE_PATH)
     if lock_file.exists():
@@ -164,7 +166,6 @@ def main(working_dir: str, venv_name: str) -> None:
 
 
 if __name__ == "__main__":
-    wrapper_logger = setup_logging()
     parser = argparse.ArgumentParser(
         description="Wrapper script for running the SSA Update Checker."
     )
