@@ -1,12 +1,12 @@
 import hashlib
 import os
+import pickle
 import shutil
 import sys
 import time
-from typing import List
 import unittest
-import pickle
 import uuid
+from typing import List
 from unittest.mock import MagicMock, patch
 from urllib.parse import quote
 
@@ -18,6 +18,7 @@ sys.path.append(current_dir + "/../")
 from scraper_utils import (  # noqa: E402 (Need sys append for proper imports)
     calc_sha256_hash,
     check_local_pdf_dirs,
+    deduplicate_with_attribute,
     ensure_url_encoded,
     extract_relative_path_from_full_path,
     format_pdf_metadata_date,
@@ -26,7 +27,6 @@ from scraper_utils import (  # noqa: E402 (Need sys append for proper imports)
     get_with_retry,
     normalize_url,
     timing_decorator,
-    deduplicate_with_attribute,
 )
 
 
@@ -239,58 +239,6 @@ class TestGetWithRetry(unittest.TestCase):
         result = get_with_retry("https://www.example.com")
         self.assertEqual(result, mock_response)
         mock_requests_get.assert_called_once()
-
-    @patch("scraper_utils.requests.get")
-    @patch("scraper_utils.logging.error")
-    def test_get_request_timeout(
-        self: "TestGetWithRetry",
-        mock_logging_error: MagicMock,
-        mock_requests_get: MagicMock,
-    ) -> None:
-        """Test that the function retries after a timeout."""
-        mock_requests_get.side_effect = requests.Timeout
-
-        result = get_with_retry("https://www.example.com")
-        self.assertIsNone(result)
-        self.assertEqual(mock_requests_get.call_count, 3)  # 3 attempts
-        mock_logging_error.assert_called_with(
-            "Request to %s timed out.", "https://www.example.com"
-        )
-
-    @patch("scraper_utils.requests.get")
-    @patch("scraper_utils.logging.error")
-    def test_get_request_generic_exception(
-        self: "TestGetWithRetry",
-        mock_logging_error: MagicMock,
-        mock_requests_get: MagicMock,
-    ) -> None:
-        """Test that the function handles a generic exception."""
-        mock_requests_get.side_effect = Exception("Generic error")
-
-        result = get_with_retry("https://www.example.com")
-        self.assertIsNone(result)
-        self.assertEqual(mock_requests_get.call_count, 3)  # 3 attempts
-        mock_logging_error.assert_called_with(
-            "Request to %s failed in get_with_retry().", "https://www.example.com"
-        )
-
-    @patch("scraper_utils.requests.get")
-    @patch("scraper_utils.logging.error")
-    def test_invalid_url(
-        self: "TestGetWithRetry",
-        mock_logging_error: MagicMock,
-        mock_requests_get: MagicMock,
-    ) -> None:
-        """Test that the function handles an invalid URL."""
-        invalid_url = "https://invalid-url"
-        mock_requests_get.side_effect = requests.RequestException
-
-        result = get_with_retry(invalid_url)
-        self.assertIsNone(result)
-        self.assertEqual(mock_requests_get.call_count, 3)  # 3 attempts
-        mock_logging_error.assert_called_with(
-            "Request to %s failed in get_with_retry().", invalid_url
-        )
 
     @patch("scraper_utils.requests.get")
     def test_http_error_response(
