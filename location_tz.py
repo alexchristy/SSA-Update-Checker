@@ -61,9 +61,10 @@ class TerminalTzFinder:
         Returns:
         -------
             Optional[Tuple[float, float]]: A tuple of latitude and longitude
+
         """
         # Try Google Maps first
-        g = geocoder.google(location, method="timezone", key=self.google_key)
+        g = geocoder.google(location, key=self.google_key)
         if g.ok and g.latlng:
             return g.latlng
 
@@ -89,6 +90,7 @@ class TerminalTzFinder:
         Returns:
         -------
             list: A list of latitude and longitude coordinates.
+
         """
         response = self.gpt_client.chat.completions.create(
             model="gpt-3.5-turbo",
@@ -141,6 +143,7 @@ class TerminalTzFinder:
         Returns:
         -------
             str: The timezone string in the format of "America/New_York"
+
         """
         latlng = self._get_geocode(location)
 
