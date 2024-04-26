@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional, Type
+from typing import Any, Dict, List, Optional, Type
 
 
 class Terminal:
@@ -21,6 +21,8 @@ class Terminal:
             timezone: The timezone of the terminal.
             pdf_update_signature: The signature of the last PDF update.
             pdf_update_lock: A flag to indicate if the terminal's PDFs are being updated.
+            contact_info: A dictionary of contact information for the terminal.
+            contact_info_hash: The hash of the contact information HTML div box on the terminal's page.
 
         Sets all attributes to None.
 
@@ -37,6 +39,8 @@ class Terminal:
         self.timezone = ""
         self.pdf_update_signature = ""
         self.pdf_update_lock = False
+        self.contact_info: Dict[str, List[Dict[str, Any]]] = {}
+        self.contact_info_hash = ""
 
     def to_dict(self: "Terminal") -> Dict[str, Any]:
         """Convert this Terminal object to a dictionary, suitable for storing in Firestore or another database.
@@ -59,6 +63,8 @@ class Terminal:
             "timezone": self.timezone,
             "pdfUpdateSignature": self.pdf_update_signature,
             "pdfUpdateLock": self.pdf_update_lock,
+            "contactInfo": self.contact_info,
+            "contactInfoHash": self.contact_info_hash,
         }
 
     def __eq__(self: "Terminal", other: object) -> bool:
@@ -170,5 +176,7 @@ class Terminal:
         terminal.timezone = data.get("timezone", None)
         terminal.pdf_update_signature = data.get("pdfUpdateSignature", None)
         terminal.pdf_update_lock = data.get("pdfUpdateLock", False)
+        terminal.contact_info = data.get("contactInfo", {})
+        terminal.contact_info_hash = data.get("contactInfoHash", None)
 
         return terminal
