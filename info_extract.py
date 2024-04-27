@@ -79,11 +79,20 @@ class InfoExtractor:
         # Extract email addresses
         emails = self._extract_emails(div_content)
 
+        if not emails:
+            logging.error("Failed to extract email addresses.")
+
         # Extract Hours of Operation
         hours = self._extract_hours(div_content)
 
+        if not hours:
+            logging.error("Failed to extract hours of operation.")
+
         # Extract Addresses
         addresses = self._extract_address(div_content)
+
+        if not addresses:
+            logging.error("Failed to extract addresses.")
 
         # Combine all extracted information into a single dictionary
         return {

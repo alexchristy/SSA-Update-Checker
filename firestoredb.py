@@ -220,6 +220,8 @@ class FirestoreClient:
                 "location": terminal.location,
                 "group": terminal.group,
                 "timezone": terminal.timezone,
+                "contactInfo": terminal.contact_info,
+                "contactInfoHash": terminal.contact_info_hash,
             }
 
             doc_ref.update(updates)

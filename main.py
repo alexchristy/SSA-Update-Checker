@@ -205,6 +205,7 @@ def main() -> None:
             terminals_updated,
             terminals_checked,
         )
+        scraper.update_terminal_contact_info(fs, terminal)
 
     # Generate summary logs before exiting
     logging.info("======== Summary of Updates ========")
