@@ -13,6 +13,7 @@ from pdf import Pdf
 from pdf_utils import local_sort_pdf_to_current, sort_terminal_pdfs
 from s3_bucket import S3Bucket
 from terminal import Terminal
+from utils import create_sha256_hash
 
 valid_locations = [
     "AMC CONUS Terminals",
@@ -585,13 +586,21 @@ def update_terminal_contact_info(fs: FirestoreClient, terminal: Terminal) -> Non
     # Extract the contact information
     info_extractor = InfoExtractor()
 
-    # Extract the contact information
-    contact_info, current_hash = info_extractor.get_gpt_extracted_info(response.text)
+    contact_info_div = info_extractor._extract_div_content(response.text)
+
+    if not contact_info_div:
+        logging.warning("No contact information found for %s.", terminal.name)
+        return
+
+    current_hash = create_sha256_hash(contact_info_div)
 
     # Check if the contact information has changed
     if current_hash == terminal.contact_info_hash:
         logging.info("Contact information for %s has not changed.", terminal.name)
         return
+
+    # Extract the contact information
+    contact_info = info_extractor.get_gpt_extracted_info(response.text)
 
     # Update the contact information in the database
     terminal.contact_info_hash = current_hash

@@ -40,7 +40,7 @@ class InfoExtractor:
 
         self.gpt_client = OpenAI(api_key=gpt_key)
 
-    def get_gpt_extracted_info(self: "InfoExtractor", content: str) -> Tuple[dict, str]:
+    def get_gpt_extracted_info(self: "InfoExtractor", content: str) -> dict:
         """Extract information from HTML content using ChatGPT.
 
         Args:
@@ -56,17 +56,14 @@ class InfoExtractor:
         # No log since it's already logged in _download_html_info_content
         if not content:
             logging.error("Cannot extract information from empty content.")
-            return {}, ""
+            return {}
 
         # Extract the Contact Information div content
         div_content = self._extract_div_content(content)
 
         if not div_content:
             logging.error("Failed to extract the Contact Information div content.")
-            return {}, ""
-
-        # Hash the content for tracking updates
-        div_content_hash = create_sha256_hash(div_content)
+            return {}
 
         # Extract phone numbers
         phone_numbers = self._extract_phone_numbers(div_content)
@@ -100,7 +97,7 @@ class InfoExtractor:
             "emails": emails.get("emails", []),
             "hours": hours.get("hours", []),
             "addresses": addresses.get("addresses", []),
-        }, div_content_hash
+        }
 
     def _extract_phone_numbers(self: "InfoExtractor", content: str) -> dict:
         """Extract phone numbers from HTML content.
