@@ -8,6 +8,7 @@ from bs4 import BeautifulSoup  # type: ignore
 
 import scraper_utils
 from firestoredb import FirestoreClient
+from info_extract import InfoExtractor
 from pdf import Pdf
 from pdf_utils import local_sort_pdf_to_current, sort_terminal_pdfs
 from s3_bucket import S3Bucket
@@ -152,6 +153,7 @@ def update_terminal_pdfs(  # noqa: PLR0913
     Returns:
     -------
         bool: True if the terminal was updated, False otherwise.
+        int: The number of PDFs updated.
 
     """
     try:
@@ -553,3 +555,50 @@ def get_terminal_pdfs(terminal: Terminal, hash_only: bool = False) -> List[Pdf]:
         return [
             future.result() for future in futures if not future.result().seen_before
         ]
+
+
+def update_terminal_contact_info(fs: FirestoreClient, terminal: Terminal) -> None:
+    """Update the contact information for a terminal.
+
+    Args:
+    ----
+        fs: A FirestoreClient object.
+        terminal: A Terminal object.
+
+    """
+    logging.info("Updating contact information for %s.", terminal.name)
+
+    if not terminal.link:
+        logging.warning("No link found for %s.", terminal.name)
+        return
+
+    logging.info("Downloading %s page.", terminal.name)
+
+    # Get terminal page with retry mechanism
+    response = scraper_utils.get_with_retry(terminal.link)
+
+    # If terminal page is not downloaded correctly exit
+    if not response.text:
+        logging.warning("%s page failed to download.", terminal.name)
+        return
+
+    # Extract the contact information
+    info_extractor = InfoExtractor()
+
+    # Extract the contact information
+    contact_info, current_hash = info_extractor.get_gpt_extracted_info(response.text)
+
+    # Check if the contact information has changed
+    if current_hash == terminal.contact_info_hash:
+        logging.info("Contact information for %s has not changed.", terminal.name)
+        return
+
+    # Update the contact information in the database
+    terminal.contact_info_hash = current_hash
+    terminal.contact_info = contact_info
+
+    fs.upsert_terminal_info(terminal)
+
+    logging.error(
+        "Updated contact information for %s.", terminal.name
+    )  # This an error to allow for alerts to be sent to discord for manual review later
