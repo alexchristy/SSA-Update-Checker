@@ -17,13 +17,16 @@ sys.path.append(current_dir + "/../")
 
 from scraper_utils import (  # noqa: E402 (Need sys append for proper imports)
     calc_sha256_hash,
+    capitilize_words_and_abbreviations,
     check_local_pdf_dirs,
     deduplicate_with_attribute,
     ensure_url_encoded,
+    extract_h1_terminal_name,
     extract_relative_path_from_full_path,
     format_pdf_metadata_date,
     gen_pdf_name_uuid,
     get_pdf_name,
+    get_terminal_name_from_page,
     get_with_retry,
     normalize_url,
     timing_decorator,
@@ -586,6 +589,184 @@ class TestDeduplicateObjects(unittest.TestCase):
         self.assertEqual(len(result), 3)
 
         self.assertCountEqual(result, dedup_pdfs)
+
+
+class TestTerminalNameExtraction(unittest.TestCase):
+    """Test the functions associated with extracting terminals names from their pages."""
+
+    def setUp(self: "TestTerminalNameExtraction") -> None:
+        self.eglin_html = open(
+            "tests/assets/TestTerminalNameExtraction/eglin_042724_terminal_page.html",
+            "r",
+        ).read()
+        self.al_udeid_html = open(
+            "tests/assets/TestTerminalNameExtraction/al_udeid_042624_terminal_page.html",
+            "r",
+        ).read()
+        self.bwi_html = open(
+            "tests/assets/TestTerminalNameExtraction/bwi_042624_terminal_page.html", "r"
+        ).read()
+        self.incirlik_html = open(
+            "tests/assets/TestTerminalNameExtraction/incirlik_042624_terminal_page.html",
+            "r",
+        ).read()
+        self.ramstein_html = open(
+            "tests/assets/TestTerminalNameExtraction/ramstein_042624_terminal_page.html",
+            "r",
+        ).read()
+
+        self.abbreviations = [
+            "afb",  # Air Force Base
+            "ab",  # Air Base
+            "ns",  # Naval Station
+            "nas",  # Naval Air Station
+            "nsa",  # Naval Support Activity
+            "raf",  # Royal Air Force
+            "jb",  # Joint Base
+            "mcas",  # Marine Corps Air Station
+            "raaf",  # Royal Australian Air Force
+            "naf",  # Naval Air Facility
+            "usaf",  # United States Air Force
+            "usa",  # United States of America
+            "sfb",  # Space Force Base
+            "angb",  # Air National Guard Base
+            "ang",  # Air National Guard
+            "arb",  # Air Reserve Base
+            "ars",  # Air Reserve Station
+            "jrb",  # Joint Reserve Base
+        ]
+
+        self.mock_response = MagicMock()
+
+    def mock_get_with_retry(
+        self: "TestTerminalNameExtraction", html_content: str
+    ) -> MagicMock:
+        """Mock the get_with_retry function to return a mock response object."""
+        self.mock_response.text = html_content
+        return self.mock_response
+
+    # Test the extraction of the terminal name from the correct
+    # html name
+    def test_extract_h1_terminal_name_eglin(self: "TestTerminalNameExtraction") -> None:
+        """Test case for the extract_h1_terminal_name function with Eglin HTML.
+
+        This test verifies that the extract_h1_terminal_name function correctly extracts the H1 terminal name
+        from the provided Eglin HTML and returns the expected result.
+
+        """
+        result = extract_h1_terminal_name(self.eglin_html)
+        self.assertEqual(result, "EGLIN AFB PASSENGER TERMINAL")
+
+    def test_extract_h1_terminal_name_al_udeid(
+        self: "TestTerminalNameExtraction",
+    ) -> None:
+        """Test case for the extract_h1_terminal_name function with Al Udeid HTML.
+
+        This test verifies that the extract_h1_terminal_name function correctly extracts the H1 terminal name
+        from the provided Al Udeid HTML and returns the expected result.
+
+        """
+        result = extract_h1_terminal_name(self.al_udeid_html)
+        self.assertEqual(result, "Al Udeid Air Base PASSENGER TERMINAL")
+
+    def test_extract_h1_terminal_name_bwi(self: "TestTerminalNameExtraction") -> None:
+        """Test case for the extract_h1_terminal_name function with BWI HTML.
+
+        This test verifies that the extract_h1_terminal_name function correctly extracts the H1 terminal name
+        from the provided BWI HTML and returns the expected result.
+
+        """
+        result = extract_h1_terminal_name(self.bwi_html)
+        self.assertEqual(
+            result, "BALTIMORE WASHINGTON INTERNATIONAL AIRPORT PASSENGER TERMINAL"
+        )
+
+    def test_extract_h1_terminal_name_incirlik(
+        self: "TestTerminalNameExtraction",
+    ) -> None:
+        """Test case for the extract_h1_terminal_name function with Incirlik HTML.
+
+        This test verifies that the extract_h1_terminal_name function correctly extracts the H1 terminal name
+        from the provided Incirlik HTML and returns the expected result.
+
+        """
+        result = extract_h1_terminal_name(self.incirlik_html)
+        self.assertEqual(result, "INcirlik  PASSENGER TERMINAL")
+
+    def test_extract_h1_terminal_name_ramstein(
+        self: "TestTerminalNameExtraction",
+    ) -> None:
+        """Test case for the extract_h1_terminal_name function with Ramstein HTML.
+
+        This test verifies that the extract_h1_terminal_name function correctly extracts the H1 terminal name
+        from the provided Ramstein HTML and returns the expected result.
+
+        """
+        result = extract_h1_terminal_name(self.ramstein_html)
+        self.assertEqual(result, "RAMSTEIN AIR BASE PASSENGER TERMINAL")
+
+    def test_cap_words_and_abrv_eglin(self: "TestTerminalNameExtraction") -> None:
+        """Test case for the capitilize_words_and_abbreviations function with Eglin HTML.
+
+        This test verifies that the capitilize_words_and_abbreviations function correctly capitilizes the terminal name
+        from the correct result generated by the extract_h1_terminal_name function as seen in the above corresponding test.
+
+        """
+        result = capitilize_words_and_abbreviations(
+            "EGLIN AFB PASSENGER TERMINAL", self.abbreviations
+        )
+        self.assertEqual(result, "Eglin AFB Passenger Terminal")
+
+    def test_cap_words_and_abrv_al_udeid(self: "TestTerminalNameExtraction") -> None:
+        """Test case for the capitilize_words_and_abbreviations function with Al Udeid HTML.
+
+        This test verifies that the capitilize_words_and_abbreviations function correctly capitilizes the terminal name
+        from the correct result generated by the extract_h1_terminal_name function as seen in the above corresponding test.
+
+        """
+        result = capitilize_words_and_abbreviations(
+            "Al Udeid Air Base PASSENGER TERMINAL", self.abbreviations
+        )
+        self.assertEqual(result, "Al Udeid Air Base Passenger Terminal")
+
+    def test_cap_words_and_abrv_bwi(self: "TestTerminalNameExtraction") -> None:
+        """Test case for the capitilize_words_and_abbreviations function with BWI HTML.
+
+        This test verifies that the capitilize_words_and_abbreviations function correctly capitilizes the terminal name
+        from the correct result generated by the extract_h1_terminal_name function as seen in the above corresponding test.
+
+        """
+        result = capitilize_words_and_abbreviations(
+            "BALTIMORE WASHINGTON INTERNATIONAL AIRPORT PASSENGER TERMINAL",
+            self.abbreviations,
+        )
+        self.assertEqual(
+            result, "Baltimore Washington International Airport Passenger Terminal"
+        )
+
+    def test_cap_words_and_abrv_incirlik(self: "TestTerminalNameExtraction") -> None:
+        """Test case for the capitilize_words_and_abbreviations function with Incirlik HTML.
+
+        This test verifies that the capitilize_words_and_abbreviations function correctly capitilizes the terminal name
+        from the correct result generated by the extract_h1_terminal_name function as seen in the above corresponding test.
+
+        """
+        result = capitilize_words_and_abbreviations(
+            "INcirlik  PASSENGER TERMINAL", self.abbreviations
+        )
+        self.assertEqual(result, "Incirlik Passenger Terminal")
+
+    def test_cap_words_and_abrv_ramstein(self: "TestTerminalNameExtraction") -> None:
+        """Test case for the capitilize_words_and_abbreviations function with Ramstein HTML.
+
+        This test verifies that the capitilize_words_and_abbreviations function correctly capitilizes the terminal name
+        from the correct result generated by the extract_h1_terminal_name function as seen in the above corresponding test.
+
+        """
+        result = capitilize_words_and_abbreviations(
+            "RAMSTEIN AIR BASE PASSENGER TERMINAL", self.abbreviations
+        )
+        self.assertEqual(result, "Ramstein Air Base Passenger Terminal")
 
 
 if __name__ == "__main__":

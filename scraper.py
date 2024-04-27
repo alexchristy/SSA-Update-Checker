@@ -429,7 +429,7 @@ def get_active_terminals(url: str) -> List[Terminal]:
     index = 0
     # Iterate though the terminal tags and save page links and terminal names to the terminal objects
     for tag in filtered_tags:
-        a_tags = tag.find_all("a", href=True, target="_blank")
+        a_tags = tag.find_all("a", href=True)
 
         for a_tag in a_tags:
             href = a_tag["href"]
@@ -454,8 +454,17 @@ def get_active_terminals(url: str) -> List[Terminal]:
                 current_terminal = list_of_terminals[index]
 
                 # Save the name and link
-                current_terminal.name = name.strip()
                 current_terminal.link = href
+                name = name.strip()
+
+                # Check if the name contains "http" and extract the terminal name from the page
+                # if so
+                if "http" in name:
+                    name = scraper_utils.get_terminal_name_from_page(
+                        current_terminal.link
+                    )
+
+                current_terminal.name = name
 
         # Increment so next link and name is put in correct terminal object
         index += 1

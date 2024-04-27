@@ -6,10 +6,11 @@ import re
 import time
 import uuid
 from functools import wraps
-from typing import Any, Callable, List, Optional, Tuple, TypeVar, Sequence
+from typing import Any, Callable, List, Optional, Sequence, Tuple, TypeVar
 from urllib.parse import quote, unquote, urlparse
 
 import requests
+from bs4 import BeautifulSoup  # type: ignore
 
 
 def timing_decorator(func: Callable[..., Any]) -> Callable[..., Any]:
@@ -434,11 +435,14 @@ def deduplicate_with_attribute(object_list: Sequence[T], attribute: str) -> List
     """Deduplicate a list of objects based on a specified attribute.
 
     Args:
+    ----
         object_list: The list of objects to deduplicate.
         attribute: The attribute to deduplicate on.
 
     Returns:
+    -------
         A list of unique objects based on the specified attribute.
+
     """
     unique_attrs = set()
     unique_objects: List[T] = []  # Specify the list to hold objects of type T
@@ -449,7 +453,8 @@ def deduplicate_with_attribute(object_list: Sequence[T], attribute: str) -> List
 
     if not hasattr(object_list[0], attribute):
         logging.error("Attribute %s does not exist in object list.", attribute)
-        raise AttributeError(f"Attribute {attribute} does not exist in object list.")
+        msg = f"Attribute {attribute} does not exist in object list."
+        raise AttributeError(msg)
 
     for obj in object_list:
         attr_value = getattr(obj, attribute)
@@ -461,3 +466,122 @@ def deduplicate_with_attribute(object_list: Sequence[T], attribute: str) -> List
             unique_objects.append(obj)
 
     return unique_objects
+
+
+def get_terminal_name_from_page(terminal_page_url: str) -> Optional[str]:
+    """Extract the terminal name from the terminal page URL.
+
+    Args:
+    ----
+        terminal_page_url: The URL of the terminal page.
+
+    Returns:
+    -------
+        The terminal name extracted from the terminal page.
+
+    """
+    # Download the terminal page
+    response = get_with_retry(terminal_page_url)
+
+    if response is None:
+        logging.error("Failed to download terminal page.")
+        return None
+
+    # Extract the terminal name from the page
+    terminal_name = extract_h1_terminal_name(response.text)
+
+    if terminal_name is None:
+        logging.error("Failed to extract terminal name.")
+        return None
+
+    # Capitalize the terminal name
+    return capitilize_words_and_abbreviations(
+        terminal_name,
+        [
+            "afb",  # Air Force Base
+            "ab",  # Air Base
+            "ns",  # Naval Station
+            "nas",  # Naval Air Station
+            "nsa",  # Naval Support Activity
+            "raf",  # Royal Air Force
+            "jb",  # Joint Base
+            "mcas",  # Marine Corps Air Station
+            "raaf",  # Royal Australian Air Force
+            "naf",  # Naval Air Facility
+            "usaf",  # United States Air Force
+            "usa",  # United States of America
+            "sfb",  # Space Force Base
+            "angb",  # Air National Guard Base
+            "ang",  # Air National Guard
+            "arb",  # Air Reserve Base
+            "ars",  # Air Reserve Station
+            "jrb",  # Joint Reserve Base
+        ],
+    )
+
+
+def extract_h1_terminal_name(html: str) -> Optional[str]:
+    """Extract the text of the <h1> tag from the HTML content.
+
+    Generally, the <h1> tag contains the main heading of the page and the
+    name of the terminal.
+
+    Args:
+    ----
+        html: The HTML content to parse.
+
+    Returns:
+    -------
+        The text of the <h1> tag, or None if the tag is not found.
+
+    """
+    # Parse the HTML content
+    soup = BeautifulSoup(html, "html.parser")
+
+    # Find the <figure> element with class "hero banner"
+    figure = soup.find("figure", class_="hero banner")
+
+    # Extract the text from the <h1> tag inside <figcaption>
+    if figure:
+        h1_tag = figure.find("figcaption").find("h1")
+        if h1_tag:
+            return h1_tag.text
+    return None
+
+
+def capitilize_words_and_abbreviations(
+    input_string: str, abbreviations: List[str]
+) -> str:
+    """Format a string by capitalizing the first letter of each word.
+
+    If a word is in the list of abbreviations, the entire word will be converted to uppercase.
+    Ensure that the abbreviations list is in lowercase. Example: ["pdf", "html", "xml"]
+
+    Example: "this is a pdf file" -> "This Is A PDF File" if "pdf" is in the abbreviations list.
+
+    Args:
+    ----
+        input_string: The string to format.
+        abbreviations: A list of abbreviations to convert to uppercase.
+
+    Returns:
+    -------
+        The formatted string.
+
+    """
+    # Convert the input string to lowercase first
+    words = input_string.lower().split()
+
+    # Process each word in the string
+    formatted_words = []
+    for word in words:
+        # Check if the word is in the abbreviations list
+        if word in abbreviations:
+            # If yes, convert the entire word to uppercase
+            formatted_words.append(word.upper())
+        else:
+            # Otherwise, capitalize the first letter of the word
+            formatted_words.append(word.capitalize())
+
+    # Join all the formatted words back into a single string
+    return " ".join(formatted_words)
