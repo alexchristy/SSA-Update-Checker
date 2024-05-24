@@ -588,7 +588,7 @@ def update_terminal_contact_info(fs: FirestoreClient, terminal: Terminal) -> Non
     response = scraper_utils.get_with_retry(terminal.link)
 
     # If terminal page is not downloaded correctly exit
-    if not response.text:
+    if not response or not response.text:
         logging.warning("%s page failed to download.", terminal.name)
         return
 
