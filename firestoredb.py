@@ -1,8 +1,10 @@
 import logging
 import os
+from random import uniform
 import threading
 from datetime import datetime
 from functools import partial
+import time
 from typing import Any, Callable, Dict, List, Optional
 from uuid import uuid4
 from time import sleep
@@ -628,6 +630,10 @@ class FirestoreClient:
         """
         lock_coll = os.getenv("LOCK_COLL", "Locks")
         lock_doc_ref = self.db.collection(lock_coll).document("terminal_update_lock")
+
+        # We will randomly sleep between 0 and 5 seconds to avoid
+        # contention with other instances trying to acquire the lock.
+        time.sleep(uniform(0, 5))  # noqa: S311 (Not used for security purposes)
 
         @firestore.transactional
         def update_in_transaction(
