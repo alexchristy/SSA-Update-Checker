@@ -460,9 +460,18 @@ def get_active_terminals(url: str) -> List[Terminal]:
                 # Check if the name contains "http" and extract the terminal name from the page
                 # if so
                 if "http" in name:
-                    name = scraper_utils.get_terminal_name_from_page(
-                        current_terminal.link
-                    )
+                    try:
+                        name = scraper_utils.get_terminal_name_from_page(
+                            current_terminal.link
+                        )
+                    except Exception as e:
+                        # This should only apply in testing, but if the name cannot be extracted
+                        # the terminal will not be saved since terminal's with empty names are
+                        # removed later
+                        logging.error(
+                            "Failed to extract terminal name from page. %s", e
+                        )
+                        name = ""
 
                 current_terminal.name = name
 
